@@ -18,12 +18,12 @@ jobs:
         image: postgres:17-alpine
         env: {POSTGRES_USER: codeintent, POSTGRES_DB: codeintent, POSTGRES_PASSWORD: integration-password}
         ports: ['5432:5432']
-        options: --health-cmd 'pg_isready -U codeintent' --health-interval 5s --health-timeout 5s --health-retries 20
+        options: --health-cmd "pg_isready -U codeintent" --health-interval 5s --health-timeout 5s --health-retries 20
       neo4j:
         image: neo4j:5.26-community
         env: {NEO4J_AUTH: 'neo4j/integration-password'}
         ports: ['7687:7687']
-        options: --health-cmd 'wget -q --spider http://localhost:7474' --health-interval 10s --health-timeout 5s --health-retries 30
+        options: --health-cmd "wget -q --spider http://localhost:7474" --health-interval 10s --health-timeout 5s --health-retries 30
     env:
       DATABASE_URL: postgresql://codeintent:integration-password@localhost:5432/codeintent
       NEO4J_URI: bolt://localhost:7687
