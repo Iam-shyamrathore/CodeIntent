@@ -1,0 +1,302 @@
+{
+  "question": "Why did the team choose its internal ticketing software?",
+  "answer": {
+    "title": "Why did the team choose its internal ticketing software?",
+    "status": "insufficient",
+    "claims": [],
+    "unknowns": [
+      "The question asks why the team chose its internal ticketing software, but the provided source bundle does not contain any information about the team's internal ticketing software or the reasons for its selection."
+    ],
+    "temporal_note": "The provided documents range from February 2022 to February 2024."
+  },
+  "sources": [
+    {
+      "id": "comment-1335495879",
+      "source_id": "comment-1335495879",
+      "title": "Comment on PR #2481",
+      "body": "Okay, let's go with this.\r\n\r\nWe'll want a new minor point release.",
+      "url": "https://github.com/encode/httpx/pull/2481#issuecomment-1335495879",
+      "kind": "comment",
+      "date": "2022-12-02T16:20:01Z",
+      "author": "lovelydinosaur",
+      "relevance": 1.0,
+      "distance": 0,
+      "sha256": "72cb3b8f87479c8971fe207e079318bb4bbd12dd3e3b9c6b2d7b522240e241ab",
+      "retrieved_at": "2026-11-01T11:00:32.532614+00:00"
+    },
+    {
+      "id": "review_comment-1466801181",
+      "source_id": "review_comment-1466801181",
+      "title": "Review Comment on PR #3050",
+      "body": "Since this PR is version 1.0 proposal, why don't you track its changelog in #3069 ?",
+      "url": "https://github.com/encode/httpx/pull/3050#discussion_r1466801181",
+      "kind": "review_comment",
+      "date": "2024-01-25T18:58:49Z",
+      "author": "T-256",
+      "relevance": 1.0,
+      "distance": 0,
+      "sha256": "5036e1723727809ffa617324339e16ba37212050cdb7fb3afb33fdb8170ef0f0",
+      "retrieved_at": "2026-11-01T11:00:32.532614+00:00"
+    },
+    {
+      "id": "comment-1033645523",
+      "source_id": "comment-1033645523",
+      "title": "Comment on PR #2074",
+      "body": "Fantastic - very neatly done.",
+      "url": "https://github.com/encode/httpx/pull/2074#issuecomment-1033645523",
+      "kind": "comment",
+      "date": "2022-02-09T11:11:37Z",
+      "author": "lovelydinosaur",
+      "relevance": 0.9924605384438129,
+      "distance": 0,
+      "sha256": "488d4be89da82e6f0f6e4f84590937c053e8507d9be677286b81c96e567388d0",
+      "retrieved_at": "2026-11-01T11:00:32.532614+00:00"
+    },
+    {
+      "id": "review_comment-1467491476",
+      "source_id": "review_comment-1467491476",
+      "title": "Review Comment on PR #3050",
+      "body": "They should do before approval.\r\n\r\n(We should include CHANGELOG entries with the PRs as usual.)",
+      "url": "https://github.com/encode/httpx/pull/3050#discussion_r1467491476",
+      "kind": "review_comment",
+      "date": "2024-01-26T10:46:40Z",
+      "author": "lovelydinosaur",
+      "relevance": 0.9914595975113296,
+      "distance": 0,
+      "sha256": "c9e8e9003612305f59b0235170d3a39897dace4cc289bd96c497cacd4a3d2644",
+      "retrieved_at": "2026-11-01T11:00:32.532614+00:00"
+    },
+    {
+      "id": "review_comment-1466121446",
+      "source_id": "review_comment-1466121446",
+      "title": "Review Comment on PR #3050",
+      "body": "https://github.com/encode/httpx/pull/3069 would be a good place for us to discuss how we'd like to approach this.",
+      "url": "https://github.com/encode/httpx/pull/3050#discussion_r1466121446",
+      "kind": "review_comment",
+      "date": "2024-01-25T09:58:45Z",
+      "author": "lovelydinosaur",
+      "relevance": 0.9906554842921883,
+      "distance": 0,
+      "sha256": "daf5d4fa89a48c4b17f39f2bc0138aac2c3d40275945f05af3a6b44fee162bf2",
+      "retrieved_at": "2026-11-01T11:00:32.532614+00:00"
+    },
+    {
+      "id": "comment-1329537180",
+      "source_id": "comment-1329537180",
+      "title": "Comment on issue #2462",
+      "body": "> @developerDemetri - Would it help you folks if we released a patch version which included `url.raw` returning a `NamedTuple`? That wouldn't be a full rollback or adding `httpx.RawURL` back to the API, but we could do that quickly and easily, and it would resolve the specific case you're pointing to.\r\n\r\nYup, that should help for our use case and anyone else relying on `url.raw` ",
+      "url": "https://github.com/encode/httpx/issues/2462#issuecomment-1329537180",
+      "kind": "comment",
+      "date": "2022-11-28T18:15:04Z",
+      "author": "developerDemetri",
+      "relevance": 0.9894793186880713,
+      "distance": 0,
+      "sha256": "e7b9c1b7e243c35c75886c6c9fa17026027dac143bb4b38871539d9bf026ba4f",
+      "retrieved_at": "2026-11-01T11:00:32.532614+00:00"
+    },
+    {
+      "id": "review_comment-1466369932",
+      "source_id": "review_comment-1466369932",
+      "title": "Review Comment on PR #3050",
+      "body": "Via #3071 and since v1.0 is major upgrade, I'm now more interested to directly drop instead of deprecation.\r\n",
+      "url": "https://github.com/encode/httpx/pull/3050#discussion_r1466369932",
+      "kind": "review_comment",
+      "date": "2024-01-25T13:19:15Z",
+      "author": "T-256",
+      "relevance": 0.9891936784699286,
+      "distance": 0,
+      "sha256": "11673a0e3fa0e49826efab819646419b3f7d0c99925969327ff1989ebed93e07",
+      "retrieved_at": "2026-11-01T11:00:32.532614+00:00"
+    },
+    {
+      "id": "comment-1910687506",
+      "source_id": "comment-1910687506",
+      "title": "Comment on PR #3050",
+      "body": "This is not deprecation of `app=...`, it's a removal directly. Is it ok? We usually raise warnings when deprecating paramters, don't we?",
+      "url": "https://github.com/encode/httpx/pull/3050#issuecomment-1910687506",
+      "kind": "comment",
+      "date": "2024-01-25T17:38:22Z",
+      "author": "Kludex",
+      "relevance": 0.987261406406022,
+      "distance": 0,
+      "sha256": "5475a8c6dd668b64f3b961c9d2124375a70525bdb9f136e761ad23adb05f057d",
+      "retrieved_at": "2026-11-01T11:00:32.532614+00:00"
+    },
+    {
+      "id": "pr-2481",
+      "source_id": "pr-2481",
+      "title": "Add back in URL.raw with NamedTuple",
+      "body": "Closes #2462 with a basic test, happy to add tests for more scenarios\r\n",
+      "url": "https://github.com/encode/httpx/pull/2481",
+      "kind": "pull_request",
+      "date": "2022-12-02T16:20:05Z",
+      "author": "developerDemetri",
+      "relevance": 0.5,
+      "distance": 1,
+      "sha256": "2b0b2655f3ade0527d70c5fdc1bf51cea2b4270f85da9de1c5e16a34b90ca2d2",
+      "retrieved_at": "2026-11-01T11:00:32.532614+00:00"
+    },
+    {
+      "id": "pr-3050",
+      "source_id": "pr-3050",
+      "title": "Deprecate `app=...` in favor of explicit `WSGITransport`/`ASGITransport`.",
+      "body": "*Deprecate the `httpx.Client(app=...)` and `httpx.AsyncClient(app=...)` shortcuts.*\r\n\r\n---\r\n\r\nInstead of...\r\n\r\n```python\r\nclient = httpx.Client(app=app)\r\n```\r\n\r\nUse this...\r\n\r\n```python\r\ntransport = httpx.WSGITransport(app=app)\r\nclient = httpx.Client(transport=transport)\r\n```\r\n\r\n---\r\n\r\nInstead of...\r\n\r\n```python\r\nclient = httpx.AsyncClient(app=app)\r\n```\r\n\r\nUse this...\r\n\r\n```python\r\ntransport = httpx.ASGITransport(app=app)\r\nclient = httpx.AsyncClient(transport=transport)\r\n```\r\n\r\n---\r\n\r\nThe rationale for this is described in https://github.com/encode/httpx/issues/947#issuecomment-1727389402.\r\n\r\n**TODO**:\r\n\r\n- [x] Docs.\r\n- [x] `CHANGELOG.md`.\r\n- [x] ~Ensure we have a clear section where we outline 1.0 version changes in one place.~ See https://github.com/encode/httpx/pull/3069\r\n",
+      "url": "https://github.com/encode/httpx/pull/3050",
+      "kind": "pull_request",
+      "date": "2024-02-02T13:29:41Z",
+      "author": "lovelydinosaur",
+      "relevance": 0.5,
+      "distance": 1,
+      "sha256": "d7a7337fb3f21635778a88466231da7e30e7e317d2d155f48ddbbcee3e4222e9",
+      "retrieved_at": "2026-11-01T11:00:32.532614+00:00"
+    },
+    {
+      "id": "pr-2074",
+      "source_id": "pr-2074",
+      "title": "Preserve Authorization header on HTTPS redirect (#1850)",
+      "body": "Closes #1850\r\n\r\nAdded a utility function to check if a URL is a HTTPS upgrade of another URL. It will only work if the default ports (80 and 443) are used.",
+      "url": "https://github.com/encode/httpx/pull/2074",
+      "kind": "pull_request",
+      "date": "2022-02-09T11:18:21Z",
+      "author": "waterfountain1996",
+      "relevance": 0.49623026922190644,
+      "distance": 1,
+      "sha256": "7307c11f5a08f69ff8c8451d1f8e03549a64c321c955dafad32f185328612581",
+      "retrieved_at": "2026-11-01T11:00:32.532614+00:00"
+    },
+    {
+      "id": "issue-2462",
+      "source_id": "issue-2462",
+      "title": "Breaking drop of URL.raw in patch release 0.23.1",
+      "body": "The patch release `0.23.1` included a breaking change in #2241 \r\n\r\nThe justification seems to be that \"we don't use it\", but `url.raw` is a public property used by other libraries including `ddtrace` 0.x versions: https://github.com/DataDog/dd-trace-py/blob/v0.61.3/ddtrace/contrib/httpx/patch.py#L41 \r\n\r\nCan this breaking change be reverted and maybe soft-deprecated? @tomchristie @michaeloliverx ",
+      "url": "https://github.com/encode/httpx/issues/2462",
+      "kind": "issue",
+      "date": "2022-11-22T20:03:18Z",
+      "author": "developerDemetri",
+      "relevance": 0.49473965934403563,
+      "distance": 1,
+      "sha256": "33c55ff2549737b77c6ee00750eb7473bd30c3de5a7aeaa6920f2b412db248b6",
+      "retrieved_at": "2026-11-01T11:00:32.532614+00:00"
+    },
+    {
+      "id": "review_comment-1467435754",
+      "source_id": "review_comment-1467435754",
+      "title": "Review Comment on PR #3050",
+      "body": "https://github.com/encode/httpx/pull/3069/files#diff-75bb3ae57865eb28e99c3e4fff3efc72a5d49e3f14ac324195b405058cb9731aR13\r\n",
+      "url": "https://github.com/encode/httpx/pull/3050#discussion_r1467435754",
+      "kind": "review_comment",
+      "date": "2024-01-26T09:53:56Z",
+      "author": "lovelydinosaur",
+      "relevance": 0.3333333333333333,
+      "distance": 2,
+      "sha256": "5ed946359089ab9a5e4af6039ed5afb78ab43ff6d1f285953ed2c7ef4d226edf",
+      "retrieved_at": "2026-11-01T11:00:32.532614+00:00"
+    },
+    {
+      "id": "review_comment-1451676418",
+      "source_id": "review_comment-1451676418",
+      "title": "Review Comment on PR #3050",
+      "body": "I don't know what's deprecation policy but are you sure raise error here? isn't it breaking change for those using `app`?\r\n\r\nI'd recommend keep docs, type-hints and use warning instead. then we can schedule the removal version and mention it in warning message (?)",
+      "url": "https://github.com/encode/httpx/pull/3050#discussion_r1451676418",
+      "kind": "review_comment",
+      "date": "2024-01-14T07:53:50Z",
+      "author": "T-256",
+      "relevance": 0.3333333333333333,
+      "distance": 2,
+      "sha256": "ff05e3cdca9e59aaca5147b9e5197f0d3b68123fa6bae931c172795d2a4a6d29",
+      "retrieved_at": "2026-11-01T11:00:32.532614+00:00"
+    }
+  ],
+  "paths": [
+    {
+      "source": "comment-1335495879",
+      "relation": "DISCUSSES",
+      "target": "pr-2481",
+      "evidence": "comment-1335495879"
+    },
+    {
+      "source": "review_comment-1467491476",
+      "relation": "DISCUSSES",
+      "target": "pr-3050",
+      "evidence": "review_comment-1467491476"
+    },
+    {
+      "source": "review_comment-1467435754",
+      "relation": "DISCUSSES",
+      "target": "pr-3050",
+      "evidence": "review_comment-1467435754"
+    },
+    {
+      "source": "review_comment-1466801181",
+      "relation": "DISCUSSES",
+      "target": "pr-3050",
+      "evidence": "review_comment-1466801181"
+    },
+    {
+      "source": "review_comment-1466369932",
+      "relation": "DISCUSSES",
+      "target": "pr-3050",
+      "evidence": "review_comment-1466369932"
+    },
+    {
+      "source": "review_comment-1466121446",
+      "relation": "DISCUSSES",
+      "target": "pr-3050",
+      "evidence": "review_comment-1466121446"
+    },
+    {
+      "source": "review_comment-1451676418",
+      "relation": "DISCUSSES",
+      "target": "pr-3050",
+      "evidence": "review_comment-1451676418"
+    },
+    {
+      "source": "comment-1910687506",
+      "relation": "DISCUSSES",
+      "target": "pr-3050",
+      "evidence": "comment-1910687506"
+    },
+    {
+      "source": "comment-1033645523",
+      "relation": "DISCUSSES",
+      "target": "pr-2074",
+      "evidence": "comment-1033645523"
+    },
+    {
+      "source": "comment-1329537180",
+      "relation": "DISCUSSES",
+      "target": "issue-2462",
+      "evidence": "comment-1329537180"
+    },
+    {
+      "source": "pr-2481",
+      "relation": "REFERENCES",
+      "target": "issue-2462",
+      "evidence": "pr-2481"
+    }
+  ],
+  "repository": "encode/httpx",
+  "revision": "b5addb64f0161ff6bfe94c124ef76f6a1fba5254",
+  "index_id": "e0a117e910da9496a5f27678",
+  "coverage": {
+    "scope": "Four selected historical PRs, two linked issues, their comments/reviews, one rationale comment and two current source files",
+    "full_repository_history": false,
+    "pull_requests": [
+      2241,
+      2481,
+      3050,
+      2074
+    ],
+    "issues": [
+      2462,
+      1850
+    ],
+    "complete_for_selected_endpoints": true
+  },
+  "seconds": 2.15,
+  "mode": "live_vertex_hybrid_graph",
+  "citation_checks": "Source membership and exact quotes passed; semantic support requires evaluation",
+  "generated_at": "2026-11-01T11:16:21.101294+00:00",
+  "model": "gemini-2.5-flash",
+  "policy_version": "span-binder-v1"
+}

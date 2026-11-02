@@ -1,0 +1,423 @@
+{
+  "question": "Why did HTTPX bring back URL.raw after removing RawURL? Was it a full rollback?",
+  "answer": {
+    "title": "HTTPX partially restored URL.raw after its removal, but not RawURL.",
+    "status": "partial",
+    "claims": [
+      {
+        "text": "The `url.raw` property was removed in HTTPX version 0.23.1 through PR #2241.",
+        "support": "direct",
+        "citations": [
+          {
+            "source_id": "issue-2462",
+            "quote": "The patch release `0.23.1` included a breaking change in #2241",
+            "start": 0,
+            "end": 62
+          },
+          {
+            "source_id": "diff-2241-httpx/_urls.py",
+            "quote": "-    @property",
+            "start": 1561,
+            "end": 1575
+          }
+        ]
+      },
+      {
+        "text": "The removal of `url.raw` was considered a breaking change because other libraries, such as `ddtrace`, relied on it.",
+        "support": "direct",
+        "citations": [
+          {
+            "source_id": "issue-2462",
+            "quote": "The justification seems to be that \"we don't use it\", but `url.raw` is a public property used by other libraries including `ddtrace` 0.x versions:",
+            "start": 67,
+            "end": 213
+          },
+          {
+            "source_id": "issue-2462",
+            "quote": "justification seems to be that \"we don't use it\", but `url.raw` is a public property used by other libraries including `ddtrace` 0.x versions: https://github.com/DataDog/dd-trace-py/blob/v0.61.3/ddtrace/contrib/httpx/patch.py#L41",
+            "start": 71,
+            "end": 300
+          }
+        ]
+      },
+      {
+        "text": "HTTPX decided to bring back `url.raw` to return a `NamedTuple` to resolve the breaking change for users, as proposed in issue #2462.",
+        "support": "direct",
+        "citations": [
+          {
+            "source_id": "comment-1327392317",
+            "quote": "@developerDemetri - Would it help you folks if we released a patch version which included `url.raw` returning a `NamedTuple`? That wouldn't be a full",
+            "start": 0,
+            "end": 149
+          },
+          {
+            "source_id": "comment-1329537180",
+            "quote": "Yup, that should help for our use case and anyone else relying on `url.raw`",
+            "start": 306,
+            "end": 381
+          },
+          {
+            "source_id": "comment-1332767221",
+            "quote": "> Yup, that should help for our use case and anyone else relying on `url.raw`",
+            "start": 310,
+            "end": 387
+          }
+        ]
+      },
+      {
+        "text": "The restoration of `url.raw` was implemented in PR #2481, which reintroduced the property to return a `RawURL` NamedTuple.",
+        "support": "direct",
+        "citations": [
+          {
+            "source_id": "pr-2481",
+            "quote": "Closes #2462 with a basic test, happy to add tests for more scenarios",
+            "start": 0,
+            "end": 69
+          },
+          {
+            "source_id": "diff-2481-httpx/_urls.py",
+            "quote": "+    def raw(self) -> RawURL:",
+            "start": 400,
+            "end": 429
+          },
+          {
+            "source_id": "diff-2481-httpx/_types.py",
+            "quote": "+RawURL = NamedTuple(",
+            "start": 196,
+            "end": 217
+          }
+        ]
+      },
+      {
+        "text": "This change was not a full rollback, as the `httpx.RawURL` type was not added back to the API as a standalone class, but rather as a `NamedTuple` for the `url.raw` property.",
+        "support": "direct",
+        "citations": [
+          {
+            "source_id": "comment-1327392317",
+            "quote": "rollback or adding `httpx.RawURL` back to the API, but we could do that quickly and easily, and it would resolve the specific case you're",
+            "start": 150,
+            "end": 287
+          },
+          {
+            "source_id": "comment-1332767221",
+            "quote": "a full rollback or adding `httpx.RawURL` back to the API, but we could do that quickly and easily, and it would resolve the specific",
+            "start": 147,
+            "end": 279
+          },
+          {
+            "source_id": "diff-2481-httpx/_types.py",
+            "quote": "+RawURL = NamedTuple(",
+            "start": 196,
+            "end": 217
+          }
+        ]
+      }
+    ],
+    "unknowns": [
+      "The exact reasons why `RawURL` was initially removed beyond the statement that it was no longer used by the low-level Transport API."
+    ],
+    "temporal_note": "The events described occurred between May and December 2022."
+  },
+  "sources": [
+    {
+      "id": "comment-1332767221",
+      "source_id": "comment-1332767221",
+      "title": "Comment on issue #2462",
+      "body": "> > @developerDemetri - Would it help you folks if we released a patch version which included `url.raw` returning a `NamedTuple`? That wouldn't be a full rollback or adding `httpx.RawURL` back to the API, but we could do that quickly and easily, and it would resolve the specific case you're pointing to.\r\n> \r\n> Yup, that should help for our use case and anyone else relying on `url.raw`\r\n\r\n@tomchristie I took a stab at this in https://github.com/encode/httpx/pull/2481 ",
+      "url": "https://github.com/encode/httpx/issues/2462#issuecomment-1332767221",
+      "kind": "comment",
+      "date": "2022-11-30T21:41:02Z",
+      "author": "developerDemetri",
+      "relevance": 1.0,
+      "distance": 0,
+      "sha256": "0c46d4d997dfae6ab4271538d4b5259768b322b105927d81ddc9ca32dc9e861a",
+      "retrieved_at": "2026-11-01T11:00:32.532614+00:00"
+    },
+    {
+      "id": "issue-2462",
+      "source_id": "issue-2462",
+      "title": "Breaking drop of URL.raw in patch release 0.23.1",
+      "body": "The patch release `0.23.1` included a breaking change in #2241 \r\n\r\nThe justification seems to be that \"we don't use it\", but `url.raw` is a public property used by other libraries including `ddtrace` 0.x versions: https://github.com/DataDog/dd-trace-py/blob/v0.61.3/ddtrace/contrib/httpx/patch.py#L41 \r\n\r\nCan this breaking change be reverted and maybe soft-deprecated? @tomchristie @michaeloliverx ",
+      "url": "https://github.com/encode/httpx/issues/2462",
+      "kind": "issue",
+      "date": "2022-11-22T20:03:18Z",
+      "author": "developerDemetri",
+      "relevance": 1.0,
+      "distance": 0,
+      "sha256": "33c55ff2549737b77c6ee00750eb7473bd30c3de5a7aeaa6920f2b412db248b6",
+      "retrieved_at": "2026-11-01T11:00:32.532614+00:00"
+    },
+    {
+      "id": "comment-1327392317",
+      "source_id": "comment-1327392317",
+      "title": "Comment on issue #2462",
+      "body": "@developerDemetri - Would it help you folks if we released a patch version which included `url.raw` returning a `NamedTuple`? That wouldn't be a full rollback or adding `httpx.RawURL` back to the API, but we could do that quickly and easily, and it would resolve the specific case you're pointing to.",
+      "url": "https://github.com/encode/httpx/issues/2462#issuecomment-1327392317",
+      "kind": "comment",
+      "date": "2022-11-25T12:03:32Z",
+      "author": "lovelydinosaur",
+      "relevance": 0.9942739305376809,
+      "distance": 0,
+      "sha256": "dd7a646f17be5054b6454c579aa6b2921d38e2935aff86d42803d8a7b8fb2900",
+      "retrieved_at": "2026-11-01T11:00:32.532614+00:00"
+    },
+    {
+      "id": "comment-1329537180",
+      "source_id": "comment-1329537180",
+      "title": "Comment on issue #2462",
+      "body": "> @developerDemetri - Would it help you folks if we released a patch version which included `url.raw` returning a `NamedTuple`? That wouldn't be a full rollback or adding `httpx.RawURL` back to the API, but we could do that quickly and easily, and it would resolve the specific case you're pointing to.\r\n\r\nYup, that should help for our use case and anyone else relying on `url.raw` ",
+      "url": "https://github.com/encode/httpx/issues/2462#issuecomment-1329537180",
+      "kind": "comment",
+      "date": "2022-11-28T18:15:04Z",
+      "author": "developerDemetri",
+      "relevance": 0.9866356022758663,
+      "distance": 0,
+      "sha256": "e7b9c1b7e243c35c75886c6c9fa17026027dac143bb4b38871539d9bf026ba4f",
+      "retrieved_at": "2026-11-01T11:00:32.532614+00:00"
+    },
+    {
+      "id": "pr-2481",
+      "source_id": "pr-2481",
+      "title": "Add back in URL.raw with NamedTuple",
+      "body": "Closes #2462 with a basic test, happy to add tests for more scenarios\r\n",
+      "url": "https://github.com/encode/httpx/pull/2481",
+      "kind": "pull_request",
+      "date": "2022-12-02T16:20:05Z",
+      "author": "developerDemetri",
+      "relevance": 0.9759993318871831,
+      "distance": 0,
+      "sha256": "2b0b2655f3ade0527d70c5fdc1bf51cea2b4270f85da9de1c5e16a34b90ca2d2",
+      "retrieved_at": "2026-11-01T11:00:32.532614+00:00"
+    },
+    {
+      "id": "diff-2481-httpx/_urls.py",
+      "source_id": "diff-2481-httpx/_urls.py",
+      "title": "httpx/_urls.py \u00b7 PR #2481",
+      "body": "@@ -6,7 +6,7 @@\n import rfc3986.exceptions\n \n from ._exceptions import InvalidURL\n-from ._types import PrimitiveData, QueryParamTypes, URLTypes\n+from ._types import PrimitiveData, QueryParamTypes, RawURL, URLTypes\n from ._utils import primitive_value_to_str\n \n \n@@ -311,6 +311,21 @@ def fragment(self) -> str:\n         \"\"\"\n         return unquote(self._uri_reference.fragment or \"\")\n \n+    @property\n+    def raw(self) -> RawURL:\n+        \"\"\"\n+        Provides the (scheme, host, port, target) for the outgoing request.\n+\n+        In older versions of `httpx` this was used in the low-level transport API.\n+        We no longer use `RawURL`, and this property will be deprecated in a future release.\n+        \"\"\"\n+        return RawURL(\n+            self.raw_scheme,\n+            self.raw_host,\n+            self.port,\n+            self.raw_path,\n+        )\n+\n     @property\n     def is_absolute_url(self) -> bool:\n         \"\"\"",
+      "url": "https://github.com/encode/httpx/blob/a736d98c3bcc1783c138c3f8d5e84119924f7cb0/httpx%2F_urls.py",
+      "kind": "diff",
+      "date": "2022-12-02T16:20:05Z",
+      "author": "developerDemetri",
+      "relevance": 0.9740678006025864,
+      "distance": 0,
+      "sha256": "3331992f89fc65d1c3e426fb517d8f6eb5e224ecb18932ee59112c1345bf4c26",
+      "retrieved_at": "2026-11-01T11:00:32.532614+00:00"
+    },
+    {
+      "id": "comment-1324204686",
+      "source_id": "comment-1324204686",
+      "title": "Comment on issue #2462",
+      "body": "Looks like this has been raised in https://github.com/encode/httpx/issues/2457 but it seems like reverting here would be more ideal (and safer) than hoping other dependencies all refactor their usage?",
+      "url": "https://github.com/encode/httpx/issues/2462#issuecomment-1324204686",
+      "kind": "comment",
+      "date": "2022-11-22T20:28:07Z",
+      "author": "developerDemetri",
+      "relevance": 0.9704381492418418,
+      "distance": 0,
+      "sha256": "69ab2d770cdbae7c1aa26e200f86c41e8aedf4bc37ecae0b26501fdfd01b99a0",
+      "retrieved_at": "2026-11-01T11:00:32.532614+00:00"
+    },
+    {
+      "id": "diff-2241-httpx/_urls.py",
+      "source_id": "diff-2241-httpx/_urls.py",
+      "title": "httpx/_urls.py \u00b7 PR #2241",
+      "body": "@@ -6,7 +6,7 @@\n import rfc3986.exceptions\n \n from ._exceptions import InvalidURL\n-from ._types import PrimitiveData, QueryParamTypes, RawURL, URLTypes\n+from ._types import PrimitiveData, QueryParamTypes, URLTypes\n from ._utils import primitive_value_to_str\n \n \n@@ -71,22 +71,9 @@ class URL:\n     \"\"\"\n \n     def __init__(\n-        self, url: typing.Union[\"URL\", str, RawURL] = \"\", **kwargs: typing.Any\n+        self, url: typing.Union[\"URL\", str] = \"\", **kwargs: typing.Any\n     ) -> None:\n-        if isinstance(url, (str, tuple)):\n-            if isinstance(url, tuple):\n-                raw_scheme, raw_host, port, raw_path = url\n-                scheme = raw_scheme.decode(\"ascii\")\n-                host = raw_host.decode(\"ascii\")\n-                if host and \":\" in host and host[0] != \"[\":\n-                    # it's an IPv6 address, so it should be enclosed in \"[\" and \"]\"\n-                    # ref: https://tools.ietf.org/html/rfc2732#section-2\n-                    # ref: https://tools.ietf.org/html/rfc3986#section-3.2.2\n-                    host = f\"[{host}]\"\n-                port_str = \"\" if port is None else f\":{port}\"\n-                path = raw_path.decode(\"ascii\")\n-                url = f\"{scheme}://{host}{port_str}{path}\"\n-\n+        if isinstance(url, str):\n             try:\n                 self._uri_reference = rfc3986.iri_reference(url).encode()\n             except rfc3986.exceptions.InvalidAuthority as exc:\n@@ -322,21 +309,6 @@ def fragment(self) -> str:\n         \"\"\"\n         return unquote(self._uri_reference.fragment or \"\")\n \n-    @property\n-    def raw(self) -> RawURL:\n-        \"\"\"\n-        The URL in the raw representation used by the low level\n-        transport API. See `BaseTransport.handle_request`.\n-\n-        Provides the (scheme, host, port, target) for the outgoing request.\n-        \"\"\"\n-        return (\n-            self.raw_scheme,\n-            self.raw_host,\n-            self.port,\n-            self.raw_path,\n-        )\n-\n     @property\n     def is_absolute_url(self) -> bool:\n         \"\"\"",
+      "url": "https://github.com/encode/httpx/blob/70c2890e134fd2e485eabca33e3727050b8ee601/httpx%2F_urls.py",
+      "kind": "diff",
+      "date": "2022-05-30T13:54:47Z",
+      "author": "lovelydinosaur",
+      "relevance": 0.9675901042213166,
+      "distance": 0,
+      "sha256": "0a3aee2d75c2465849ae9f4cb5a45b0bbd3e36fd84d9342477661665e9603695",
+      "retrieved_at": "2026-11-01T11:00:32.532614+00:00"
+    },
+    {
+      "id": "pr-2241",
+      "source_id": "pr-2241",
+      "title": "Drop RawURL",
+      "body": "The `RawURL` data structure existed because it was used for an older version of the low-level Transport API.\r\n\r\nWe no longer use that, and `RawURL` is only publicly exposed via a `url.raw` property, which we don't actually use anywhere.\r\n\r\nI think we're really pretty safe to just hard-deprecate this, and make sure we mention it in the release notes.",
+      "url": "https://github.com/encode/httpx/pull/2241",
+      "kind": "pull_request",
+      "date": "2022-05-30T13:54:47Z",
+      "author": "lovelydinosaur",
+      "relevance": 0.5,
+      "distance": 1,
+      "sha256": "8074b1f8a4c8c0d07ae579cfbc6da993002611122f12d67cc329f3456a1599d4",
+      "retrieved_at": "2026-11-01T11:00:32.532614+00:00"
+    },
+    {
+      "id": "diff-2481-tests/models/test_url.py",
+      "source_id": "diff-2481-tests/models/test_url.py",
+      "title": "tests/models/test_url.py \u00b7 PR #2481",
+      "body": "@@ -424,3 +424,13 @@ def test_ipv6_url_from_raw_url(host):\n     assert url.host == \"::ffff:192.168.0.1\"\n     assert url.netloc == b\"[::ffff:192.168.0.1]\"\n     assert str(url) == \"https://[::ffff:192.168.0.1]/\"\n+\n+\n+def test_url_raw_compatibility():\n+    url = httpx.URL(\"https://www.example.com/path\")\n+    scheme, host, port, raw_path = url.raw\n+\n+    assert scheme == b\"https\"\n+    assert host == b\"www.example.com\"\n+    assert port is None\n+    assert raw_path == b\"/path\"",
+      "url": "https://github.com/encode/httpx/blob/a736d98c3bcc1783c138c3f8d5e84119924f7cb0/tests%2Fmodels%2Ftest_url.py",
+      "kind": "diff",
+      "date": "2022-12-02T16:20:05Z",
+      "author": "developerDemetri",
+      "relevance": 0.48799966594359157,
+      "distance": 1,
+      "sha256": "3d1bf33759415a2351238a535b2c75090d3720e5442baac2ef3f51fe061fa35b",
+      "retrieved_at": "2026-11-01T11:00:32.532614+00:00"
+    },
+    {
+      "id": "comment-1335495879",
+      "source_id": "comment-1335495879",
+      "title": "Comment on PR #2481",
+      "body": "Okay, let's go with this.\r\n\r\nWe'll want a new minor point release.",
+      "url": "https://github.com/encode/httpx/pull/2481#issuecomment-1335495879",
+      "kind": "comment",
+      "date": "2022-12-02T16:20:01Z",
+      "author": "lovelydinosaur",
+      "relevance": 0.48799966594359157,
+      "distance": 1,
+      "sha256": "72cb3b8f87479c8971fe207e079318bb4bbd12dd3e3b9c6b2d7b522240e241ab",
+      "retrieved_at": "2026-11-01T11:00:32.532614+00:00"
+    },
+    {
+      "id": "diff-2481-httpx/_types.py",
+      "source_id": "diff-2481-httpx/_types.py",
+      "title": "httpx/_types.py \u00b7 PR #2481",
+      "body": "@@ -16,6 +16,7 @@\n     Iterator,\n     List,\n     Mapping,\n+    NamedTuple,\n     Optional,\n     Sequence,\n     Tuple,\n@@ -31,6 +32,16 @@\n \n PrimitiveData = Optional[Union[str, int, float, bool]]\n \n+RawURL = NamedTuple(\n+    \"RawURL\",\n+    [\n+        (\"raw_scheme\", bytes),\n+        (\"raw_host\", bytes),\n+        (\"port\", Optional[int]),\n+        (\"raw_path\", bytes),\n+    ],\n+)\n+\n URLTypes = Union[\"URL\", str]\n \n QueryParamTypes = Union[",
+      "url": "https://github.com/encode/httpx/blob/a736d98c3bcc1783c138c3f8d5e84119924f7cb0/httpx%2F_types.py",
+      "kind": "diff",
+      "date": "2022-12-02T16:20:05Z",
+      "author": "developerDemetri",
+      "relevance": 0.48799966594359157,
+      "distance": 1,
+      "sha256": "e1a886cfbb80f1eb7a6957991804ae71ca8ed3dc476b43368d21a99f7e0e3808",
+      "retrieved_at": "2026-11-01T11:00:32.532614+00:00"
+    },
+    {
+      "id": "review-1200742619",
+      "source_id": "review-1200742619",
+      "title": "Review on PR #2481",
+      "body": "Yup, I'm happy with this.\r\n\r\nWe *could* also add a comment on the `.raw()` method metioning that it is due to be deprecated in a future release, but I don't mind too much either way, so wouldn't consider it a blocker.",
+      "url": "https://github.com/encode/httpx/pull/2481#pullrequestreview-1200742619",
+      "kind": "review",
+      "date": "2022-12-01T10:32:05Z",
+      "author": "lovelydinosaur",
+      "relevance": 0.48799966594359157,
+      "distance": 1,
+      "sha256": "fd577ccbeac49e04e41a68d81d3f63d7fbfa338ad1619742bb04902cb8565cf1",
+      "retrieved_at": "2026-11-01T11:00:32.532614+00:00"
+    },
+    {
+      "id": "diff-2241-tests/models/test_url.py",
+      "source_id": "diff-2241-tests/models/test_url.py",
+      "title": "tests/models/test_url.py \u00b7 PR #2241",
+      "body": "@@ -417,10 +417,9 @@ def test_ipv6_url_copy_with_host(url_str, new_host):\n     assert str(url) == \"http://[::ffff:192.168.0.1]:1234\"\n \n \n-@pytest.mark.parametrize(\"host\", [b\"[::ffff:192.168.0.1]\", b\"::ffff:192.168.0.1\"])\n+@pytest.mark.parametrize(\"host\", [\"[::ffff:192.168.0.1]\", \"::ffff:192.168.0.1\"])\n def test_ipv6_url_from_raw_url(host):\n-    raw_url = (b\"https\", host, 443, b\"/\")\n-    url = httpx.URL(raw_url)\n+    url = httpx.URL(scheme=\"https\", host=host, port=443, path=\"/\")\n \n     assert url.host == \"::ffff:192.168.0.1\"\n     assert url.netloc == b\"[::ffff:192.168.0.1]\"",
+      "url": "https://github.com/encode/httpx/blob/70c2890e134fd2e485eabca33e3727050b8ee601/tests%2Fmodels%2Ftest_url.py",
+      "kind": "diff",
+      "date": "2022-05-30T13:54:47Z",
+      "author": "lovelydinosaur",
+      "relevance": 0.3333333333333333,
+      "distance": 2,
+      "sha256": "2fc6b08a232e51dd5f266410efc2452dffd18a6233b3e2548fb128081ca79aa9",
+      "retrieved_at": "2026-11-01T11:00:32.532614+00:00"
+    }
+  ],
+  "paths": [
+    {
+      "source": "issue-2462",
+      "relation": "REFERENCES",
+      "target": "pr-2241",
+      "evidence": "issue-2462"
+    },
+    {
+      "source": "pr-2241",
+      "relation": "CHANGES",
+      "target": "diff-2241-httpx/_urls.py",
+      "evidence": "diff-2241-httpx/_urls.py"
+    },
+    {
+      "source": "pr-2241",
+      "relation": "CHANGES",
+      "target": "diff-2241-tests/models/test_url.py",
+      "evidence": "diff-2241-tests/models/test_url.py"
+    },
+    {
+      "source": "review-1200742619",
+      "relation": "DISCUSSES",
+      "target": "pr-2481",
+      "evidence": "review-1200742619"
+    },
+    {
+      "source": "comment-1335495879",
+      "relation": "DISCUSSES",
+      "target": "pr-2481",
+      "evidence": "comment-1335495879"
+    },
+    {
+      "source": "pr-2481",
+      "relation": "CHANGES",
+      "target": "diff-2481-httpx/_types.py",
+      "evidence": "diff-2481-httpx/_types.py"
+    },
+    {
+      "source": "pr-2481",
+      "relation": "CHANGES",
+      "target": "diff-2481-httpx/_urls.py",
+      "evidence": "diff-2481-httpx/_urls.py"
+    },
+    {
+      "source": "pr-2481",
+      "relation": "CHANGES",
+      "target": "diff-2481-tests/models/test_url.py",
+      "evidence": "diff-2481-tests/models/test_url.py"
+    },
+    {
+      "source": "comment-1329537180",
+      "relation": "DISCUSSES",
+      "target": "issue-2462",
+      "evidence": "comment-1329537180"
+    },
+    {
+      "source": "comment-1327392317",
+      "relation": "DISCUSSES",
+      "target": "issue-2462",
+      "evidence": "comment-1327392317"
+    },
+    {
+      "source": "comment-1324204686",
+      "relation": "DISCUSSES",
+      "target": "issue-2462",
+      "evidence": "comment-1324204686"
+    },
+    {
+      "source": "comment-1332767221",
+      "relation": "DISCUSSES",
+      "target": "issue-2462",
+      "evidence": "comment-1332767221"
+    },
+    {
+      "source": "pr-2481",
+      "relation": "REFERENCES",
+      "target": "issue-2462",
+      "evidence": "pr-2481"
+    }
+  ],
+  "repository": "encode/httpx",
+  "revision": "b5addb64f0161ff6bfe94c124ef76f6a1fba5254",
+  "index_id": "e0a117e910da9496a5f27678",
+  "coverage": {
+    "scope": "Four selected historical PRs, two linked issues, their comments/reviews, one rationale comment and two current source files",
+    "full_repository_history": false,
+    "pull_requests": [
+      2241,
+      2481,
+      3050,
+      2074
+    ],
+    "issues": [
+      2462,
+      1850
+    ],
+    "complete_for_selected_endpoints": true
+  },
+  "seconds": 4.44,
+  "mode": "live_vertex_hybrid_graph",
+  "citation_checks": "Source membership and exact quotes passed; semantic support requires evaluation",
+  "generated_at": "2026-11-01T11:16:21.100148+00:00",
+  "model": "gemini-2.5-flash",
+  "policy_version": "span-binder-v1"
+}
