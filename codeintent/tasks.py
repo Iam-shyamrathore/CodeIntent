@@ -92,10 +92,11 @@ def import_repository(context, import_id: str):
         store.progress(
             import_id, "validating", 96, "Checking source counts and index isolation"
         )
-        from codeintent.graph import driver
+        from codeintent.graph import driver, run_query
 
         with driver() as db:
-            records, _, _ = db.execute_query(
+            records, _, _ = run_query(
+                db,
                 "MATCH (n:CIEntity {index_id:$scope,kind:'source'}) RETURN count(n) AS count,count(n.embedding) AS embeddings",
                 scope=scope,
             )
@@ -134,6 +135,18 @@ def import_repository(context, import_id: str):
         raise RuntimeError(type(exc).__name__) from None
 
 
+@app.task(
+    name="investigate_question",
+    queue="investigations",
+    pass_context=True,
+    retry=procrastinate.RetryStrategy(max_attempts=3, wait=30),
+)
+def investigate_question(context, question_id: str):
+    from codeintent.questions import process
+
+    process(context, question_id)
+
+
 @app.periodic(cron="* * * * *")
 @app.task(name="worker_heartbeat", queue="maintenance")
 def heartbeat(timestamp: int):
@@ -143,7 +156,7 @@ def heartbeat(timestamp: int):
         )
         # Use Procrastinate worker liveness metadata for orphan recovery, rather than guessing from task duration.
         rows = conn.execute("""SELECT j.id FROM procrastinate_jobs j LEFT JOIN procrastinate_workers w ON w.id=j.worker_id
-            WHERE j.status='doing' AND j.task_name='import_repository' AND (j.worker_id IS NULL OR w.last_heartbeat < now()-interval '3 minutes')""").fetchall()
+            WHERE j.status='doing' AND j.task_name IN ('import_repository','investigate_question') AND (j.worker_id IS NULL OR w.last_heartbeat < now()-interval '3 minutes')""").fetchall()
         for row in rows:
             conn.execute(
                 "UPDATE procrastinate_jobs SET status='todo',worker_id=NULL,abort_requested=false,scheduled_at=now() WHERE id=%s AND status='doing'",

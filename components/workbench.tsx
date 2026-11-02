@@ -41,6 +41,9 @@ export default function Workbench({
   const [study, setStudy] = useState(initial),
     [question, setQuestion] = useState(""),
     [pending, setPending] = useState(false),
+    [pendingMessage, setPendingMessage] = useState(
+      "Retrieving evidence and checking citations…",
+    ),
     [error, setError] = useState(""),
     [rail, setRail] = useState(true),
     [info, setInfo] = useState(false),
@@ -108,6 +111,7 @@ export default function Workbench({
   async function ask(text = question) {
     if (text.trim().length < 8 || pending) return;
     setPending(true);
+    setPendingMessage("Submitting investigation…");
     setError("");
     try {
       const response = await fetch("/api/investigate", {
@@ -119,11 +123,41 @@ export default function Workbench({
           repository: study.repository,
         }),
       });
-      const data = await response.json();
+      let data = await response.json();
       if (!response.ok)
         throw new Error(
           data.detail || "The investigation could not be completed",
         );
+      if (response.status === 202) {
+        const jobId = data.job_id;
+        const deadline = Date.now() + 240_000;
+        while (true) {
+          setPendingMessage(
+            data.status === "running"
+              ? "Retrieving evidence and checking citations…"
+              : data.status === "retrying"
+                ? "The evidence service is retrying this investigation…"
+                : "Queued for investigation…",
+          );
+          await new Promise((resolve) => setTimeout(resolve, 1500));
+          const poll = await fetch(`/api/service/questions/${jobId}`, {
+            cache: "no-store",
+          });
+          data = await poll.json();
+          if (!poll.ok || data.status === "failed")
+            throw new Error(
+              data.detail || "The investigation could not be completed",
+            );
+          if (data.status === "ready") {
+            data = data.result;
+            break;
+          }
+          if (Date.now() > deadline)
+            throw new Error(
+              "This investigation is still running. Its report will appear in your recent investigations when it finishes.",
+            );
+        }
+      }
       setStudy(data);
       setSaved(false);
       setQuestion("");
@@ -633,7 +667,7 @@ export default function Workbench({
             <div className="composer-bottom">
               <span aria-live="polite">
                 {pending
-                  ? "Retrieving evidence and checking citations…"
+                  ? pendingMessage
                   : "Captured repository history · questions run live"}
               </span>
               <button

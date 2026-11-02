@@ -25,6 +25,12 @@ def driver():
     )
 
 
+def run_query(db, query, **parameters):
+    return db.execute_query(
+        query, database_=os.getenv("NEO4J_DATABASE") or None, **parameters
+    )
+
+
 def index_id(corpus: dict) -> str:
     load_dotenv(ROOT / ".env", override=False)
     # Provenance, coverage and extractor policy are part of immutable index identity.
@@ -178,25 +184,31 @@ def project(corpus: dict, parsed: list[dict], *, scope: str | None = None) -> di
             link(source["id"], old, "PREVIOUS_PATH", source["id"])
     with driver() as db:
         db.verify_connectivity()
-        db.execute_query(
-            "CREATE CONSTRAINT ci_entity_uid IF NOT EXISTS FOR (n:CIEntity) REQUIRE n.uid IS UNIQUE"
+        run_query(
+            db,
+            "CREATE CONSTRAINT ci_entity_uid IF NOT EXISTS FOR (n:CIEntity) REQUIRE n.uid IS UNIQUE",
         )
-        db.execute_query(
-            "CREATE FULLTEXT INDEX ci_source_text IF NOT EXISTS FOR (n:CIEntity) ON EACH [n.title,n.body]"
+        run_query(
+            db,
+            "CREATE FULLTEXT INDEX ci_source_text IF NOT EXISTS FOR (n:CIEntity) ON EACH [n.title,n.body]",
         )
-        db.execute_query(
+        run_query(
+            db,
             "UNWIND $rows AS row MERGE (n:CIEntity {uid:row.uid}) SET n += row",
             rows=entities,
         )
-        db.execute_query(
+        run_query(
+            db,
             """UNWIND $rows AS row
             MATCH (a:CIEntity {uid:row.source,index_id:row.index_id})
             MATCH (b:CIEntity {uid:row.target,index_id:row.index_id})
             MERGE (a)-[r:CI_LINK {relation:row.relation,evidence:row.evidence,index_id:row.index_id}]->(b)""",
             rows=links,
         )
-        counts, _, _ = db.execute_query(
-            "MATCH (n:CIEntity {index_id:$scope}) RETURN count(n) AS nodes", scope=scope
+        counts, _, _ = run_query(
+            db,
+            "MATCH (n:CIEntity {index_id:$scope}) RETURN count(n) AS nodes",
+            scope=scope,
         )
     return {
         "index_id": scope,
@@ -240,7 +252,8 @@ class EvidenceRetriever(Retriever):
                 records=[], metadata={"index_id": scope, "paths": []}
             )
         lucene = " OR ".join('"' + t + '"' for t in tokens)
-        records, _, _ = self.driver.execute_query(
+        records, _, _ = run_query(
+            self.driver,
             """
             CALL db.index.fulltext.queryNodes('ci_source_text',$q) YIELD node,score
             WHERE node.index_id=$scope AND node.kind='source'
@@ -250,7 +263,8 @@ class EvidenceRetriever(Retriever):
             scope=scope,
         )
         seed_ids = [r["uid"] for r in records]
-        result, _, _ = self.driver.execute_query(
+        result, _, _ = run_query(
+            self.driver,
             """
             MATCH p=(seed:CIEntity)-[:CI_LINK*0..2]-(s:CIEntity)
             WHERE seed.uid IN $seeds AND s.index_id=$scope AND s.kind='source'
@@ -265,7 +279,8 @@ class EvidenceRetriever(Retriever):
             scope=scope,
             limit=max(1, min(top_k, 20)),
         )
-        paths, _, _ = self.driver.execute_query(
+        paths, _, _ = run_query(
+            self.driver,
             """
             MATCH (a:CIEntity)-[r:CI_LINK]->(b:CIEntity)
             WHERE a.index_id=$scope AND b.index_id=$scope AND r.index_id=$scope
@@ -307,7 +322,8 @@ def embed_corpus(corpus: dict, *, scope: str | None = None) -> dict:
     label, vector, text = scope_names(scope)
     rows = []
     with driver() as db:
-        existing, _, _ = db.execute_query(
+        existing, _, _ = run_query(
+            db,
             "MATCH (n:CIEntity {index_id:$scope,kind:'source'}) WHERE n.embedding IS NOT NULL RETURN n.source_id AS id",
             scope=scope,
         )
@@ -338,23 +354,27 @@ def embed_corpus(corpus: dict, *, scope: str | None = None) -> dict:
                             "embedding": embedding.values,
                         }
                     )
-                db.execute_query(
+                run_query(
+                    db,
                     "UNWIND $rows AS row MATCH (n:CIEntity {uid:row.uid,index_id:$scope}) SET n.embedding=row.embedding",
                     rows=rows,
                     scope=scope,
                 )
         # Scope-specific indexes prevent another repository consuming top-k slots.
-        db.execute_query(
+        run_query(
+            db,
             f"MATCH (n:CIEntity {{index_id:$scope,kind:'source'}}) SET n:{label}",
             scope=scope,
         )
-        db.execute_query(
-            f"CREATE FULLTEXT INDEX {text} IF NOT EXISTS FOR (n:{label}) ON EACH [n.title,n.body]"
+        run_query(
+            db,
+            f"CREATE FULLTEXT INDEX {text} IF NOT EXISTS FOR (n:{label}) ON EACH [n.title,n.body]",
         )
-        db.execute_query(
-            f"CREATE VECTOR INDEX {vector} IF NOT EXISTS FOR (n:{label}) ON n.embedding OPTIONS {{indexConfig: {{`vector.dimensions`:768,`vector.similarity_function`:'cosine'}}}}"
+        run_query(
+            db,
+            f"CREATE VECTOR INDEX {vector} IF NOT EXISTS FOR (n:{label}) ON n.embedding OPTIONS {{indexConfig: {{`vector.dimensions`:768,`vector.similarity_function`:'cosine'}}}}",
         )
-        db.execute_query("CALL db.awaitIndexes(120)")
+        run_query(db, "CALL db.awaitIndexes(120)")
     return {
         "sources": len(corpus["documents"]),
         "new_embeddings": len(pending),
@@ -410,11 +430,13 @@ def project_decisions(corpus: dict, decisions: list[dict], *, scope: str | None 
                 }
             )
     with driver() as db:
-        db.execute_query(
+        run_query(
+            db,
             "UNWIND $rows AS row MERGE (n:CIEntity {uid:row.uid}) SET n += row",
             rows=rows,
         )
-        db.execute_query(
+        run_query(
+            db,
             """UNWIND $rows AS row MATCH (a:CIEntity {uid:row.source,index_id:row.index_id}),
             (b:CIEntity {uid:row.target,index_id:row.index_id})
             MERGE (a)-[:CI_LINK {index_id:row.index_id,relation:row.relation,evidence:row.evidence}]->(b)""",

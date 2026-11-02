@@ -95,10 +95,10 @@ def ready():
     try:
         with store.connection() as conn:
             conn.execute("SELECT 1 FROM ci_schema_versions LIMIT 1")
-        from codeintent.graph import driver
+        from codeintent.graph import driver, run_query
 
         with driver() as db:
-            db.verify_connectivity()
+            run_query(db, "RETURN 1 AS ok")
         return {"status": "ready"}
     except Exception:
         raise HTTPException(503, "Database or graph is unavailable") from None
@@ -251,6 +251,21 @@ def ask(body: Question, x_client_key: str = Header(default="anonymous")):
     cached = store.get_cached(key)
     if cached:
         return {**cached, "cached": True}
+    if os.getenv("CODEINTENT_ASYNC_QUESTIONS") == "1":
+        from fastapi.responses import JSONResponse
+
+        from codeintent.questions import submit
+
+        try:
+            return JSONResponse(
+                status_code=202,
+                content=submit(indexed, body.question, key, x_client_key),
+            )
+        except store.QuotaExceeded:
+            raise HTTPException(
+                429,
+                "The daily investigation limit has been reached. Saved reports remain available.",
+            ) from None
     if not gate.acquire(blocking=False):
         raise HTTPException(429, "Two investigations are running. Try again shortly.")
     try:
@@ -280,6 +295,16 @@ def ask(body: Question, x_client_key: str = Header(default="anonymous")):
         ) from None
     finally:
         gate.release()
+
+
+@app.get("/questions/{ident}", dependencies=[Depends(authenticated)])
+def question_status(ident: UUID):
+    from codeintent.questions import status
+
+    row = status(str(ident))
+    if not row:
+        raise HTTPException(404, "Investigation job not found")
+    return row
 
 
 @app.exception_handler(store.QuotaExceeded)

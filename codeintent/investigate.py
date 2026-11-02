@@ -11,7 +11,7 @@ from neo4j_graphrag.retrievers import HybridCypherRetriever
 from neo4j_graphrag.types import RetrieverResultItem
 
 from codeintent.domain import AnswerDraft, bind_spans, source_spans, validate_citations
-from codeintent.graph import driver, index_id, scope_names
+from codeintent.graph import driver, index_id, run_query, scope_names
 from codeintent.vertex import client
 
 
@@ -92,6 +92,7 @@ def retrieve(
         )
         retriever = HybridCypherRetriever(
             db,
+            neo4j_database=os.getenv("NEO4J_DATABASE") or None,
             vector_index_name=vector,
             fulltext_index_name=text,
             retrieval_query=query,
@@ -110,7 +111,8 @@ def retrieve(
             {"id": item.metadata["source_id"], **item.metadata} for item in result.items
         ]
         ids = [s["id"] for s in sources]
-        paths, _, _ = db.execute_query(
+        paths, _, _ = run_query(
+            db,
             """MATCH (a:CIEntity)-[r:CI_LINK]->(b:CIEntity)
             WHERE a.index_id=$scope AND b.index_id=$scope AND r.index_id=$scope
               AND a.source_id IN $ids AND b.source_id IN $ids

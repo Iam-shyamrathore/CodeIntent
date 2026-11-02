@@ -214,15 +214,17 @@ def save_report(result: dict, key: str) -> dict:
         return row["result"]
 
 
-def consume_quota(bucket: str, limit: int):
+def consume_quota(bucket: str, limit: int, *, conn=None):
     # The counter increment and limit check happen under the same row lock.
-    with connection() as conn:
-        row = conn.execute(
-            "INSERT INTO ci_usage(bucket,count) VALUES (%s,1) ON CONFLICT(bucket,day) DO UPDATE SET count=ci_usage.count+1 WHERE ci_usage.count < %s RETURNING count",
-            (bucket, limit),
-        ).fetchone()
-        if not row:
-            raise QuotaExceeded()
+    if conn is None:
+        with connection() as owned:
+            return consume_quota(bucket, limit, conn=owned)
+    row = conn.execute(
+        "INSERT INTO ci_usage(bucket,count) VALUES (%s,1) ON CONFLICT(bucket,day) DO UPDATE SET count=ci_usage.count+1 WHERE ci_usage.count < %s RETURNING count",
+        (bucket, limit),
+    ).fetchone()
+    if not row:
+        raise QuotaExceeded()
 
 
 class QuotaExceeded(Exception):

@@ -72,7 +72,7 @@ def test_migrations_are_repeatable(isolated):
             conn.execute("SELECT count(*) AS count FROM ci_schema_versions").fetchone()[
                 "count"
             ]
-            == 2
+            == 4
         )
 
 
@@ -225,3 +225,77 @@ def test_worker_loss_requeues_orphaned_job(isolated):
             ).fetchone()["status"]
             == "todo"
         )
+
+
+def test_question_deduplication_and_atomic_quota(isolated, corpus, monkeypatch):
+    from codeintent.questions import submit
+
+    scope = "b" * 24
+    store.save_index(corpus, [], scope, publish=True)
+    key = store.cache_key(scope, "Why did the fixture change?")
+    first = submit({"id": scope}, "Why did the fixture change?", key, "test")
+    assert submit({"id": scope}, "Why did the fixture change?", key, "test") == first
+    with store.connection() as conn:
+        assert (
+            conn.execute("SELECT count(*) AS n FROM procrastinate_jobs").fetchone()["n"]
+            == 1
+        )
+        assert (
+            conn.execute(
+                "SELECT count FROM ci_usage WHERE bucket='client:test'"
+            ).fetchone()["count"]
+            == 1
+        )
+    monkeypatch.setenv("CODEINTENT_GLOBAL_QUESTIONS_PER_DAY", "1")
+    with pytest.raises(store.QuotaExceeded):
+        submit({"id": scope}, "Another fixture question?", "other", "second")
+    with store.connection() as conn:
+        assert not conn.execute(
+            "SELECT 1 FROM ci_usage WHERE bucket='client:second'"
+        ).fetchone()
+        assert (
+            conn.execute("SELECT count(*) AS n FROM ci_questions").fetchone()["n"] == 1
+        )
+
+
+def test_question_provider_failure_retries_and_persists_report(
+    isolated, corpus, monkeypatch
+):
+    from codeintent.questions import process, status, submit
+
+    scope = "c" * 24
+    question = "Why did the fixture change?"
+    store.save_index(corpus, [], scope, publish=True)
+    job = submit({"id": scope}, question, store.cache_key(scope, question), "test")
+
+    def fail(*args, **kwargs):
+        raise ConnectionError("secret upstream details")
+
+    monkeypatch.setattr("codeintent.investigate.investigate", fail)
+    context = SimpleNamespace(job=SimpleNamespace(attempts=0))
+    with pytest.raises(RuntimeError, match="ConnectionError"):
+        process(context, job["job_id"])
+    assert status(job["job_id"])["status"] == "retrying"
+    assert "secret" not in status(job["job_id"])["detail"]
+    monkeypatch.setattr(
+        "codeintent.investigate.investigate",
+        lambda *args, **kw: {
+            "question": question,
+            "index_id": scope,
+            "answer": {"status": "insufficient"},
+        },
+    )
+    process(context, job["job_id"])
+    result = status(job["job_id"])
+    assert result["status"] == "ready"
+    process(context, job["job_id"])
+    assert status(job["job_id"])["result"]["report_id"] == result["result"]["report_id"]
+
+
+def test_data_api_cannot_access_ledger_or_queue(isolated):
+    with store.connection() as conn:
+        assert not conn.execute(
+            "SELECT relname FROM pg_class WHERE relnamespace=current_schema()::regnamespace AND relkind='r' AND NOT relrowsecurity"
+        ).fetchall()
+        assert not conn.execute("""SELECT p.proname FROM pg_proc p, LATERAL aclexplode(COALESCE(p.proacl,acldefault('f',p.proowner))) acl
+            WHERE p.pronamespace=current_schema()::regnamespace AND acl.grantee=0 AND acl.privilege_type='EXECUTE'""").fetchall()

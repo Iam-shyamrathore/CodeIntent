@@ -9,7 +9,7 @@ async function handle(request: Request, context: Context) {
   const { path } = await context.params;
   const route = path.join("/");
   const read =
-    /^(repositories|reports|reports\/[a-f0-9-]{36}|indexes\/[a-f0-9]{24}|imports\/[a-f0-9-]{36}|ready)$/.test(
+    /^(repositories|questions\/[a-f0-9-]{36}|reports|reports\/[a-f0-9-]{36}|indexes\/[a-f0-9]{24}|imports\/[a-f0-9-]{36}|ready)$/.test(
       route,
     );
   const write =

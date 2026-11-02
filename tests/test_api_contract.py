@@ -74,3 +74,16 @@ def test_cached_answer_does_not_spend_model_quota(client, monkeypatch):
     )
     response = client.post("/investigate", json={"question": "Why did this change?"})
     assert response.json()["cached"] is True
+
+
+def test_cloud_question_returns_job_without_waiting_for_model(client, monkeypatch):
+    monkeypatch.setenv("CODEINTENT_ASYNC_QUESTIONS", "1")
+    monkeypatch.setattr("codeintent.store.get_index", lambda *args: {"id": "a" * 24})
+    monkeypatch.setattr("codeintent.store.get_cached", lambda *args: None)
+    monkeypatch.setattr(
+        "codeintent.questions.submit",
+        lambda *args: {"job_id": "durable", "status": "queued"},
+    )
+    response = client.post("/investigate", json={"question": "Why did this change?"})
+    assert response.status_code == 202
+    assert response.json()["job_id"] == "durable"
