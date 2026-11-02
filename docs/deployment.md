@@ -1,6 +1,6 @@
 # Deployment
 
-The supported portable target is Docker Compose on a VM, or the same web/API/worker images with managed PostgreSQL and Neo4j. Public hosting, DNS and account secrets are the remaining user-owned deployment steps. No application source edits are needed.
+The supported portable target is Docker Compose on a VM, or the same web/API/worker images with managed PostgreSQL and Neo4j. Heroku (API and worker), Vercel (Next.js), Supabase (PostgreSQL session pooler) and Neo4j Aura are also supported with the checked-in platform configuration.
 
 ## Service map
 
@@ -75,3 +75,26 @@ With a hosting platform that already terminates TLS, deploy the standalone web i
 ## Promotion checklist
 
 Build images from the intended commit, preserve database volumes/backups, supply secrets at runtime, verify all service health checks, observe a ready demo index, sign in and import one public repository, then run a fresh question and open its saved link in a separate browser session. Confirm your provider's Neo4j tier supports the configured full-text/vector indexes and bounded traversal. Local Community proof does not establish an untested managed tier's compatibility.
+
+
+## Heroku + Vercel
+
+The root `Dockerfile.heroku` builds the backend on Heroku; `heroku.yml` applies SQL migrations and idempotently queues the demo during release. Web and worker use the same image. No local Docker build is required.
+
+1. Create a container-stack Heroku app and configure runtime secrets: `DATABASE_URL` (Supabase **session** pooler on port 5432, with `sslmode=require`), `NEO4J_URI`, `NEO4J_USERNAME`, `NEO4J_PASSWORD`, optional `NEO4J_DATABASE`, `GOOGLE_API_KEY`, `CODEINTENT_API_SECRET`, `CODEINTENT_OPERATOR_TOKEN`, `CODEINTENT_ENV=production`, and `CODEINTENT_ASYNC_QUESTIONS=1`. Set secrets through the platform settings or a protected secret file, never commit them.
+2. Push the release and start both processes:
+
+```sh
+heroku git:remote --app YOUR_API_APP
+git push heroku HEAD:main
+heroku ps:scale web=1:basic worker=1:basic --app YOUR_API_APP
+```
+
+3. Link the frontend using `vercel link`. Add production variables with `vercel env add NAME production`: `CODEINTENT_API_URL` (Heroku HTTPS origin), the matching `CODEINTENT_API_SECRET` and `CODEINTENT_OPERATOR_TOKEN`, a separate `CODEINTENT_SESSION_SECRET`, and `CODEINTENT_PUBLIC_URL` (Vercel production origin). Then run `vercel --prod`. `.vercelignore` excludes local credentials, Python services, corpus, and runtime state; saved study fixtures remain in the deployment.
+4. Check `/api/service/ready`, observe an online worker and a ready HTTPX index in Repositories, submit an uncached question, and reopen its saved report. Saved examples alone are not proof of cloud provider readiness.
+
+On Heroku, uncached questions return `202` with a durable job ID. The browser polls `/api/service/questions/{id}` for queued/running/retrying/ready/failed state. Reports persist after a browser disconnect. The worker runs two tasks concurrently and gives investigations higher priority than waiting imports. A worker heartbeat recovers orphaned import and investigation tasks after a process loss.
+
+Migration 004 enables RLS and revokes Data API role privileges on the app ledger and Procrastinate objects only. The backend connects as the database owner; no Supabase browser key is required. New migrations introducing app tables/functions must preserve this boundary.
+
+Use the operator token from your private environment file to sign in at Repositories. Vercel never receives PostgreSQL, Neo4j or Vertex credentials. GitHub imports work anonymously within GitHub's rate limits; set a public-read `GITHUB_TOKEN` on Heroku for sustained use.
