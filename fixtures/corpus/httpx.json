@@ -1,0 +1,1024 @@
+{
+  "repository": "encode/httpx",
+  "repository_id": 179492861,
+  "revision": "b5addb64f0161ff6bfe94c124ef76f6a1fba5254",
+  "collected_at": "2026-11-01T11:00:32.532614+00:00",
+  "documents": [
+    {
+      "id": "pr-2241",
+      "kind": "pull_request",
+      "title": "Drop RawURL",
+      "body": "The `RawURL` data structure existed because it was used for an older version of the low-level Transport API.\r\n\r\nWe no longer use that, and `RawURL` is only publicly exposed via a `url.raw` property, which we don't actually use anywhere.\r\n\r\nI think we're really pretty safe to just hard-deprecate this, and make sure we mention it in the release notes.",
+      "url": "https://github.com/encode/httpx/pull/2241",
+      "date": "2022-05-30T13:54:47Z",
+      "author": "lovelydinosaur",
+      "retrieved_at": "2026-11-01T11:00:32.532614+00:00",
+      "sha256": "8074b1f8a4c8c0d07ae579cfbc6da993002611122f12d67cc329f3456a1599d4",
+      "number": 2241,
+      "merged_at": "2022-05-30T13:54:47Z",
+      "commit": "9baf3a6cd2fa9ebeb17dba5a3e5c6e9e0af83a96"
+    },
+    {
+      "id": "diff-2241-httpx/_models.py",
+      "kind": "diff",
+      "title": "httpx/_models.py \u00b7 PR #2241",
+      "body": "@@ -33,7 +33,6 @@\n     CookieTypes,\n     HeaderTypes,\n     QueryParamTypes,\n-    RawURL,\n     RequestContent,\n     RequestData,\n     RequestFiles,\n@@ -306,7 +305,7 @@ class Request:\n     def __init__(\n         self,\n         method: typing.Union[str, bytes],\n-        url: typing.Union[\"URL\", str, RawURL],\n+        url: typing.Union[\"URL\", str],\n         *,\n         params: typing.Optional[QueryParamTypes] = None,\n         headers: typing.Optional[HeaderTypes] = None,",
+      "url": "https://github.com/encode/httpx/blob/70c2890e134fd2e485eabca33e3727050b8ee601/httpx%2F_models.py",
+      "date": "2022-05-30T13:54:47Z",
+      "author": "lovelydinosaur",
+      "retrieved_at": "2026-11-01T11:00:32.532614+00:00",
+      "sha256": "89e9f64cd6479052825b6ca9cffe0488d27882c39c1342d3a20abba27c3215a2",
+      "parent": "pr-2241",
+      "path": "httpx/_models.py",
+      "number": 2241,
+      "commit": "9baf3a6cd2fa9ebeb17dba5a3e5c6e9e0af83a96"
+    },
+    {
+      "id": "diff-2241-httpx/_types.py",
+      "kind": "diff",
+      "title": "httpx/_types.py \u00b7 PR #2241",
+      "body": "@@ -30,8 +30,6 @@\n \n PrimitiveData = Optional[Union[str, int, float, bool]]\n \n-RawURL = Tuple[bytes, bytes, Optional[int], bytes]\n-\n URLTypes = Union[\"URL\", str]\n \n QueryParamTypes = Union[",
+      "url": "https://github.com/encode/httpx/blob/70c2890e134fd2e485eabca33e3727050b8ee601/httpx%2F_types.py",
+      "date": "2022-05-30T13:54:47Z",
+      "author": "lovelydinosaur",
+      "retrieved_at": "2026-11-01T11:00:32.532614+00:00",
+      "sha256": "30308d47d5c1cf681841b54a83b3774de0c64651001f28572b1cf392e939977d",
+      "parent": "pr-2241",
+      "path": "httpx/_types.py",
+      "number": 2241,
+      "commit": "9baf3a6cd2fa9ebeb17dba5a3e5c6e9e0af83a96"
+    },
+    {
+      "id": "diff-2241-httpx/_urls.py",
+      "kind": "diff",
+      "title": "httpx/_urls.py \u00b7 PR #2241",
+      "body": "@@ -6,7 +6,7 @@\n import rfc3986.exceptions\n \n from ._exceptions import InvalidURL\n-from ._types import PrimitiveData, QueryParamTypes, RawURL, URLTypes\n+from ._types import PrimitiveData, QueryParamTypes, URLTypes\n from ._utils import primitive_value_to_str\n \n \n@@ -71,22 +71,9 @@ class URL:\n     \"\"\"\n \n     def __init__(\n-        self, url: typing.Union[\"URL\", str, RawURL] = \"\", **kwargs: typing.Any\n+        self, url: typing.Union[\"URL\", str] = \"\", **kwargs: typing.Any\n     ) -> None:\n-        if isinstance(url, (str, tuple)):\n-            if isinstance(url, tuple):\n-                raw_scheme, raw_host, port, raw_path = url\n-                scheme = raw_scheme.decode(\"ascii\")\n-                host = raw_host.decode(\"ascii\")\n-                if host and \":\" in host and host[0] != \"[\":\n-                    # it's an IPv6 address, so it should be enclosed in \"[\" and \"]\"\n-                    # ref: https://tools.ietf.org/html/rfc2732#section-2\n-                    # ref: https://tools.ietf.org/html/rfc3986#section-3.2.2\n-                    host = f\"[{host}]\"\n-                port_str = \"\" if port is None else f\":{port}\"\n-                path = raw_path.decode(\"ascii\")\n-                url = f\"{scheme}://{host}{port_str}{path}\"\n-\n+        if isinstance(url, str):\n             try:\n                 self._uri_reference = rfc3986.iri_reference(url).encode()\n             except rfc3986.exceptions.InvalidAuthority as exc:\n@@ -322,21 +309,6 @@ def fragment(self) -> str:\n         \"\"\"\n         return unquote(self._uri_reference.fragment or \"\")\n \n-    @property\n-    def raw(self) -> RawURL:\n-        \"\"\"\n-        The URL in the raw representation used by the low level\n-        transport API. See `BaseTransport.handle_request`.\n-\n-        Provides the (scheme, host, port, target) for the outgoing request.\n-        \"\"\"\n-        return (\n-            self.raw_scheme,\n-            self.raw_host,\n-            self.port,\n-            self.raw_path,\n-        )\n-\n     @property\n     def is_absolute_url(self) -> bool:\n         \"\"\"",
+      "url": "https://github.com/encode/httpx/blob/70c2890e134fd2e485eabca33e3727050b8ee601/httpx%2F_urls.py",
+      "date": "2022-05-30T13:54:47Z",
+      "author": "lovelydinosaur",
+      "retrieved_at": "2026-11-01T11:00:32.532614+00:00",
+      "sha256": "0a3aee2d75c2465849ae9f4cb5a45b0bbd3e36fd84d9342477661665e9603695",
+      "parent": "pr-2241",
+      "path": "httpx/_urls.py",
+      "number": 2241,
+      "commit": "9baf3a6cd2fa9ebeb17dba5a3e5c6e9e0af83a96"
+    },
+    {
+      "id": "diff-2241-tests/client/test_proxies.py",
+      "kind": "diff",
+      "title": "tests/client/test_proxies.py \u00b7 PR #2241",
+      "body": "@@ -10,8 +10,8 @@ def url_to_origin(url: str):\n     Given a URL string, return the origin in the raw tuple format that\n     `httpcore` uses for it's representation.\n     \"\"\"\n-    scheme, host, port = httpx.URL(url).raw[:3]\n-    return httpcore.URL(scheme=scheme, host=host, port=port, target=\"/\")\n+    u = httpx.URL(url)\n+    return httpcore.URL(scheme=u.raw_scheme, host=u.raw_host, port=u.port, target=\"/\")\n \n \n @pytest.mark.parametrize(",
+      "url": "https://github.com/encode/httpx/blob/70c2890e134fd2e485eabca33e3727050b8ee601/tests%2Fclient%2Ftest_proxies.py",
+      "date": "2022-05-30T13:54:47Z",
+      "author": "lovelydinosaur",
+      "retrieved_at": "2026-11-01T11:00:32.532614+00:00",
+      "sha256": "63616684523f14fecc44761f3fb6e805b86d72aec9a00171c13d16a1ec8d80c2",
+      "parent": "pr-2241",
+      "path": "tests/client/test_proxies.py",
+      "number": 2241,
+      "commit": "9baf3a6cd2fa9ebeb17dba5a3e5c6e9e0af83a96"
+    },
+    {
+      "id": "diff-2241-tests/models/test_url.py",
+      "kind": "diff",
+      "title": "tests/models/test_url.py \u00b7 PR #2241",
+      "body": "@@ -417,10 +417,9 @@ def test_ipv6_url_copy_with_host(url_str, new_host):\n     assert str(url) == \"http://[::ffff:192.168.0.1]:1234\"\n \n \n-@pytest.mark.parametrize(\"host\", [b\"[::ffff:192.168.0.1]\", b\"::ffff:192.168.0.1\"])\n+@pytest.mark.parametrize(\"host\", [\"[::ffff:192.168.0.1]\", \"::ffff:192.168.0.1\"])\n def test_ipv6_url_from_raw_url(host):\n-    raw_url = (b\"https\", host, 443, b\"/\")\n-    url = httpx.URL(raw_url)\n+    url = httpx.URL(scheme=\"https\", host=host, port=443, path=\"/\")\n \n     assert url.host == \"::ffff:192.168.0.1\"\n     assert url.netloc == b\"[::ffff:192.168.0.1]\"",
+      "url": "https://github.com/encode/httpx/blob/70c2890e134fd2e485eabca33e3727050b8ee601/tests%2Fmodels%2Ftest_url.py",
+      "date": "2022-05-30T13:54:47Z",
+      "author": "lovelydinosaur",
+      "retrieved_at": "2026-11-01T11:00:32.532614+00:00",
+      "sha256": "2fc6b08a232e51dd5f266410efc2452dffd18a6233b3e2548fb128081ca79aa9",
+      "parent": "pr-2241",
+      "path": "tests/models/test_url.py",
+      "number": 2241,
+      "commit": "9baf3a6cd2fa9ebeb17dba5a3e5c6e9e0af83a96"
+    },
+    {
+      "id": "pr-2481",
+      "kind": "pull_request",
+      "title": "Add back in URL.raw with NamedTuple",
+      "body": "Closes #2462 with a basic test, happy to add tests for more scenarios\r\n",
+      "url": "https://github.com/encode/httpx/pull/2481",
+      "date": "2022-12-02T16:20:05Z",
+      "author": "developerDemetri",
+      "retrieved_at": "2026-11-01T11:00:32.532614+00:00",
+      "sha256": "2b0b2655f3ade0527d70c5fdc1bf51cea2b4270f85da9de1c5e16a34b90ca2d2",
+      "number": 2481,
+      "merged_at": "2022-12-02T16:20:05Z",
+      "commit": "40a0da093b423ca37feee2b85df7c3f0ce3cc96c"
+    },
+    {
+      "id": "comment-1335495879",
+      "kind": "comment",
+      "title": "Comment on PR #2481",
+      "body": "Okay, let's go with this.\r\n\r\nWe'll want a new minor point release.",
+      "url": "https://github.com/encode/httpx/pull/2481#issuecomment-1335495879",
+      "date": "2022-12-02T16:20:01Z",
+      "author": "lovelydinosaur",
+      "retrieved_at": "2026-11-01T11:00:32.532614+00:00",
+      "sha256": "72cb3b8f87479c8971fe207e079318bb4bbd12dd3e3b9c6b2d7b522240e241ab",
+      "parent": "pr-2481",
+      "number": 2481
+    },
+    {
+      "id": "review-1200742619",
+      "kind": "review",
+      "title": "Review on PR #2481",
+      "body": "Yup, I'm happy with this.\r\n\r\nWe *could* also add a comment on the `.raw()` method metioning that it is due to be deprecated in a future release, but I don't mind too much either way, so wouldn't consider it a blocker.",
+      "url": "https://github.com/encode/httpx/pull/2481#pullrequestreview-1200742619",
+      "date": "2022-12-01T10:32:05Z",
+      "author": "lovelydinosaur",
+      "retrieved_at": "2026-11-01T11:00:32.532614+00:00",
+      "sha256": "fd577ccbeac49e04e41a68d81d3f63d7fbfa338ad1619742bb04902cb8565cf1",
+      "parent": "pr-2481",
+      "number": 2481
+    },
+    {
+      "id": "diff-2481-httpx/_types.py",
+      "kind": "diff",
+      "title": "httpx/_types.py \u00b7 PR #2481",
+      "body": "@@ -16,6 +16,7 @@\n     Iterator,\n     List,\n     Mapping,\n+    NamedTuple,\n     Optional,\n     Sequence,\n     Tuple,\n@@ -31,6 +32,16 @@\n \n PrimitiveData = Optional[Union[str, int, float, bool]]\n \n+RawURL = NamedTuple(\n+    \"RawURL\",\n+    [\n+        (\"raw_scheme\", bytes),\n+        (\"raw_host\", bytes),\n+        (\"port\", Optional[int]),\n+        (\"raw_path\", bytes),\n+    ],\n+)\n+\n URLTypes = Union[\"URL\", str]\n \n QueryParamTypes = Union[",
+      "url": "https://github.com/encode/httpx/blob/a736d98c3bcc1783c138c3f8d5e84119924f7cb0/httpx%2F_types.py",
+      "date": "2022-12-02T16:20:05Z",
+      "author": "developerDemetri",
+      "retrieved_at": "2026-11-01T11:00:32.532614+00:00",
+      "sha256": "e1a886cfbb80f1eb7a6957991804ae71ca8ed3dc476b43368d21a99f7e0e3808",
+      "parent": "pr-2481",
+      "path": "httpx/_types.py",
+      "number": 2481,
+      "commit": "40a0da093b423ca37feee2b85df7c3f0ce3cc96c"
+    },
+    {
+      "id": "diff-2481-httpx/_urls.py",
+      "kind": "diff",
+      "title": "httpx/_urls.py \u00b7 PR #2481",
+      "body": "@@ -6,7 +6,7 @@\n import rfc3986.exceptions\n \n from ._exceptions import InvalidURL\n-from ._types import PrimitiveData, QueryParamTypes, URLTypes\n+from ._types import PrimitiveData, QueryParamTypes, RawURL, URLTypes\n from ._utils import primitive_value_to_str\n \n \n@@ -311,6 +311,21 @@ def fragment(self) -> str:\n         \"\"\"\n         return unquote(self._uri_reference.fragment or \"\")\n \n+    @property\n+    def raw(self) -> RawURL:\n+        \"\"\"\n+        Provides the (scheme, host, port, target) for the outgoing request.\n+\n+        In older versions of `httpx` this was used in the low-level transport API.\n+        We no longer use `RawURL`, and this property will be deprecated in a future release.\n+        \"\"\"\n+        return RawURL(\n+            self.raw_scheme,\n+            self.raw_host,\n+            self.port,\n+            self.raw_path,\n+        )\n+\n     @property\n     def is_absolute_url(self) -> bool:\n         \"\"\"",
+      "url": "https://github.com/encode/httpx/blob/a736d98c3bcc1783c138c3f8d5e84119924f7cb0/httpx%2F_urls.py",
+      "date": "2022-12-02T16:20:05Z",
+      "author": "developerDemetri",
+      "retrieved_at": "2026-11-01T11:00:32.532614+00:00",
+      "sha256": "3331992f89fc65d1c3e426fb517d8f6eb5e224ecb18932ee59112c1345bf4c26",
+      "parent": "pr-2481",
+      "path": "httpx/_urls.py",
+      "number": 2481,
+      "commit": "40a0da093b423ca37feee2b85df7c3f0ce3cc96c"
+    },
+    {
+      "id": "diff-2481-tests/models/test_url.py",
+      "kind": "diff",
+      "title": "tests/models/test_url.py \u00b7 PR #2481",
+      "body": "@@ -424,3 +424,13 @@ def test_ipv6_url_from_raw_url(host):\n     assert url.host == \"::ffff:192.168.0.1\"\n     assert url.netloc == b\"[::ffff:192.168.0.1]\"\n     assert str(url) == \"https://[::ffff:192.168.0.1]/\"\n+\n+\n+def test_url_raw_compatibility():\n+    url = httpx.URL(\"https://www.example.com/path\")\n+    scheme, host, port, raw_path = url.raw\n+\n+    assert scheme == b\"https\"\n+    assert host == b\"www.example.com\"\n+    assert port is None\n+    assert raw_path == b\"/path\"",
+      "url": "https://github.com/encode/httpx/blob/a736d98c3bcc1783c138c3f8d5e84119924f7cb0/tests%2Fmodels%2Ftest_url.py",
+      "date": "2022-12-02T16:20:05Z",
+      "author": "developerDemetri",
+      "retrieved_at": "2026-11-01T11:00:32.532614+00:00",
+      "sha256": "3d1bf33759415a2351238a535b2c75090d3720e5442baac2ef3f51fe061fa35b",
+      "parent": "pr-2481",
+      "path": "tests/models/test_url.py",
+      "number": 2481,
+      "commit": "40a0da093b423ca37feee2b85df7c3f0ce3cc96c"
+    },
+    {
+      "id": "pr-3050",
+      "kind": "pull_request",
+      "title": "Deprecate `app=...` in favor of explicit `WSGITransport`/`ASGITransport`.",
+      "body": "*Deprecate the `httpx.Client(app=...)` and `httpx.AsyncClient(app=...)` shortcuts.*\r\n\r\n---\r\n\r\nInstead of...\r\n\r\n```python\r\nclient = httpx.Client(app=app)\r\n```\r\n\r\nUse this...\r\n\r\n```python\r\ntransport = httpx.WSGITransport(app=app)\r\nclient = httpx.Client(transport=transport)\r\n```\r\n\r\n---\r\n\r\nInstead of...\r\n\r\n```python\r\nclient = httpx.AsyncClient(app=app)\r\n```\r\n\r\nUse this...\r\n\r\n```python\r\ntransport = httpx.ASGITransport(app=app)\r\nclient = httpx.AsyncClient(transport=transport)\r\n```\r\n\r\n---\r\n\r\nThe rationale for this is described in https://github.com/encode/httpx/issues/947#issuecomment-1727389402.\r\n\r\n**TODO**:\r\n\r\n- [x] Docs.\r\n- [x] `CHANGELOG.md`.\r\n- [x] ~Ensure we have a clear section where we outline 1.0 version changes in one place.~ See https://github.com/encode/httpx/pull/3069\r\n",
+      "url": "https://github.com/encode/httpx/pull/3050",
+      "date": "2024-02-02T13:29:41Z",
+      "author": "lovelydinosaur",
+      "retrieved_at": "2026-11-01T11:00:32.532614+00:00",
+      "sha256": "d7a7337fb3f21635778a88466231da7e30e7e317d2d155f48ddbbcee3e4222e9",
+      "number": 3050,
+      "merged_at": "2024-02-02T13:29:41Z",
+      "commit": "cabd1c095e52e2f67ab63ec17941d3a539d7c877"
+    },
+    {
+      "id": "comment-1910687506",
+      "kind": "comment",
+      "title": "Comment on PR #3050",
+      "body": "This is not deprecation of `app=...`, it's a removal directly. Is it ok? We usually raise warnings when deprecating paramters, don't we?",
+      "url": "https://github.com/encode/httpx/pull/3050#issuecomment-1910687506",
+      "date": "2024-01-25T17:38:22Z",
+      "author": "Kludex",
+      "retrieved_at": "2026-11-01T11:00:32.532614+00:00",
+      "sha256": "5475a8c6dd668b64f3b961c9d2124375a70525bdb9f136e761ad23adb05f057d",
+      "parent": "pr-3050",
+      "number": 3050
+    },
+    {
+      "id": "comment-1911776086",
+      "kind": "comment",
+      "title": "Comment on PR #3050",
+      "body": "> We usually raise warnings when deprecating paramters, don't we?\r\n\r\nYep, so... https://github.com/encode/httpx/pull/3069\r\n\r\nThere's a proposal for several related changes, that end up with a stricter simpler more consistent API.\r\nWe can land these in a 1.0, and need to take a call on what we think is best wrt. hard-change vs. soft deprecation path.",
+      "url": "https://github.com/encode/httpx/pull/3050#issuecomment-1911776086",
+      "date": "2024-01-26T09:57:06Z",
+      "author": "lovelydinosaur",
+      "retrieved_at": "2026-11-01T11:00:32.532614+00:00",
+      "sha256": "d77234ff29ed844705db05754deff0c040340ab203e71533395a28d21095940d",
+      "parent": "pr-3050",
+      "number": 3050
+    },
+    {
+      "id": "comment-1923527826",
+      "kind": "comment",
+      "title": "Comment on PR #3050",
+      "body": "> This is not deprecation of app=..., it's a removal directly. Is it ok? We usually raise warnings when deprecating parameters, don't we?\r\n\r\nThanks @Kludex, based on this I've updated the PR to be just a deprecation at this point.\r\n\r\nOnce this is merged I'll look at rolling a 0.27 version with the updated docs.\r\n",
+      "url": "https://github.com/encode/httpx/pull/3050#issuecomment-1923527826",
+      "date": "2024-02-02T10:34:15Z",
+      "author": "lovelydinosaur",
+      "retrieved_at": "2026-11-01T11:00:32.532614+00:00",
+      "sha256": "168c067588766cbccdcfb3461b6c4b22ec98fe99f72717a552667dc3c275897a",
+      "parent": "pr-3050",
+      "number": 3050
+    },
+    {
+      "id": "comment-2381498485",
+      "kind": "comment",
+      "title": "Comment on PR #3050",
+      "body": "There's one more section of docs that needs to be updated - the API reference for [Client](https://www.python-httpx.org/api/#client) and AsyncClient don't yet mention that the `app` param is deprecated.",
+      "url": "https://github.com/encode/httpx/pull/3050#issuecomment-2381498485",
+      "date": "2024-09-29T18:58:24Z",
+      "author": "ofer-pd",
+      "retrieved_at": "2026-11-01T11:00:32.532614+00:00",
+      "sha256": "a3edb7ca920c4405c2d22dcf7ceb99cbe5deb55890fd600ee98fb18509d1016c",
+      "parent": "pr-3050",
+      "number": 3050
+    },
+    {
+      "id": "review_comment-1451676418",
+      "kind": "review_comment",
+      "title": "Review Comment on PR #3050",
+      "body": "I don't know what's deprecation policy but are you sure raise error here? isn't it breaking change for those using `app`?\r\n\r\nI'd recommend keep docs, type-hints and use warning instead. then we can schedule the removal version and mention it in warning message (?)",
+      "url": "https://github.com/encode/httpx/pull/3050#discussion_r1451676418",
+      "date": "2024-01-14T07:53:50Z",
+      "author": "T-256",
+      "retrieved_at": "2026-11-01T11:00:32.532614+00:00",
+      "sha256": "ff05e3cdca9e59aaca5147b9e5197f0d3b68123fa6bae931c172795d2a4a6d29",
+      "parent": "pr-3050",
+      "number": 3050
+    },
+    {
+      "id": "review_comment-1451678340",
+      "kind": "review_comment",
+      "title": "Review Comment on PR #3050",
+      "body": "> I don't know what's deprecation policy but are you sure raise error here? isn't it breaking change for those using `app`?\r\n\r\nIt looks good to me if this breaking change is for 1.0. But do we want to keep these additional errors in 1.0?",
+      "url": "https://github.com/encode/httpx/pull/3050#discussion_r1451678340",
+      "date": "2024-01-14T08:06:37Z",
+      "author": "T-256",
+      "retrieved_at": "2026-11-01T11:00:32.532614+00:00",
+      "sha256": "237f7eadc5fe5b8f987fc5437396125572dc02dad49bb333b3c3c999f0869fea",
+      "parent": "pr-3050",
+      "number": 3050
+    },
+    {
+      "id": "review_comment-1452183188",
+      "kind": "review_comment",
+      "title": "Review Comment on PR #3050",
+      "body": "> It looks good to me if this breaking change is for 1.0. But do we want to keep these additional errors in 1.0?\r\n\r\nSo...  we'll need to have consistency around this.\r\n\r\nOptions might be...\r\n\r\n* Include old argument styles for 1.0 with explicit errors, to aid migrations. Clean up later and drop the errors in a 1.1 release.\r\n* Don't include old argument styles.",
+      "url": "https://github.com/encode/httpx/pull/3050#discussion_r1452183188",
+      "date": "2024-01-15T10:20:51Z",
+      "author": "lovelydinosaur",
+      "retrieved_at": "2026-11-01T11:00:32.532614+00:00",
+      "sha256": "68740b28b0c896df28e2f17f2c7b0e188df6e065c8e75ace9be83ce736561617",
+      "parent": "pr-3050",
+      "number": 3050
+    },
+    {
+      "id": "review_comment-1452230760",
+      "kind": "review_comment",
+      "title": "Review Comment on PR #3050",
+      "body": "At there, I'm more fan of what done for `proxies`:\r\nhttps://github.com/encode/httpx/blob/419d3a9d80d0c4072f6cb58eeb306148ae89e2e9/httpx/_client.py#L676-L681\r\n\r\nSo, what I can suggest at here is:\r\n1. deprecate and mention scheduled removal if any (e.g. \"The 'proxies' argument is now deprecated and it will remove in v1.0.0\")\r\n2. minor/patch release\r\n3. clear all deprecations in major release",
+      "url": "https://github.com/encode/httpx/pull/3050#discussion_r1452230760",
+      "date": "2024-01-15T10:58:47Z",
+      "author": "T-256",
+      "retrieved_at": "2026-11-01T11:00:32.532614+00:00",
+      "sha256": "ab7d3f73ae1a75b1e3705c6e9f47019a7db65e57975f75d25f570e5d331fcc37",
+      "parent": "pr-3050",
+      "number": 3050
+    },
+    {
+      "id": "review_comment-1452235919",
+      "kind": "review_comment",
+      "title": "Review Comment on PR #3050",
+      "body": "I think now is good time to discuss about deprecation policy, since there are few `1.0 proposal` PRs those trying to directly remove APIs without any deprecation.",
+      "url": "https://github.com/encode/httpx/pull/3050#discussion_r1452235919",
+      "date": "2024-01-15T11:03:24Z",
+      "author": "T-256",
+      "retrieved_at": "2026-11-01T11:00:32.532614+00:00",
+      "sha256": "3bdd4852e871892837a3dfc2f725f492f7a680565db0a64e0671d3e1d9277554",
+      "parent": "pr-3050",
+      "number": 3050
+    },
+    {
+      "id": "review_comment-1466121446",
+      "kind": "review_comment",
+      "title": "Review Comment on PR #3050",
+      "body": "https://github.com/encode/httpx/pull/3069 would be a good place for us to discuss how we'd like to approach this.",
+      "url": "https://github.com/encode/httpx/pull/3050#discussion_r1466121446",
+      "date": "2024-01-25T09:58:45Z",
+      "author": "lovelydinosaur",
+      "retrieved_at": "2026-11-01T11:00:32.532614+00:00",
+      "sha256": "daf5d4fa89a48c4b17f39f2bc0138aac2c3d40275945f05af3a6b44fee162bf2",
+      "parent": "pr-3050",
+      "number": 3050
+    },
+    {
+      "id": "review_comment-1466369932",
+      "kind": "review_comment",
+      "title": "Review Comment on PR #3050",
+      "body": "Via #3071 and since v1.0 is major upgrade, I'm now more interested to directly drop instead of deprecation.\r\n",
+      "url": "https://github.com/encode/httpx/pull/3050#discussion_r1466369932",
+      "date": "2024-01-25T13:19:15Z",
+      "author": "T-256",
+      "retrieved_at": "2026-11-01T11:00:32.532614+00:00",
+      "sha256": "11673a0e3fa0e49826efab819646419b3f7d0c99925969327ff1989ebed93e07",
+      "parent": "pr-3050",
+      "number": 3050
+    },
+    {
+      "id": "review_comment-1466801181",
+      "kind": "review_comment",
+      "title": "Review Comment on PR #3050",
+      "body": "Since this PR is version 1.0 proposal, why don't you track its changelog in #3069 ?",
+      "url": "https://github.com/encode/httpx/pull/3050#discussion_r1466801181",
+      "date": "2024-01-25T18:58:49Z",
+      "author": "T-256",
+      "retrieved_at": "2026-11-01T11:00:32.532614+00:00",
+      "sha256": "5036e1723727809ffa617324339e16ba37212050cdb7fb3afb33fdb8170ef0f0",
+      "parent": "pr-3050",
+      "number": 3050
+    },
+    {
+      "id": "review_comment-1467435754",
+      "kind": "review_comment",
+      "title": "Review Comment on PR #3050",
+      "body": "https://github.com/encode/httpx/pull/3069/files#diff-75bb3ae57865eb28e99c3e4fff3efc72a5d49e3f14ac324195b405058cb9731aR13\r\n",
+      "url": "https://github.com/encode/httpx/pull/3050#discussion_r1467435754",
+      "date": "2024-01-26T09:53:56Z",
+      "author": "lovelydinosaur",
+      "retrieved_at": "2026-11-01T11:00:32.532614+00:00",
+      "sha256": "5ed946359089ab9a5e4af6039ed5afb78ab43ff6d1f285953ed2c7ef4d226edf",
+      "parent": "pr-3050",
+      "number": 3050
+    },
+    {
+      "id": "review_comment-1467463864",
+      "kind": "review_comment",
+      "title": "Review Comment on PR #3050",
+      "body": "Then do we need to re-mention it in this PR?\r\nAll other open PRs with `1.0 proposal` tag don't include changelog independently.",
+      "url": "https://github.com/encode/httpx/pull/3050#discussion_r1467463864",
+      "date": "2024-01-26T10:20:51Z",
+      "author": "T-256",
+      "retrieved_at": "2026-11-01T11:00:32.532614+00:00",
+      "sha256": "27271fbe3d9a13338d13872c45eab7f6336326e6ebb6b754c809ca068969fbcf",
+      "parent": "pr-3050",
+      "number": 3050
+    },
+    {
+      "id": "review_comment-1467491476",
+      "kind": "review_comment",
+      "title": "Review Comment on PR #3050",
+      "body": "They should do before approval.\r\n\r\n(We should include CHANGELOG entries with the PRs as usual.)",
+      "url": "https://github.com/encode/httpx/pull/3050#discussion_r1467491476",
+      "date": "2024-01-26T10:46:40Z",
+      "author": "lovelydinosaur",
+      "retrieved_at": "2026-11-01T11:00:32.532614+00:00",
+      "sha256": "c9e8e9003612305f59b0235170d3a39897dace4cc289bd96c497cacd4a3d2644",
+      "parent": "pr-3050",
+      "number": 3050
+    },
+    {
+      "id": "diff-3050-CHANGELOG.md",
+      "kind": "diff",
+      "title": "CHANGELOG.md \u00b7 PR #3050",
+      "body": "@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).\n \n ## Unreleased\n \n+### Deprecated\n+\n+* The `app=...` shortcut has been deprecated. Use the explicit style of `transport=httpx.WSGITransport()` or `transport=httpx.ASGITransport()` instead.\n+\n ### Fixed\n \n * Respect the `http1` argument while configuring proxy transports. (#3023)",
+      "url": "https://github.com/encode/httpx/blob/ab27c991a9bcc6121a2e836066b619973d7addd3/CHANGELOG.md",
+      "date": "2024-02-02T13:29:41Z",
+      "author": "lovelydinosaur",
+      "retrieved_at": "2026-11-01T11:00:32.532614+00:00",
+      "sha256": "64f1e28f56c1747d71ffcf3c987b041041e486ce00592dd769ad1656dfdc98e2",
+      "parent": "pr-3050",
+      "path": "CHANGELOG.md",
+      "number": 3050,
+      "commit": "cabd1c095e52e2f67ab63ec17941d3a539d7c877"
+    },
+    {
+      "id": "diff-3050-docs/advanced/transports.md",
+      "kind": "diff",
+      "title": "docs/advanced/transports.md \u00b7 PR #3050",
+      "body": "@@ -42,7 +42,9 @@ You can configure an `httpx` client to call directly into a Python web applicati\n This is particularly useful for two main use-cases:\n \n * Using `httpx` as a client inside test cases.\n-* Mocking out external services during tests or in dev/staging environments.\n+* Mocking out external services during tests or in dev or staging environments.\n+\n+### Example\n \n Here's an example of integrating against a Flask application:\n \n@@ -57,12 +59,15 @@ app = Flask(__name__)\n def hello():\n     return \"Hello World!\"\n \n-with httpx.Client(app=app, base_url=\"http://testserver\") as client:\n+transport = httpx.WSGITransport(app=app)\n+with httpx.Client(transport=transport, base_url=\"http://testserver\") as client:\n     r = client.get(\"/\")\n     assert r.status_code == 200\n     assert r.text == \"Hello World!\"\n ```\n \n+### Configuration\n+\n For some more complex cases you might need to customize the WSGI transport. This allows you to:\n \n * Inspect 500 error responses rather than raise exceptions by setting `raise_app_exceptions=False`.\n@@ -78,6 +83,69 @@ with httpx.Client(transport=transport, base_url=\"http://testserver\") as client:\n     ...\n ```\n \n+## ASGITransport\n+\n+You can configure an `httpx` client to call directly into an async Python web application using the ASGI protocol.\n+\n+This is particularly useful for two main use-cases:\n+\n+* Using `httpx` as a client inside test cases.\n+* Mocking out external services during tests or in dev or staging environments.\n+\n+### Example\n+\n+Let's take this Starlette application as an example:\n+\n+```python\n+from starlette.applications import Starlette\n+from starlette.responses import HTMLResponse\n+from starlette.routing import Route\n+\n+\n+async def hello(request):\n+    return HTMLResponse(\"Hello World!\")\n+\n+\n+app = Starlette(routes=[Route(\"/\", hello)])\n+```\n+\n+We can make requests directly against the application, like so:\n+\n+```python\n+transport = httpx.ASGITransport(app=app)\n+\n+async with httpx.AsyncClient(transport=transport, base_url=\"http://testserver\") as client:\n+    r = await client.get(\"/\")\n+    assert r.status_code == 200\n+    assert r.text == \"Hello World!\"\n+```\n+\n+### Configuration\n+\n+For some more complex cases you might need to customise the ASGI transport. This allows you to:\n+\n+* Inspect 500 error responses rather than raise exceptions by setting `raise_app_exceptions=False`.\n+* Mount the ASGI application at a subpath by setting `root_path`.\n+* Use a given client address for requests by setting `client`.\n+\n+For example:\n+\n+```python\n+# Instantiate a client that makes ASGI requests with a client IP of \"1.2.3.4\",\n+# on port 123.\n+transport = httpx.ASGITransport(app=app, client=(\"1.2.3.4\", 123))\n+async with httpx.AsyncClient(transport=transport, base_url=\"http://testserver\") as client:\n+    ...\n+```\n+\n+See [the ASGI documentation](https://asgi.readthedocs.io/en/latest/specs/www.html#connection-scope) for more details on the `client` and `root_path` keys.\n+\n+### ASGI startup and shutdown\n+\n+It is not in the scope of HTTPX to trigger ASGI lifespan events of your app.\n+\n+However it is suggested to use `LifespanManager` from [asgi-lifespan](https://github.com/florimondmanca/asgi-lifespan#usage) in pair with `AsyncClient`.\n+\n ## Custom transports\n \n A transport instance must implement the low-level Transport API, which deals",
+      "url": "https://github.com/encode/httpx/blob/ab27c991a9bcc6121a2e836066b619973d7addd3/docs%2Fadvanced%2Ftransports.md",
+      "date": "2024-02-02T13:29:41Z",
+      "author": "lovelydinosaur",
+      "retrieved_at": "2026-11-01T11:00:32.532614+00:00",
+      "sha256": "c387aaa5372ac18f603cb9828217d118461dede7044b866c47b4ae75c8e07da8",
+      "parent": "pr-3050",
+      "path": "docs/advanced/transports.md",
+      "number": 3050,
+      "commit": "cabd1c095e52e2f67ab63ec17941d3a539d7c877"
+    },
+    {
+      "id": "diff-3050-docs/async.md",
+      "kind": "diff",
+      "title": "docs/async.md \u00b7 PR #3050",
+      "body": "@@ -191,54 +191,4 @@ anyio.run(main, backend='trio')\n \n ## Calling into Python Web Apps\n \n-Just as `httpx.Client` allows you to call directly into WSGI web applications,\n-the `httpx.AsyncClient` class allows you to call directly into ASGI web applications.\n-\n-Let's take this Starlette application as an example:\n-\n-```python\n-from starlette.applications import Starlette\n-from starlette.responses import HTMLResponse\n-from starlette.routing import Route\n-\n-\n-async def hello(request):\n-    return HTMLResponse(\"Hello World!\")\n-\n-\n-app = Starlette(routes=[Route(\"/\", hello)])\n-```\n-\n-We can make requests directly against the application, like so:\n-\n-```pycon\n->>> import httpx\n->>> async with httpx.AsyncClient(app=app, base_url=\"http://testserver\") as client:\n-...     r = await client.get(\"/\")\n-...     assert r.status_code == 200\n-...     assert r.text == \"Hello World!\"\n-```\n-\n-For some more complex cases you might need to customise the ASGI transport. This allows you to:\n-\n-* Inspect 500 error responses rather than raise exceptions by setting `raise_app_exceptions=False`.\n-* Mount the ASGI application at a subpath by setting `root_path`.\n-* Use a given client address for requests by setting `client`.\n-\n-For example:\n-\n-```python\n-# Instantiate a client that makes ASGI requests with a client IP of \"1.2.3.4\",\n-# on port 123.\n-transport = httpx.ASGITransport(app=app, client=(\"1.2.3.4\", 123))\n-async with httpx.AsyncClient(transport=transport, base_url=\"http://testserver\") as client:\n-    ...\n-```\n-\n-See [the ASGI documentation](https://asgi.readthedocs.io/en/latest/specs/www.html#connection-scope) for more details on the `client` and `root_path` keys.\n-\n-## Startup/shutdown of ASGI apps\n-\n-It is not in the scope of HTTPX to trigger lifespan events of your app.\n-\n-However it is suggested to use `LifespanManager` from [asgi-lifespan](https://github.com/florimondmanca/asgi-lifespan#usage) in pair with `AsyncClient`.\n+For details on calling directly into ASGI applications, see [the `ASGITransport` docs](../advanced/transports#asgitransport).\n\\ No newline at end of file",
+      "url": "https://github.com/encode/httpx/blob/ab27c991a9bcc6121a2e836066b619973d7addd3/docs%2Fasync.md",
+      "date": "2024-02-02T13:29:41Z",
+      "author": "lovelydinosaur",
+      "retrieved_at": "2026-11-01T11:00:32.532614+00:00",
+      "sha256": "4496c93c7964c2f43dacb442d43a67c1a370a70bb4ff50bc503f2ed1837447f7",
+      "parent": "pr-3050",
+      "path": "docs/async.md",
+      "number": 3050,
+      "commit": "cabd1c095e52e2f67ab63ec17941d3a539d7c877"
+    },
+    {
+      "id": "diff-3050-httpx/_client.py",
+      "kind": "diff",
+      "title": "httpx/_client.py \u00b7 PR #3050",
+      "body": "@@ -672,6 +672,13 @@ def __init__(\n             if proxy:\n                 raise RuntimeError(\"Use either `proxy` or 'proxies', not both.\")\n \n+        if app:\n+            message = (\n+                \"The 'app' shortcut is now deprecated.\"\n+                \" Use the explicit style 'transport=WSGITransport(app=...)' instead.\"\n+            )\n+            warnings.warn(message, DeprecationWarning)\n+\n         allow_env_proxies = trust_env and app is None and transport is None\n         proxy_map = self._get_proxy_map(proxies or proxy, allow_env_proxies)\n \n@@ -1411,7 +1418,14 @@ def __init__(\n             if proxy:\n                 raise RuntimeError(\"Use either `proxy` or 'proxies', not both.\")\n \n-        allow_env_proxies = trust_env and app is None and transport is None\n+        if app:\n+            message = (\n+                \"The 'app' shortcut is now deprecated.\"\n+                \" Use the explicit style 'transport=ASGITransport(app=...)' instead.\"\n+            )\n+            warnings.warn(message, DeprecationWarning)\n+\n+        allow_env_proxies = trust_env and transport is None\n         proxy_map = self._get_proxy_map(proxies or proxy, allow_env_proxies)\n \n         self._transport = self._init_transport(",
+      "url": "https://github.com/encode/httpx/blob/ab27c991a9bcc6121a2e836066b619973d7addd3/httpx%2F_client.py",
+      "date": "2024-02-02T13:29:41Z",
+      "author": "lovelydinosaur",
+      "retrieved_at": "2026-11-01T11:00:32.532614+00:00",
+      "sha256": "1d159d653b4e00182f2f3b128aa58ae9ef5d0aa460d10645fc505c2981472b54",
+      "parent": "pr-3050",
+      "path": "httpx/_client.py",
+      "number": 3050,
+      "commit": "cabd1c095e52e2f67ab63ec17941d3a539d7c877"
+    },
+    {
+      "id": "diff-3050-tests/test_asgi.py",
+      "kind": "diff",
+      "title": "tests/test_asgi.py \u00b7 PR #3050",
+      "body": "@@ -92,7 +92,8 @@ async def test_asgi_transport_no_body():\n \n @pytest.mark.anyio\n async def test_asgi():\n-    async with httpx.AsyncClient(app=hello_world) as client:\n+    transport = httpx.ASGITransport(app=hello_world)\n+    async with httpx.AsyncClient(transport=transport) as client:\n         response = await client.get(\"http://www.example.org/\")\n \n     assert response.status_code == 200\n@@ -101,7 +102,8 @@ async def test_asgi():\n \n @pytest.mark.anyio\n async def test_asgi_urlencoded_path():\n-    async with httpx.AsyncClient(app=echo_path) as client:\n+    transport = httpx.ASGITransport(app=echo_path)\n+    async with httpx.AsyncClient(transport=transport) as client:\n         url = httpx.URL(\"http://www.example.org/\").copy_with(path=\"/user@example.org\")\n         response = await client.get(url)\n \n@@ -111,7 +113,8 @@ async def test_asgi_urlencoded_path():\n \n @pytest.mark.anyio\n async def test_asgi_raw_path():\n-    async with httpx.AsyncClient(app=echo_raw_path) as client:\n+    transport = httpx.ASGITransport(app=echo_raw_path)\n+    async with httpx.AsyncClient(transport=transport) as client:\n         url = httpx.URL(\"http://www.example.org/\").copy_with(path=\"/user@example.org\")\n         response = await client.get(url)\n \n@@ -124,7 +127,8 @@ async def test_asgi_raw_path_should_not_include_querystring_portion():\n     \"\"\"\n     See https://github.com/encode/httpx/issues/2810\n     \"\"\"\n-    async with httpx.AsyncClient(app=echo_raw_path) as client:\n+    transport = httpx.ASGITransport(app=echo_raw_path)\n+    async with httpx.AsyncClient(transport=transport) as client:\n         url = httpx.URL(\"http://www.example.org/path?query\")\n         response = await client.get(url)\n \n@@ -134,7 +138,8 @@ async def test_asgi_raw_path_should_not_include_querystring_portion():\n \n @pytest.mark.anyio\n async def test_asgi_upload():\n-    async with httpx.AsyncClient(app=echo_body) as client:\n+    transport = httpx.ASGITransport(app=echo_body)\n+    async with httpx.AsyncClient(transport=transport) as client:\n         response = await client.post(\"http://www.example.org/\", content=b\"example\")\n \n     assert response.status_code == 200\n@@ -143,7 +148,8 @@ async def test_asgi_upload():\n \n @pytest.mark.anyio\n async def test_asgi_headers():\n-    async with httpx.AsyncClient(app=echo_headers) as client:\n+    transport = httpx.ASGITransport(app=echo_headers)\n+    async with httpx.AsyncClient(transport=transport) as client:\n         response = await client.get(\"http://www.example.org/\")\n \n     assert response.status_code == 200\n@@ -160,14 +166,16 @@ async def test_asgi_headers():\n \n @pytest.mark.anyio\n async def test_asgi_exc():\n-    async with httpx.AsyncClient(app=raise_exc) as client:\n+    transport = httpx.ASGITransport(app=raise_exc)\n+    async with httpx.AsyncClient(transport=transport) as client:\n         with pytest.raises(RuntimeError):\n             await client.get(\"http://www.example.org/\")\n \n \n @pytest.mark.anyio\n async def test_asgi_exc_after_response():\n-    async with httpx.AsyncClient(app=raise_exc_after_response) as client:\n+    transport = httpx.ASGITransport(app=raise_exc_after_response)\n+    async with httpx.AsyncClient(transport=transport) as client:\n         with pytest.raises(RuntimeError):\n             await client.get(\"http://www.example.org/\")\n \n@@ -199,7 +207,8 @@ async def read_body(scope, receive, send):\n         message = await receive()\n         disconnect = message.get(\"type\") == \"http.disconnect\"\n \n-    async with httpx.AsyncClient(app=read_body) as client:\n+    transport = httpx.ASGITransport(app=read_body)\n+    async with httpx.AsyncClient(transport=transport) as client:\n         response = await client.post(\"http://www.example.org/\", content=b\"example\")\n \n     assert response.status_code == 200\n@@ -213,3 +222,13 @@ async def test_asgi_exc_no_raise():\n         response = await client.get(\"http://www.example.org/\")\n \n         assert response.status_code == 500\n+\n+\n+@pytest.mark.anyio\n+async def test_deprecated_shortcut():\n+    \"\"\"\n+    The `app=...` shortcut is now deprecated.\n+    Use the explicit transport style instead.\n+    \"\"\"\n+    with pytest.warns(DeprecationWarning):\n+        httpx.AsyncClient(app=hello_world)",
+      "url": "https://github.com/encode/httpx/blob/ab27c991a9bcc6121a2e836066b619973d7addd3/tests%2Ftest_asgi.py",
+      "date": "2024-02-02T13:29:41Z",
+      "author": "lovelydinosaur",
+      "retrieved_at": "2026-11-01T11:00:32.532614+00:00",
+      "sha256": "1bdb167add943c6b4e191ac1aa75dbf82107485bc4a25b45640025a7274d7686",
+      "parent": "pr-3050",
+      "path": "tests/test_asgi.py",
+      "number": 3050,
+      "commit": "cabd1c095e52e2f67ab63ec17941d3a539d7c877"
+    },
+    {
+      "id": "diff-3050-tests/test_wsgi.py",
+      "kind": "diff",
+      "title": "tests/test_wsgi.py \u00b7 PR #3050",
+      "body": "@@ -92,49 +92,56 @@ def log_to_wsgi_log_buffer(environ, start_response):\n \n \n def test_wsgi():\n-    client = httpx.Client(app=application_factory([b\"Hello, World!\"]))\n+    transport = httpx.WSGITransport(app=application_factory([b\"Hello, World!\"]))\n+    client = httpx.Client(transport=transport)\n     response = client.get(\"http://www.example.org/\")\n     assert response.status_code == 200\n     assert response.text == \"Hello, World!\"\n \n \n def test_wsgi_upload():\n-    client = httpx.Client(app=echo_body)\n+    transport = httpx.WSGITransport(app=echo_body)\n+    client = httpx.Client(transport=transport)\n     response = client.post(\"http://www.example.org/\", content=b\"example\")\n     assert response.status_code == 200\n     assert response.text == \"example\"\n \n \n def test_wsgi_upload_with_response_stream():\n-    client = httpx.Client(app=echo_body_with_response_stream)\n+    transport = httpx.WSGITransport(app=echo_body_with_response_stream)\n+    client = httpx.Client(transport=transport)\n     response = client.post(\"http://www.example.org/\", content=b\"example\")\n     assert response.status_code == 200\n     assert response.text == \"example\"\n \n \n def test_wsgi_exc():\n-    client = httpx.Client(app=raise_exc)\n+    transport = httpx.WSGITransport(app=raise_exc)\n+    client = httpx.Client(transport=transport)\n     with pytest.raises(ValueError):\n         client.get(\"http://www.example.org/\")\n \n \n def test_wsgi_http_error():\n-    client = httpx.Client(app=partial(raise_exc, exc=RuntimeError))\n+    transport = httpx.WSGITransport(app=partial(raise_exc, exc=RuntimeError))\n+    client = httpx.Client(transport=transport)\n     with pytest.raises(RuntimeError):\n         client.get(\"http://www.example.org/\")\n \n \n def test_wsgi_generator():\n     output = [b\"\", b\"\", b\"Some content\", b\" and more content\"]\n-    client = httpx.Client(app=application_factory(output))\n+    transport = httpx.WSGITransport(app=application_factory(output))\n+    client = httpx.Client(transport=transport)\n     response = client.get(\"http://www.example.org/\")\n     assert response.status_code == 200\n     assert response.text == \"Some content and more content\"\n \n \n def test_wsgi_generator_empty():\n     output = [b\"\", b\"\", b\"\", b\"\"]\n-    client = httpx.Client(app=application_factory(output))\n+    transport = httpx.WSGITransport(app=application_factory(output))\n+    client = httpx.Client(transport=transport)\n     response = client.get(\"http://www.example.org/\")\n     assert response.status_code == 200\n     assert response.text == \"\"\n@@ -170,7 +177,8 @@ def app(environ, start_response):\n         server_port = environ[\"SERVER_PORT\"]\n         return hello_world_app(environ, start_response)\n \n-    client = httpx.Client(app=app)\n+    transport = httpx.WSGITransport(app=app)\n+    client = httpx.Client(transport=transport)\n     response = client.get(url)\n     assert response.status_code == 200\n     assert response.text == \"Hello, World!\"\n@@ -186,9 +194,19 @@ def app(environ, start_response):\n         start_response(\"200 OK\", [(\"Content-Type\", \"text/plain\")])\n         return [b\"success\"]\n \n-    with httpx.Client(app=app, base_url=\"http://testserver\") as client:\n+    transport = httpx.WSGITransport(app=app)\n+    with httpx.Client(transport=transport, base_url=\"http://testserver\") as client:\n         response = client.get(\"/\")\n \n     assert response.status_code == 200\n     assert response.text == \"success\"\n     assert server_protocol == \"HTTP/1.1\"\n+\n+\n+def test_deprecated_shortcut():\n+    \"\"\"\n+    The `app=...` shortcut is now deprecated.\n+    Use the explicit transport style instead.\n+    \"\"\"\n+    with pytest.warns(DeprecationWarning):\n+        httpx.Client(app=application_factory([b\"Hello, World!\"]))",
+      "url": "https://github.com/encode/httpx/blob/ab27c991a9bcc6121a2e836066b619973d7addd3/tests%2Ftest_wsgi.py",
+      "date": "2024-02-02T13:29:41Z",
+      "author": "lovelydinosaur",
+      "retrieved_at": "2026-11-01T11:00:32.532614+00:00",
+      "sha256": "0ab06c6f4691cca1172e2eba2a4a2684bc806ecfad207daddcdf209a5e4ae192",
+      "parent": "pr-3050",
+      "path": "tests/test_wsgi.py",
+      "number": 3050,
+      "commit": "cabd1c095e52e2f67ab63ec17941d3a539d7c877"
+    },
+    {
+      "id": "pr-2074",
+      "kind": "pull_request",
+      "title": "Preserve Authorization header on HTTPS redirect (#1850)",
+      "body": "Closes #1850\r\n\r\nAdded a utility function to check if a URL is a HTTPS upgrade of another URL. It will only work if the default ports (80 and 443) are used.",
+      "url": "https://github.com/encode/httpx/pull/2074",
+      "date": "2022-02-09T11:18:21Z",
+      "author": "waterfountain1996",
+      "retrieved_at": "2026-11-01T11:00:32.532614+00:00",
+      "sha256": "7307c11f5a08f69ff8c8451d1f8e03549a64c321c955dafad32f185328612581",
+      "number": 2074,
+      "merged_at": "2022-02-09T11:18:21Z",
+      "commit": "4401d55ecf0d95be237098b6c73c45420d54d499"
+    },
+    {
+      "id": "comment-1033645523",
+      "kind": "comment",
+      "title": "Comment on PR #2074",
+      "body": "Fantastic - very neatly done.",
+      "url": "https://github.com/encode/httpx/pull/2074#issuecomment-1033645523",
+      "date": "2022-02-09T11:11:37Z",
+      "author": "lovelydinosaur",
+      "retrieved_at": "2026-11-01T11:00:32.532614+00:00",
+      "sha256": "488d4be89da82e6f0f6e4f84590937c053e8507d9be677286b81c96e567388d0",
+      "parent": "pr-2074",
+      "number": 2074
+    },
+    {
+      "id": "review_comment-802548304",
+      "kind": "review_comment",
+      "title": "Review Comment on PR #2074",
+      "body": "```suggestion\r\n                # Strip Authorization headers when responses are redirected\r\n                # away from the origin. (Except for direct HTTP to HTTPS redirects.)\r\n```",
+      "url": "https://github.com/encode/httpx/pull/2074#discussion_r802548304",
+      "date": "2022-02-09T11:10:43Z",
+      "author": "lovelydinosaur",
+      "retrieved_at": "2026-11-01T11:00:32.532614+00:00",
+      "sha256": "2d21e561956cfe9c90e90cb3659e6daf8d7431e8bea38aec397a4577b6a237f7",
+      "parent": "pr-2074",
+      "number": 2074
+    },
+    {
+      "id": "diff-2074-httpx/_client.py",
+      "kind": "diff",
+      "title": "httpx/_client.py \u00b7 PR #2074",
+      "body": "@@ -51,6 +51,7 @@\n     URLPattern,\n     get_environment_proxies,\n     get_logger,\n+    is_https_redirect,\n     same_origin,\n )\n \n@@ -532,9 +533,10 @@ def _redirect_headers(self, request: Request, url: URL, method: str) -> Headers:\n         headers = Headers(request.headers)\n \n         if not same_origin(url, request.url):\n-            # Strip Authorization headers when responses are redirected away from\n-            # the origin.\n-            headers.pop(\"Authorization\", None)\n+            if not is_https_redirect(request.url, url):\n+                # Strip Authorization headers when responses are redirected\n+                # away from the origin. (Except for direct HTTP to HTTPS redirects.)\n+                headers.pop(\"Authorization\", None)\n \n             # Update the Host header.\n             headers[\"Host\"] = url.netloc.decode(\"ascii\")",
+      "url": "https://github.com/encode/httpx/blob/52f73c712fb35cec1248313e4c023b7673aa3931/httpx%2F_client.py",
+      "date": "2022-02-09T11:18:21Z",
+      "author": "waterfountain1996",
+      "retrieved_at": "2026-11-01T11:00:32.532614+00:00",
+      "sha256": "5d7dbc083b6b2fbb3fe75511b42a89631b6c3aa6960b70d5397f15b837e5e016",
+      "parent": "pr-2074",
+      "path": "httpx/_client.py",
+      "number": 2074,
+      "commit": "4401d55ecf0d95be237098b6c73c45420d54d499"
+    },
+    {
+      "id": "diff-2074-httpx/_utils.py",
+      "kind": "diff",
+      "title": "httpx/_utils.py \u00b7 PR #2074",
+      "body": "@@ -282,6 +282,21 @@ def same_origin(url: \"URL\", other: \"URL\") -> bool:\n     )\n \n \n+def is_https_redirect(url: \"URL\", location: \"URL\") -> bool:\n+    \"\"\"\n+    Return 'True' if 'location' is a HTTPS upgrade of 'url'\n+    \"\"\"\n+    if url.host != location.host:\n+        return False\n+\n+    return (\n+        url.scheme == \"http\"\n+        and port_or_default(url) == 80\n+        and location.scheme == \"https\"\n+        and port_or_default(location) == 443\n+    )\n+\n+\n def get_environment_proxies() -> typing.Dict[str, typing.Optional[str]]:\n     \"\"\"Gets proxy information from the environment\"\"\"\n ",
+      "url": "https://github.com/encode/httpx/blob/52f73c712fb35cec1248313e4c023b7673aa3931/httpx%2F_utils.py",
+      "date": "2022-02-09T11:18:21Z",
+      "author": "waterfountain1996",
+      "retrieved_at": "2026-11-01T11:00:32.532614+00:00",
+      "sha256": "3d52b7a2ecac2ce104963672d700afbb7fca487c6092492db27110b073a97ff0",
+      "parent": "pr-2074",
+      "path": "httpx/_utils.py",
+      "number": 2074,
+      "commit": "4401d55ecf0d95be237098b6c73c45420d54d499"
+    },
+    {
+      "id": "diff-2074-tests/client/test_redirects.py",
+      "kind": "diff",
+      "title": "tests/client/test_redirects.py \u00b7 PR #2074",
+      "body": "@@ -270,6 +270,15 @@ def test_cross_domain_redirect_with_auth_header():\n     assert \"authorization\" not in response.json()[\"headers\"]\n \n \n+def test_cross_domain_https_redirect_with_auth_header():\n+    client = httpx.Client(transport=httpx.MockTransport(redirects))\n+    url = \"http://example.com/cross_domain\"\n+    headers = {\"Authorization\": \"abc\"}\n+    response = client.get(url, headers=headers, follow_redirects=True)\n+    assert response.url == \"https://example.org/cross_domain_target\"\n+    assert \"authorization\" not in response.json()[\"headers\"]\n+\n+\n def test_cross_domain_redirect_with_auth():\n     client = httpx.Client(transport=httpx.MockTransport(redirects))\n     url = \"https://example.com/cross_domain\"\n@@ -287,6 +296,15 @@ def test_same_domain_redirect():\n     assert response.json()[\"headers\"][\"authorization\"] == \"abc\"\n \n \n+def test_same_domain_https_redirect_with_auth_header():\n+    client = httpx.Client(transport=httpx.MockTransport(redirects))\n+    url = \"http://example.org/cross_domain\"\n+    headers = {\"Authorization\": \"abc\"}\n+    response = client.get(url, headers=headers, follow_redirects=True)\n+    assert response.url == \"https://example.org/cross_domain_target\"\n+    assert response.json()[\"headers\"][\"authorization\"] == \"abc\"\n+\n+\n def test_body_redirect():\n     \"\"\"\n     A 308 redirect should preserve the request body.",
+      "url": "https://github.com/encode/httpx/blob/52f73c712fb35cec1248313e4c023b7673aa3931/tests%2Fclient%2Ftest_redirects.py",
+      "date": "2022-02-09T11:18:21Z",
+      "author": "waterfountain1996",
+      "retrieved_at": "2026-11-01T11:00:32.532614+00:00",
+      "sha256": "ad2ae985587f4cb1576610c2c2883a2411a70cd5dadc80e730809fe8c1779128",
+      "parent": "pr-2074",
+      "path": "tests/client/test_redirects.py",
+      "number": 2074,
+      "commit": "4401d55ecf0d95be237098b6c73c45420d54d499"
+    },
+    {
+      "id": "diff-2074-tests/test_utils.py",
+      "kind": "diff",
+      "title": "tests/test_utils.py \u00b7 PR #2074",
+      "body": "@@ -10,6 +10,7 @@\n     get_ca_bundle_from_env,\n     get_environment_proxies,\n     guess_json_utf,\n+    is_https_redirect,\n     obfuscate_sensitive_headers,\n     parse_header_links,\n     same_origin,\n@@ -221,6 +222,24 @@ def test_not_same_origin():\n     assert not same_origin(origin1, origin2)\n \n \n+def test_is_https_redirect():\n+    url = httpx.URL(\"http://example.com\")\n+    location = httpx.URL(\"https://example.com\")\n+    assert is_https_redirect(url, location)\n+\n+\n+def test_is_not_https_redirect():\n+    url = httpx.URL(\"http://example.com\")\n+    location = httpx.URL(\"https://www.example.com\")\n+    assert not is_https_redirect(url, location)\n+\n+\n+def test_is_not_https_redirect_if_not_default_ports():\n+    url = httpx.URL(\"http://example.com:9999\")\n+    location = httpx.URL(\"https://example.com:1337\")\n+    assert not is_https_redirect(url, location)\n+\n+\n @pytest.mark.parametrize(\n     [\"pattern\", \"url\", \"expected\"],\n     [",
+      "url": "https://github.com/encode/httpx/blob/52f73c712fb35cec1248313e4c023b7673aa3931/tests%2Ftest_utils.py",
+      "date": "2022-02-09T11:18:21Z",
+      "author": "waterfountain1996",
+      "retrieved_at": "2026-11-01T11:00:32.532614+00:00",
+      "sha256": "c47d16ad2b9cdec71c09550f7b423a88db3bb0df2d3d88ea6535de5cbcf19c67",
+      "parent": "pr-2074",
+      "path": "tests/test_utils.py",
+      "number": 2074,
+      "commit": "4401d55ecf0d95be237098b6c73c45420d54d499"
+    },
+    {
+      "id": "issue-2462",
+      "kind": "issue",
+      "title": "Breaking drop of URL.raw in patch release 0.23.1",
+      "body": "The patch release `0.23.1` included a breaking change in #2241 \r\n\r\nThe justification seems to be that \"we don't use it\", but `url.raw` is a public property used by other libraries including `ddtrace` 0.x versions: https://github.com/DataDog/dd-trace-py/blob/v0.61.3/ddtrace/contrib/httpx/patch.py#L41 \r\n\r\nCan this breaking change be reverted and maybe soft-deprecated? @tomchristie @michaeloliverx ",
+      "url": "https://github.com/encode/httpx/issues/2462",
+      "date": "2022-11-22T20:03:18Z",
+      "author": "developerDemetri",
+      "retrieved_at": "2026-11-01T11:00:32.532614+00:00",
+      "sha256": "33c55ff2549737b77c6ee00750eb7473bd30c3de5a7aeaa6920f2b412db248b6",
+      "number": 2462
+    },
+    {
+      "id": "comment-1324204686",
+      "kind": "comment",
+      "title": "Comment on issue #2462",
+      "body": "Looks like this has been raised in https://github.com/encode/httpx/issues/2457 but it seems like reverting here would be more ideal (and safer) than hoping other dependencies all refactor their usage?",
+      "url": "https://github.com/encode/httpx/issues/2462#issuecomment-1324204686",
+      "date": "2022-11-22T20:28:07Z",
+      "author": "developerDemetri",
+      "retrieved_at": "2026-11-01T11:00:32.532614+00:00",
+      "sha256": "69ab2d770cdbae7c1aa26e200f86c41e8aedf4bc37ecae0b26501fdfd01b99a0",
+      "parent": "issue-2462",
+      "number": 2462
+    },
+    {
+      "id": "comment-1327392317",
+      "kind": "comment",
+      "title": "Comment on issue #2462",
+      "body": "@developerDemetri - Would it help you folks if we released a patch version which included `url.raw` returning a `NamedTuple`? That wouldn't be a full rollback or adding `httpx.RawURL` back to the API, but we could do that quickly and easily, and it would resolve the specific case you're pointing to.",
+      "url": "https://github.com/encode/httpx/issues/2462#issuecomment-1327392317",
+      "date": "2022-11-25T12:03:32Z",
+      "author": "lovelydinosaur",
+      "retrieved_at": "2026-11-01T11:00:32.532614+00:00",
+      "sha256": "dd7a646f17be5054b6454c579aa6b2921d38e2935aff86d42803d8a7b8fb2900",
+      "parent": "issue-2462",
+      "number": 2462
+    },
+    {
+      "id": "comment-1329537180",
+      "kind": "comment",
+      "title": "Comment on issue #2462",
+      "body": "> @developerDemetri - Would it help you folks if we released a patch version which included `url.raw` returning a `NamedTuple`? That wouldn't be a full rollback or adding `httpx.RawURL` back to the API, but we could do that quickly and easily, and it would resolve the specific case you're pointing to.\r\n\r\nYup, that should help for our use case and anyone else relying on `url.raw` ",
+      "url": "https://github.com/encode/httpx/issues/2462#issuecomment-1329537180",
+      "date": "2022-11-28T18:15:04Z",
+      "author": "developerDemetri",
+      "retrieved_at": "2026-11-01T11:00:32.532614+00:00",
+      "sha256": "e7b9c1b7e243c35c75886c6c9fa17026027dac143bb4b38871539d9bf026ba4f",
+      "parent": "issue-2462",
+      "number": 2462
+    },
+    {
+      "id": "comment-1332767221",
+      "kind": "comment",
+      "title": "Comment on issue #2462",
+      "body": "> > @developerDemetri - Would it help you folks if we released a patch version which included `url.raw` returning a `NamedTuple`? That wouldn't be a full rollback or adding `httpx.RawURL` back to the API, but we could do that quickly and easily, and it would resolve the specific case you're pointing to.\r\n> \r\n> Yup, that should help for our use case and anyone else relying on `url.raw`\r\n\r\n@tomchristie I took a stab at this in https://github.com/encode/httpx/pull/2481 ",
+      "url": "https://github.com/encode/httpx/issues/2462#issuecomment-1332767221",
+      "date": "2022-11-30T21:41:02Z",
+      "author": "developerDemetri",
+      "retrieved_at": "2026-11-01T11:00:32.532614+00:00",
+      "sha256": "0c46d4d997dfae6ab4271538d4b5259768b322b105927d81ddc9ca32dc9e861a",
+      "parent": "issue-2462",
+      "number": 2462
+    },
+    {
+      "id": "issue-1850",
+      "kind": "issue",
+      "title": "Allow Authorization header to be preserved on `http->https` redirect cases.",
+      "body": "We might want to consider allowing the `Authorization` header to be preserved in cases of `http`->`https` redirects.\r\n\r\nSee discussion https://github.com/encode/httpx/discussions/1846\r\n\r\n",
+      "url": "https://github.com/encode/httpx/issues/1850",
+      "date": "2021-09-10T08:26:57Z",
+      "author": "lovelydinosaur",
+      "retrieved_at": "2026-11-01T11:00:32.532614+00:00",
+      "sha256": "5603ce97c36b6bb49ad53fa2b83d7c519110eb15700cc8de134741669b8bd970",
+      "number": 1850
+    },
+    {
+      "id": "comment-1727389402",
+      "kind": "comment",
+      "title": "Earlier transport API rationale",
+      "body": "> Can we define a versioning policy\r\n\r\nWe should make it clear that we follow `SEMVER`.\r\n\r\nWe should also recommend that users pin their requirements to at least a major version range.\r\n\r\nInformally we can follow a stronger-than-SEMVER policy. If we introduce an incompatible API change in a major version, then we can *first* have a major version bump that issues a warning with the old usage, but does not break. We'll only then remove the old usage after a *second* major version bump.\r\n\r\nDeprecating formal support of older Python versions should require a version bump.\r\n\r\n---\r\n\r\nMy concise \"where are we at\" is... Let's release a 1.0 version with a neat SEMVER policy immenently.\r\n\r\nFollowing up on https://github.com/encode/httpx/issues/947#issuecomment-1715532202 more specifically...\r\n\r\n- [ ] **Bugs that I might currently consider to be 1.0 blockers.** Anything we can deal with as a patch release shouldn't be a blocker.\r\n  - [x] The ASGI `raw_path` is arguably an API change rather than a plain bug. (https://github.com/encode/httpx/pull/2999)\r\n  - [ ] I'd like to review a couple of bits of our URL handling before 1.0. Based on incoming discussions there's a couple of behavioral decisions to make there that wouldn't have any graceful upgrade path.\r\n- [ ] **Documentation refresh.** *I don't think we should block a 1.0 release on a major refresh.* There's a significant amount of work here, so I'd suggest we'd be better off cutting our 1.0 release and making our versioning policy clear, and then following up with a later docs refresh. A few minor changes would be sufficient...\r\n  - [ ] Adding our versioning policy\r\n  - [ ] Notes about sponsorship\r\n  - [ ] Adding a docs page for our command line client\r\n  - [ ] A \"why choose httpx\" section in the README/docs.\r\n  - [ ] Our project tagline could be smarter.\r\n- [ ] **API finessing.** *I don't think we should block a 1.0 release on this (we don't want to rush any design here).* However, we should address any issues that would prevent later graceful upgrades. Most of the API finessing suggestions have graceful deprecation paths that we could follow if we wanted to adopt them. The one bit that I think needs dealing with upfront is removing any defaults for env-based configuration. I'll expand on this in due course.\r\n  - [ ] Ensuring env-based configuration is off by default.\r\n- [ ] **Minimising project dependancies.** *This seems worthwhile to me.*\r\n  - [x] [`httpcore` version 1.0](https://github.com/encode/httpcore/pull/809).\r\n  - [ ] https://github.com/encode/httpx/pull/2858\r\n  - [ ] Make `idna` support optional.\r\n\r\nI think once we've got that done we can move to a time-based release schedule, improve our documentation, focus on how we deal with sponsorships, and iteratively improve on the project at a pace that isn't rushed.",
+      "url": "https://github.com/encode/httpx/issues/947#issuecomment-1727389402",
+      "date": "2023-09-20T10:00:07Z",
+      "author": "lovelydinosaur",
+      "retrieved_at": "2026-11-01T11:00:32.532614+00:00",
+      "sha256": "c1a5f72dc5d93e82ebd190a6726c292e9dc88dc1dfe8559764187752a8bbf869",
+      "parent": "pr-3050"
+    },
+    {
+      "id": "code-httpx-_urls.py",
+      "kind": "code",
+      "title": "httpx/_urls.py",
+      "body": "from __future__ import annotations\n\nimport typing\nfrom urllib.parse import parse_qs, unquote, urlencode\n\nimport idna\n\nfrom ._types import QueryParamTypes\nfrom ._urlparse import urlparse\nfrom ._utils import primitive_value_to_str\n\n__all__ = [\"URL\", \"QueryParams\"]\n\n\nclass URL:\n    \"\"\"\n    url = httpx.URL(\"HTTPS://jo%40email.com:a%20secret@m\u00fcller.de:1234/pa%20th?search=ab#anchorlink\")\n\n    assert url.scheme == \"https\"\n    assert url.username == \"jo@email.com\"\n    assert url.password == \"a secret\"\n    assert url.userinfo == b\"jo%40email.com:a%20secret\"\n    assert url.host == \"m\u00fcller.de\"\n    assert url.raw_host == b\"xn--mller-kva.de\"\n    assert url.port == 1234\n    assert url.netloc == b\"xn--mller-kva.de:1234\"\n    assert url.path == \"/pa th\"\n    assert url.query == b\"?search=ab\"\n    assert url.raw_path == b\"/pa%20th?search=ab\"\n    assert url.fragment == \"anchorlink\"\n\n    The components of a URL are broken down like this:\n\n       https://jo%40email.com:a%20secret@m\u00fcller.de:1234/pa%20th?search=ab#anchorlink\n    [scheme]   [  username  ] [password] [ host ][port][ path ] [ query ] [fragment]\n               [       userinfo        ] [   netloc   ][    raw_path    ]\n\n    Note that:\n\n    * `url.scheme` is normalized to always be lowercased.\n\n    * `url.host` is normalized to always be lowercased. Internationalized domain\n      names are represented in unicode, without IDNA encoding applied. For instance:\n\n      url = httpx.URL(\"http://\u4e2d\u56fd.icom.museum\")\n      assert url.host == \"\u4e2d\u56fd.icom.museum\"\n      url = httpx.URL(\"http://xn--fiqs8s.icom.museum\")\n      assert url.host == \"\u4e2d\u56fd.icom.museum\"\n\n    * `url.raw_host` is normalized to always be lowercased, and is IDNA encoded.\n\n      url = httpx.URL(\"http://\u4e2d\u56fd.icom.museum\")\n      assert url.raw_host == b\"xn--fiqs8s.icom.museum\"\n      url = httpx.URL(\"http://xn--fiqs8s.icom.museum\")\n      assert url.raw_host == b\"xn--fiqs8s.icom.museum\"\n\n    * `url.port` is either None or an integer. URLs that include the default port for\n      \"http\", \"https\", \"ws\", \"wss\", and \"ftp\" schemes have their port\n      normalized to `None`.\n\n      assert httpx.URL(\"http://example.com\") == httpx.URL(\"http://example.com:80\")\n      assert httpx.URL(\"http://example.com\").port is None\n      assert httpx.URL(\"http://example.com:80\").port is None\n\n    * `url.userinfo` is raw bytes, without URL escaping. Usually you'll want to work\n      with `url.username` and `url.password` instead, which handle the URL escaping.\n\n    * `url.raw_path` is raw bytes of both the path and query, without URL escaping.\n      This portion is used as the target when constructing HTTP requests. Usually you'll\n      want to work with `url.path` instead.\n\n    * `url.query` is raw bytes, without URL escaping. A URL query string portion can\n      only be properly URL escaped when decoding the parameter names and values\n      themselves.\n    \"\"\"\n\n    def __init__(self, url: URL | str = \"\", **kwargs: typing.Any) -> None:\n        if kwargs:\n            allowed = {\n                \"scheme\": str,\n                \"username\": str,\n                \"password\": str,\n                \"userinfo\": bytes,\n                \"host\": str,\n                \"port\": int,\n                \"netloc\": bytes,\n                \"path\": str,\n                \"query\": bytes,\n                \"raw_path\": bytes,\n                \"fragment\": str,\n                \"params\": object,\n            }\n\n            # Perform type checking for all supported keyword arguments.\n            for key, value in kwargs.items():\n                if key not in allowed:\n                    message = f\"{key!r} is an invalid keyword argument for URL()\"\n                    raise TypeError(message)\n                if value is not None and not isinstance(value, allowed[key]):\n                    expected = allowed[key].__name__\n                    seen = type(value).__name__\n                    message = f\"Argument {key!r} must be {expected} but got {seen}\"\n                    raise TypeError(message)\n                if isinstance(value, bytes):\n                    kwargs[key] = value.decode(\"ascii\")\n\n            if \"params\" in kwargs:\n                # Replace any \"params\" keyword with the raw \"query\" instead.\n                #\n                # Ensure that empty params use `kwargs[\"query\"] = None` rather\n                # than `kwargs[\"query\"] = \"\"`, so that generated URLs do not\n                # include an empty trailing \"?\".\n                params = kwargs.pop(\"params\")\n                kwargs[\"query\"] = None if not params else str(QueryParams(params))\n\n        if isinstance(url, str):\n            self._uri_reference = urlparse(url, **kwargs)\n        elif isinstance(url, URL):\n            self._uri_reference = url._uri_reference.copy_with(**kwargs)\n        else:\n            raise TypeError(\n                \"Invalid type for url.  Expected str or httpx.URL,\"\n                f\" got {type(url)}: {url!r}\"\n            )\n\n    @property\n    def scheme(self) -> str:\n        \"\"\"\n        The URL scheme, such as \"http\", \"https\".\n        Always normalised to lowercase.\n        \"\"\"\n        return self._uri_reference.scheme\n\n    @property\n    def raw_scheme(self) -> bytes:\n        \"\"\"\n        The raw bytes representation of the URL scheme, such as b\"http\", b\"https\".\n        Always normalised to lowercase.\n        \"\"\"\n        return self._uri_reference.scheme.encode(\"ascii\")\n\n    @property\n    def userinfo(self) -> bytes:\n        \"\"\"\n        The URL userinfo as a raw bytestring.\n        For example: b\"jo%40email.com:a%20secret\".\n        \"\"\"\n        return self._uri_reference.userinfo.encode(\"ascii\")\n\n    @property\n    def username(self) -> str:\n        \"\"\"\n        The URL username as a string, with URL decoding applied.\n        For example: \"jo@email.com\"\n        \"\"\"\n        userinfo = self._uri_reference.userinfo\n        return unquote(userinfo.partition(\":\")[0])\n\n    @property\n    def password(self) -> str:\n        \"\"\"\n        The URL password as a string, with URL decoding applied.\n        For example: \"a secret\"\n        \"\"\"\n        userinfo = self._uri_reference.userinfo\n        return unquote(userinfo.partition(\":\")[2])\n\n    @property\n    def host(self) -> str:\n        \"\"\"\n        The URL host as a string.\n        Always normalized to lowercase, with IDNA hosts decoded into unicode.\n\n        Examples:\n\n        url = httpx.URL(\"http://www.EXAMPLE.org\")\n        assert url.host == \"www.example.org\"\n\n        url = httpx.URL(\"http://\u4e2d\u56fd.icom.museum\")\n        assert url.host == \"\u4e2d\u56fd.icom.museum\"\n\n        url = httpx.URL(\"http://xn--fiqs8s.icom.museum\")\n        assert url.host == \"\u4e2d\u56fd.icom.museum\"\n\n        url = httpx.URL(\"https://[::ffff:192.168.0.1]\")\n        assert url.host == \"::ffff:192.168.0.1\"\n        \"\"\"\n        host: str = self._uri_reference.host\n\n        if host.startswith(\"xn--\"):\n            host = idna.decode(host)\n\n        return host\n\n    @property\n    def raw_host(self) -> bytes:\n        \"\"\"\n        The raw bytes representation of the URL host.\n        Always normalized to lowercase, and IDNA encoded.\n\n        Examples:\n\n        url = httpx.URL(\"http://www.EXAMPLE.org\")\n        assert url.raw_host == b\"www.example.org\"\n\n        url = httpx.URL(\"http://\u4e2d\u56fd.icom.museum\")\n        assert url.raw_host == b\"xn--fiqs8s.icom.museum\"\n\n        url = httpx.URL(\"http://xn--fiqs8s.icom.museum\")\n        assert url.raw_host == b\"xn--fiqs8s.icom.museum\"\n\n        url = httpx.URL(\"https://[::ffff:192.168.0.1]\")\n        assert url.raw_host == b\"::ffff:192.168.0.1\"\n        \"\"\"\n        return self._uri_reference.host.encode(\"ascii\")\n\n    @property\n    def port(self) -> int | None:\n        \"\"\"\n        The URL port as an integer.\n\n        Note that the URL class performs port normalization as per the WHATWG spec.\n        Default ports for \"http\", \"https\", \"ws\", \"wss\", and \"ftp\" schemes are always\n        treated as `None`.\n\n        For example:\n\n        assert httpx.URL(\"http://www.example.com\") == httpx.URL(\"http://www.example.com:80\")\n        assert httpx.URL(\"http://www.example.com:80\").port is None\n        \"\"\"\n        return self._uri_reference.port\n\n    @property\n    def netloc(self) -> bytes:\n        \"\"\"\n        Either `<host>` or `<host>:<port>` as bytes.\n        Always normalized to lowercase, and IDNA encoded.\n\n        This property may be used for generating the value of a request\n        \"Host\" header.\n        \"\"\"\n        return self._uri_reference.netloc.encode(\"ascii\")\n\n    @property\n    def path(self) -> str:\n        \"\"\"\n        The URL path as a string. Excluding the query string, and URL decoded.\n\n        For example:\n\n        url = httpx.URL(\"https://example.com/pa%20th\")\n        assert url.path == \"/pa th\"\n        \"\"\"\n        path = self._uri_reference.path or \"/\"\n        return unquote(path)\n\n    @property\n    def query(self) -> bytes:\n        \"\"\"\n        The URL query string, as raw bytes, excluding the leading b\"?\".\n\n        This is necessarily a bytewise interface, because we cannot\n        perform URL decoding of this representation until we've parsed\n        the keys and values into a QueryParams instance.\n\n        For example:\n\n        url = httpx.URL(\"https://example.com/?filter=some%20search%20terms\")\n        assert url.query == b\"filter=some%20search%20terms\"\n        \"\"\"\n        query = self._uri_reference.query or \"\"\n        return query.encode(\"ascii\")\n\n    @property\n    def params(self) -> QueryParams:\n        \"\"\"\n        The URL query parameters, neatly parsed and packaged into an immutable\n        multidict representation.\n        \"\"\"\n        return QueryParams(self._uri_reference.query)\n\n    @property\n    def raw_path(self) -> bytes:\n        \"\"\"\n        The complete URL path and query string as raw bytes.\n        Used as the target when constructing HTTP requests.\n\n        For example:\n\n        GET /users?search=some%20text HTTP/1.1\n        Host: www.example.org\n        Connection: close\n        \"\"\"\n        path = self._uri_reference.path or \"/\"\n        if self._uri_reference.query is not None:\n            path += \"?\" + self._uri_reference.query\n        return path.encode(\"ascii\")\n\n    @property\n    def fragment(self) -> str:\n        \"\"\"\n        The URL fragments, as used in HTML anchors.\n        As a string, without the leading '#'.\n        \"\"\"\n        return unquote(self._uri_reference.fragment or \"\")\n\n    @property\n    def is_absolute_url(self) -> bool:\n        \"\"\"\n        Return `True` for absolute URLs such as 'http://example.com/path',\n        and `False` for relative URLs such as '/path'.\n        \"\"\"\n        # We don't use `.is_absolute` from `rfc3986` because it treats\n        # URLs with a fragment portion as not absolute.\n        # What we actually care about is if the URL provides\n        # a scheme and hostname to which connections should be made.\n        return bool(self._uri_reference.scheme and self._uri_reference.host)\n\n    @property\n    def is_relative_url(self) -> bool:\n        \"\"\"\n        Return `False` for absolute URLs such as 'http://example.com/path',\n        and `True` for relative URLs such as '/path'.\n        \"\"\"\n        return not self.is_absolute_url\n\n    def copy_with(self, **kwargs: typing.Any) -> URL:\n        \"\"\"\n        Copy this URL, returning a new URL with some components altered.\n        Accepts the same set of parameters as the components that are made\n        available via properties on the `URL` class.\n\n        For example:\n\n        url = httpx.URL(\"https://www.example.com\").copy_with(\n            username=\"jo@gmail.com\", password=\"a secret\"\n        )\n        assert url == \"https://jo%40email.com:a%20secret@www.example.com\"\n        \"\"\"\n        return URL(self, **kwargs)\n\n    def copy_set_param(self, key: str, value: typing.Any = None) -> URL:\n        return self.copy_with(params=self.params.set(key, value))\n\n    def copy_add_param(self, key: str, value: typing.Any = None) -> URL:\n        return self.copy_with(params=self.params.add(key, value))\n\n    def copy_remove_param(self, key: str) -> URL:\n        return self.copy_with(params=self.params.remove(key))\n\n    def copy_merge_params(self, params: QueryParamTypes) -> URL:\n        return self.copy_with(params=self.params.merge(params))\n\n    def join(self, url: URL | str) -> URL:\n        \"\"\"\n        Return an absolute URL, using this URL as the base.\n\n        Eg.\n\n        url = httpx.URL(\"https://www.example.com/test\")\n        url = url.join(\"/new/path\")\n        assert url == \"https://www.example.com/new/path\"\n        \"\"\"\n        from urllib.parse import urljoin\n\n        return URL(urljoin(str(self), str(URL(url))))\n\n    def __hash__(self) -> int:\n        return hash(str(self))\n\n    def __eq__(self, other: typing.Any) -> bool:\n        return isinstance(other, (URL, str)) and str(self) == str(URL(other))\n\n    def __str__(self) -> str:\n        return str(self._uri_reference)\n\n    def __repr__(self) -> str:\n        scheme, userinfo, host, port, path, query, fragment = self._uri_reference\n\n        if \":\" in userinfo:\n            # Mask any password component.\n            userinfo = f\"{userinfo.split(':')[0]}:[secure]\"\n\n        authority = \"\".join(\n            [\n                f\"{userinfo}@\" if userinfo else \"\",\n                f\"[{host}]\" if \":\" in host else host,\n                f\":{port}\" if port is not None else \"\",\n            ]\n        )\n        url = \"\".join(\n            [\n                f\"{self.scheme}:\" if scheme else \"\",\n                f\"//{authority}\" if authority else \"\",\n                path,\n                f\"?{query}\" if query is not None else \"\",\n                f\"#{fragment}\" if fragment is not None else \"\",\n            ]\n        )\n\n        return f\"{self.__class__.__name__}({url!r})\"\n\n    @property\n    def raw(self) -> tuple[bytes, bytes, int, bytes]:  # pragma: nocover\n        import collections\n        import warnings\n\n        warnings.warn(\"URL.raw is deprecated.\")\n        RawURL = collections.namedtuple(\n            \"RawURL\", [\"raw_scheme\", \"raw_host\", \"port\", \"raw_path\"]\n        )\n        return RawURL(\n            raw_scheme=self.raw_scheme,\n            raw_host=self.raw_host,\n            port=self.port,\n            raw_path=self.raw_path,\n        )\n\n\nclass QueryParams(typing.Mapping[str, str]):\n    \"\"\"\n    URL query parameters, as a multi-dict.\n    \"\"\"\n\n    def __init__(self, *args: QueryParamTypes | None, **kwargs: typing.Any) -> None:\n        assert len(args) < 2, \"Too many arguments.\"\n        assert not (args and kwargs), \"Cannot mix named and unnamed arguments.\"\n\n        value = args[0] if args else kwargs\n\n        if value is None or isinstance(value, (str, bytes)):\n            value = value.decode(\"ascii\") if isinstance(value, bytes) else value\n            self._dict = parse_qs(value, keep_blank_values=True)\n        elif isinstance(value, QueryParams):\n            self._dict = {k: list(v) for k, v in value._dict.items()}\n        else:\n            dict_value: dict[typing.Any, list[typing.Any]] = {}\n            if isinstance(value, (list, tuple)):\n                # Convert list inputs like:\n                #     [(\"a\", \"123\"), (\"a\", \"456\"), (\"b\", \"789\")]\n                # To a dict representation, like:\n                #     {\"a\": [\"123\", \"456\"], \"b\": [\"789\"]}\n                for item in value:\n                    dict_value.setdefault(item[0], []).append(item[1])\n            else:\n                # Convert dict inputs like:\n                #    {\"a\": \"123\", \"b\": [\"456\", \"789\"]}\n                # To dict inputs where values are always lists, like:\n                #    {\"a\": [\"123\"], \"b\": [\"456\", \"789\"]}\n                dict_value = {\n                    k: list(v) if isinstance(v, (list, tuple)) else [v]\n                    for k, v in value.items()\n                }\n\n            # Ensure that keys and values are neatly coerced to strings.\n            # We coerce values `True` and `False` to JSON-like \"true\" and \"false\"\n            # representations, and coerce `None` values to the empty string.\n            self._dict = {\n                str(k): [primitive_value_to_str(item) for item in v]\n                for k, v in dict_value.items()\n            }\n\n    def keys(self) -> typing.KeysView[str]:\n        \"\"\"\n        Return all the keys in the query params.\n\n        Usage:\n\n        q = httpx.QueryParams(\"a=123&a=456&b=789\")\n        assert list(q.keys()) == [\"a\", \"b\"]\n        \"\"\"\n        return self._dict.keys()\n\n    def values(self) -> typing.ValuesView[str]:\n        \"\"\"\n        Return all the values in the query params. If a key occurs more than once\n        only the first item for that key is returned.\n\n        Usage:\n\n        q = httpx.QueryParams(\"a=123&a=456&b=789\")\n        assert list(q.values()) == [\"123\", \"789\"]\n        \"\"\"\n        return {k: v[0] for k, v in self._dict.items()}.values()\n\n    def items(self) -> typing.ItemsView[str, str]:\n        \"\"\"\n        Return all items in the query params. If a key occurs more than once\n        only the first item for that key is returned.\n\n        Usage:\n\n        q = httpx.QueryParams(\"a=123&a=456&b=789\")\n        assert list(q.items()) == [(\"a\", \"123\"), (\"b\", \"789\")]\n        \"\"\"\n        return {k: v[0] for k, v in self._dict.items()}.items()\n\n    def multi_items(self) -> list[tuple[str, str]]:\n        \"\"\"\n        Return all items in the query params. Allow duplicate keys to occur.\n\n        Usage:\n\n        q = httpx.QueryParams(\"a=123&a=456&b=789\")\n        assert list(q.multi_items()) == [(\"a\", \"123\"), (\"a\", \"456\"), (\"b\", \"789\")]\n        \"\"\"\n        multi_items: list[tuple[str, str]] = []\n        for k, v in self._dict.items():\n            multi_items.extend([(k, i) for i in v])\n        return multi_items\n\n    def get(self, key: typing.Any, default: typing.Any = None) -> typing.Any:\n        \"\"\"\n        Get a value from the query param for a given key. If the key occurs\n        more than once, then only the first value is returned.\n\n        Usage:\n\n        q = httpx.QueryParams(\"a=123&a=456&b=789\")\n        assert q.get(\"a\") == \"123\"\n        \"\"\"\n        if key in self._dict:\n            return self._dict[str(key)][0]\n        return default\n\n    def get_list(self, key: str) -> list[str]:\n        \"\"\"\n        Get all values from the query param for a given key.\n\n        Usage:\n\n        q = httpx.QueryParams(\"a=123&a=456&b=789\")\n        assert q.get_list(\"a\") == [\"123\", \"456\"]\n        \"\"\"\n        return list(self._dict.get(str(key), []))\n\n    def set(self, key: str, value: typing.Any = None) -> QueryParams:\n        \"\"\"\n        Return a new QueryParams instance, setting the value of a key.\n\n        Usage:\n\n        q = httpx.QueryParams(\"a=123\")\n        q = q.set(\"a\", \"456\")\n        assert q == httpx.QueryParams(\"a=456\")\n        \"\"\"\n        q = QueryParams()\n        q._dict = dict(self._dict)\n        q._dict[str(key)] = [primitive_value_to_str(value)]\n        return q\n\n    def add(self, key: str, value: typing.Any = None) -> QueryParams:\n        \"\"\"\n        Return a new QueryParams instance, setting or appending the value of a key.\n\n        Usage:\n\n        q = httpx.QueryParams(\"a=123\")\n        q = q.add(\"a\", \"456\")\n        assert q == httpx.QueryParams(\"a=123&a=456\")\n        \"\"\"\n        q = QueryParams()\n        q._dict = dict(self._dict)\n        q._dict[str(key)] = q.get_list(key) + [primitive_value_to_str(value)]\n        return q\n\n    def remove(self, key: str) -> QueryParams:\n        \"\"\"\n        Return a new QueryParams instance, removing the value of a key.\n\n        Usage:\n\n        q = httpx.QueryParams(\"a=123\")\n        q = q.remove(\"a\")\n        assert q == httpx.QueryParams(\"\")\n        \"\"\"\n        q = QueryParams()\n        q._dict = dict(self._dict)\n        q._dict.pop(str(key), None)\n        return q\n\n    def merge(self, params: QueryParamTypes | None = None) -> QueryParams:\n        \"\"\"\n        Return a new QueryParams instance, updated with.\n\n        Usage:\n\n        q = httpx.QueryParams(\"a=123\")\n        q = q.merge({\"b\": \"456\"})\n        assert q == httpx.QueryParams(\"a=123&b=456\")\n\n        q = httpx.QueryParams(\"a=123\")\n        q = q.merge({\"a\": \"456\", \"b\": \"789\"})\n        assert q == httpx.QueryParams(\"a=456&b=789\")\n        \"\"\"\n        q = QueryParams(params)\n        q._dict = {**self._dict, **q._dict}\n        return q\n\n    def __getitem__(self, key: typing.Any) -> str:\n        return self._dict[key][0]\n\n    def __contains__(self, key: typing.Any) -> bool:\n        return key in self._dict\n\n    def __iter__(self) -> typing.Iterator[typing.Any]:\n        return iter(self.keys())\n\n    def __len__(self) -> int:\n        return len(self._dict)\n\n    def __bool__(self) -> bool:\n        return bool(self._dict)\n\n    def __hash__(self) -> int:\n        return hash(str(self))\n\n    def __eq__(self, other: typing.Any) -> bool:\n        if not isinstance(other, self.__class__):\n            return False\n        return sorted(self.multi_items()) == sorted(other.multi_items())\n\n    def __str__(self) -> str:\n        return urlencode(self.multi_items())\n\n    def __repr__(self) -> str:\n        class_name = self.__class__.__name__\n        query_string = str(self)\n        return f\"{class_name}({query_string!r})\"\n\n    def update(self, params: QueryParamTypes | None = None) -> None:\n        raise RuntimeError(\n            \"QueryParams are immutable since 0.18.0. \"\n            \"Use `q = q.merge(...)` to create an updated copy.\"\n        )\n\n    def __setitem__(self, key: str, value: str) -> None:\n        raise RuntimeError(\n            \"QueryParams are immutable since 0.18.0. \"\n            \"Use `q = q.set(key, value)` to create an updated copy.\"\n        )\n",
+      "url": "https://github.com/encode/httpx/blob/b5addb64f0161ff6bfe94c124ef76f6a1fba5254/httpx/_urls.py",
+      "date": "2026-11-01T11:00:32.532614+00:00",
+      "author": "Repository source",
+      "retrieved_at": "2026-11-01T11:00:32.532614+00:00",
+      "sha256": "a9ef05964015f9499a66e55cd0c4e1e0ae7a51f93cd9a1fe9e007d793edb7981",
+      "path": "httpx/_urls.py",
+      "commit": "b5addb64f0161ff6bfe94c124ef76f6a1fba5254"
+    },
+    {
+      "id": "code-httpx-_client.py",
+      "kind": "code",
+      "title": "httpx/_client.py",
+      "body": "from __future__ import annotations\n\nimport datetime\nimport enum\nimport logging\nimport time\nimport typing\nimport warnings\nfrom contextlib import asynccontextmanager, contextmanager\nfrom types import TracebackType\n\nfrom .__version__ import __version__\nfrom ._auth import Auth, BasicAuth, FunctionAuth\nfrom ._config import (\n    DEFAULT_LIMITS,\n    DEFAULT_MAX_REDIRECTS,\n    DEFAULT_TIMEOUT_CONFIG,\n    Limits,\n    Proxy,\n    Timeout,\n)\nfrom ._decoders import SUPPORTED_DECODERS\nfrom ._exceptions import (\n    InvalidURL,\n    RemoteProtocolError,\n    TooManyRedirects,\n    request_context,\n)\nfrom ._models import Cookies, Headers, Request, Response\nfrom ._status_codes import codes\nfrom ._transports.base import AsyncBaseTransport, BaseTransport\nfrom ._transports.default import AsyncHTTPTransport, HTTPTransport\nfrom ._types import (\n    AsyncByteStream,\n    AuthTypes,\n    CertTypes,\n    CookieTypes,\n    HeaderTypes,\n    ProxyTypes,\n    QueryParamTypes,\n    RequestContent,\n    RequestData,\n    RequestExtensions,\n    RequestFiles,\n    SyncByteStream,\n    TimeoutTypes,\n)\nfrom ._urls import URL, QueryParams\nfrom ._utils import URLPattern, get_environment_proxies\n\nif typing.TYPE_CHECKING:\n    import ssl  # pragma: no cover\n\n__all__ = [\"USE_CLIENT_DEFAULT\", \"AsyncClient\", \"Client\"]\n\n# The type annotation for @classmethod and context managers here follows PEP 484\n# https://www.python.org/dev/peps/pep-0484/#annotating-instance-and-class-methods\nT = typing.TypeVar(\"T\", bound=\"Client\")\nU = typing.TypeVar(\"U\", bound=\"AsyncClient\")\n\n\ndef _is_https_redirect(url: URL, location: URL) -> bool:\n    \"\"\"\n    Return 'True' if 'location' is a HTTPS upgrade of 'url'\n    \"\"\"\n    if url.host != location.host:\n        return False\n\n    return (\n        url.scheme == \"http\"\n        and _port_or_default(url) == 80\n        and location.scheme == \"https\"\n        and _port_or_default(location) == 443\n    )\n\n\ndef _port_or_default(url: URL) -> int | None:\n    if url.port is not None:\n        return url.port\n    return {\"http\": 80, \"https\": 443}.get(url.scheme)\n\n\ndef _same_origin(url: URL, other: URL) -> bool:\n    \"\"\"\n    Return 'True' if the given URLs share the same origin.\n    \"\"\"\n    return (\n        url.scheme == other.scheme\n        and url.host == other.host\n        and _port_or_default(url) == _port_or_default(other)\n    )\n\n\nclass UseClientDefault:\n    \"\"\"\n    For some parameters such as `auth=...` and `timeout=...` we need to be able\n    to indicate the default \"unset\" state, in a way that is distinctly different\n    to using `None`.\n\n    The default \"unset\" state indicates that whatever default is set on the\n    client should be used. This is different to setting `None`, which\n    explicitly disables the parameter, possibly overriding a client default.\n\n    For example we use `timeout=USE_CLIENT_DEFAULT` in the `request()` signature.\n    Omitting the `timeout` parameter will send a request using whatever default\n    timeout has been configured on the client. Including `timeout=None` will\n    ensure no timeout is used.\n\n    Note that user code shouldn't need to use the `USE_CLIENT_DEFAULT` constant,\n    but it is used internally when a parameter is not included.\n    \"\"\"\n\n\nUSE_CLIENT_DEFAULT = UseClientDefault()\n\n\nlogger = logging.getLogger(\"httpx\")\n\nUSER_AGENT = f\"python-httpx/{__version__}\"\nACCEPT_ENCODING = \", \".join(\n    [key for key in SUPPORTED_DECODERS.keys() if key != \"identity\"]\n)\n\n\nclass ClientState(enum.Enum):\n    # UNOPENED:\n    #   The client has been instantiated, but has not been used to send a request,\n    #   or been opened by entering the context of a `with` block.\n    UNOPENED = 1\n    # OPENED:\n    #   The client has either sent a request, or is within a `with` block.\n    OPENED = 2\n    # CLOSED:\n    #   The client has either exited the `with` block, or `close()` has\n    #   been called explicitly.\n    CLOSED = 3\n\n\nclass BoundSyncStream(SyncByteStream):\n    \"\"\"\n    A byte stream that is bound to a given response instance, and that\n    ensures the `response.elapsed` is set once the response is closed.\n    \"\"\"\n\n    def __init__(\n        self, stream: SyncByteStream, response: Response, start: float\n    ) -> None:\n        self._stream = stream\n        self._response = response\n        self._start = start\n\n    def __iter__(self) -> typing.Iterator[bytes]:\n        for chunk in self._stream:\n            yield chunk\n\n    def close(self) -> None:\n        elapsed = time.perf_counter() - self._start\n        self._response.elapsed = datetime.timedelta(seconds=elapsed)\n        self._stream.close()\n\n\nclass BoundAsyncStream(AsyncByteStream):\n    \"\"\"\n    An async byte stream that is bound to a given response instance, and that\n    ensures the `response.elapsed` is set once the response is closed.\n    \"\"\"\n\n    def __init__(\n        self, stream: AsyncByteStream, response: Response, start: float\n    ) -> None:\n        self._stream = stream\n        self._response = response\n        self._start = start\n\n    async def __aiter__(self) -> typing.AsyncIterator[bytes]:\n        async for chunk in self._stream:\n            yield chunk\n\n    async def aclose(self) -> None:\n        elapsed = time.perf_counter() - self._start\n        self._response.elapsed = datetime.timedelta(seconds=elapsed)\n        await self._stream.aclose()\n\n\nEventHook = typing.Callable[..., typing.Any]\n\n\nclass BaseClient:\n    def __init__(\n        self,\n        *,\n        auth: AuthTypes | None = None,\n        params: QueryParamTypes | None = None,\n        headers: HeaderTypes | None = None,\n        cookies: CookieTypes | None = None,\n        timeout: TimeoutTypes = DEFAULT_TIMEOUT_CONFIG,\n        follow_redirects: bool = False,\n        max_redirects: int = DEFAULT_MAX_REDIRECTS,\n        event_hooks: None | (typing.Mapping[str, list[EventHook]]) = None,\n        base_url: URL | str = \"\",\n        trust_env: bool = True,\n        default_encoding: str | typing.Callable[[bytes], str] = \"utf-8\",\n    ) -> None:\n        event_hooks = {} if event_hooks is None else event_hooks\n\n        self._base_url = self._enforce_trailing_slash(URL(base_url))\n\n        self._auth = self._build_auth(auth)\n        self._params = QueryParams(params)\n        self.headers = Headers(headers)\n        self._cookies = Cookies(cookies)\n        self._timeout = Timeout(timeout)\n        self.follow_redirects = follow_redirects\n        self.max_redirects = max_redirects\n        self._event_hooks = {\n            \"request\": list(event_hooks.get(\"request\", [])),\n            \"response\": list(event_hooks.get(\"response\", [])),\n        }\n        self._trust_env = trust_env\n        self._default_encoding = default_encoding\n        self._state = ClientState.UNOPENED\n\n    @property\n    def is_closed(self) -> bool:\n        \"\"\"\n        Check if the client being closed\n        \"\"\"\n        return self._state == ClientState.CLOSED\n\n    @property\n    def trust_env(self) -> bool:\n        return self._trust_env\n\n    def _enforce_trailing_slash(self, url: URL) -> URL:\n        if url.raw_path.endswith(b\"/\"):\n            return url\n        return url.copy_with(raw_path=url.raw_path + b\"/\")\n\n    def _get_proxy_map(\n        self, proxy: ProxyTypes | None, allow_env_proxies: bool\n    ) -> dict[str, Proxy | None]:\n        if proxy is None:\n            if allow_env_proxies:\n                return {\n                    key: None if url is None else Proxy(url=url)\n                    for key, url in get_environment_proxies().items()\n                }\n            return {}\n        else:\n            proxy = Proxy(url=proxy) if isinstance(proxy, (str, URL)) else proxy\n            return {\"all://\": proxy}\n\n    @property\n    def timeout(self) -> Timeout:\n        return self._timeout\n\n    @timeout.setter\n    def timeout(self, timeout: TimeoutTypes) -> None:\n        self._timeout = Timeout(timeout)\n\n    @property\n    def event_hooks(self) -> dict[str, list[EventHook]]:\n        return self._event_hooks\n\n    @event_hooks.setter\n    def event_hooks(self, event_hooks: dict[str, list[EventHook]]) -> None:\n        self._event_hooks = {\n            \"request\": list(event_hooks.get(\"request\", [])),\n            \"response\": list(event_hooks.get(\"response\", [])),\n        }\n\n    @property\n    def auth(self) -> Auth | None:\n        \"\"\"\n        Authentication class used when none is passed at the request-level.\n\n        See also [Authentication][0].\n\n        [0]: /quickstart/#authentication\n        \"\"\"\n        return self._auth\n\n    @auth.setter\n    def auth(self, auth: AuthTypes) -> None:\n        self._auth = self._build_auth(auth)\n\n    @property\n    def base_url(self) -> URL:\n        \"\"\"\n        Base URL to use when sending requests with relative URLs.\n        \"\"\"\n        return self._base_url\n\n    @base_url.setter\n    def base_url(self, url: URL | str) -> None:\n        self._base_url = self._enforce_trailing_slash(URL(url))\n\n    @property\n    def headers(self) -> Headers:\n        \"\"\"\n        HTTP headers to include when sending requests.\n        \"\"\"\n        return self._headers\n\n    @headers.setter\n    def headers(self, headers: HeaderTypes) -> None:\n        client_headers = Headers(\n            {\n                b\"Accept\": b\"*/*\",\n                b\"Accept-Encoding\": ACCEPT_ENCODING.encode(\"ascii\"),\n                b\"Connection\": b\"keep-alive\",\n                b\"User-Agent\": USER_AGENT.encode(\"ascii\"),\n            }\n        )\n        client_headers.update(headers)\n        self._headers = client_headers\n\n    @property\n    def cookies(self) -> Cookies:\n        \"\"\"\n        Cookie values to include when sending requests.\n        \"\"\"\n        return self._cookies\n\n    @cookies.setter\n    def cookies(self, cookies: CookieTypes) -> None:\n        self._cookies = Cookies(cookies)\n\n    @property\n    def params(self) -> QueryParams:\n        \"\"\"\n        Query parameters to include in the URL when sending requests.\n        \"\"\"\n        return self._params\n\n    @params.setter\n    def params(self, params: QueryParamTypes) -> None:\n        self._params = QueryParams(params)\n\n    def build_request(\n        self,\n        method: str,\n        url: URL | str,\n        *,\n        content: RequestContent | None = None,\n        data: RequestData | None = None,\n        files: RequestFiles | None = None,\n        json: typing.Any | None = None,\n        params: QueryParamTypes | None = None,\n        headers: HeaderTypes | None = None,\n        cookies: CookieTypes | None = None,\n        timeout: TimeoutTypes | UseClientDefault = USE_CLIENT_DEFAULT,\n        extensions: RequestExtensions | None = None,\n    ) -> Request:\n        \"\"\"\n        Build and return a request instance.\n\n        * The `params`, `headers` and `cookies` arguments\n        are merged with any values set on the client.\n        * The `url` argument is merged with any `base_url` set on the client.\n\n        See also: [Request instances][0]\n\n        [0]: /advanced/clients/#request-instances\n        \"\"\"\n        url = self._merge_url(url)\n        headers = self._merge_headers(headers)\n        cookies = self._merge_cookies(cookies)\n        params = self._merge_queryparams(params)\n        extensions = {} if extensions is None else extensions\n        if \"timeout\" not in extensions:\n            timeout = (\n                self.timeout\n                if isinstance(timeout, UseClientDefault)\n                else Timeout(timeout)\n            )\n            extensions = dict(**extensions, timeout=timeout.as_dict())\n        return Request(\n            method,\n            url,\n            content=content,\n            data=data,\n            files=files,\n            json=json,\n            params=params,\n            headers=headers,\n            cookies=cookies,\n            extensions=extensions,\n        )\n\n    def _merge_url(self, url: URL | str) -> URL:\n        \"\"\"\n        Merge a URL argument together with any 'base_url' on the client,\n        to create the URL used for the outgoing request.\n        \"\"\"\n        merge_url = URL(url)\n        if merge_url.is_relative_url:\n            # To merge URLs we always append to the base URL. To get this\n            # behaviour correct we always ensure the base URL ends in a '/'\n            # separator, and strip any leading '/' from the merge URL.\n            #\n            # So, eg...\n            #\n            # >>> client = Client(base_url=\"https://www.example.com/subpath\")\n            # >>> client.base_url\n            # URL('https://www.example.com/subpath/')\n            # >>> client.build_request(\"GET\", \"/path\").url\n            # URL('https://www.example.com/subpath/path')\n            merge_raw_path = self.base_url.raw_path + merge_url.raw_path.lstrip(b\"/\")\n            return self.base_url.copy_with(raw_path=merge_raw_path)\n        return merge_url\n\n    def _merge_cookies(self, cookies: CookieTypes | None = None) -> CookieTypes | None:\n        \"\"\"\n        Merge a cookies argument together with any cookies on the client,\n        to create the cookies used for the outgoing request.\n        \"\"\"\n        if cookies or self.cookies:\n            merged_cookies = Cookies(self.cookies)\n            merged_cookies.update(cookies)\n            return merged_cookies\n        return cookies\n\n    def _merge_headers(self, headers: HeaderTypes | None = None) -> HeaderTypes | None:\n        \"\"\"\n        Merge a headers argument together with any headers on the client,\n        to create the headers used for the outgoing request.\n        \"\"\"\n        merged_headers = Headers(self.headers)\n        merged_headers.update(headers)\n        return merged_headers\n\n    def _merge_queryparams(\n        self, params: QueryParamTypes | None = None\n    ) -> QueryParamTypes | None:\n        \"\"\"\n        Merge a queryparams argument together with any queryparams on the client,\n        to create the queryparams used for the outgoing request.\n        \"\"\"\n        if params or self.params:\n            merged_queryparams = QueryParams(self.params)\n            return merged_queryparams.merge(params)\n        return params\n\n    def _build_auth(self, auth: AuthTypes | None) -> Auth | None:\n        if auth is None:\n            return None\n        elif isinstance(auth, tuple):\n            return BasicAuth(username=auth[0], password=auth[1])\n        elif isinstance(auth, Auth):\n            return auth\n        elif callable(auth):\n            return FunctionAuth(func=auth)\n        else:\n            raise TypeError(f'Invalid \"auth\" argument: {auth!r}')\n\n    def _build_request_auth(\n        self,\n        request: Request,\n        auth: AuthTypes | UseClientDefault | None = USE_CLIENT_DEFAULT,\n    ) -> Auth:\n        auth = (\n            self._auth if isinstance(auth, UseClientDefault) else self._build_auth(auth)\n        )\n\n        if auth is not None:\n            return auth\n\n        username, password = request.url.username, request.url.password\n        if username or password:\n            return BasicAuth(username=username, password=password)\n\n        return Auth()\n\n    def _build_redirect_request(self, request: Request, response: Response) -> Request:\n        \"\"\"\n        Given a request and a redirect response, return a new request that\n        should be used to effect the redirect.\n        \"\"\"\n        method = self._redirect_method(request, response)\n        url = self._redirect_url(request, response)\n        headers = self._redirect_headers(request, url, method)\n        stream = self._redirect_stream(request, method)\n        cookies = Cookies(self.cookies)\n        return Request(\n            method=method,\n            url=url,\n            headers=headers,\n            cookies=cookies,\n            stream=stream,\n            extensions=request.extensions,\n        )\n\n    def _redirect_method(self, request: Request, response: Response) -> str:\n        \"\"\"\n        When being redirected we may want to change the method of the request\n        based on certain specs or browser behavior.\n        \"\"\"\n        method = request.method\n\n        # https://tools.ietf.org/html/rfc7231#section-6.4.4\n        if response.status_code == codes.SEE_OTHER and method != \"HEAD\":\n            method = \"GET\"\n\n        # Do what the browsers do, despite standards...\n        # Turn 302s into GETs.\n        if response.status_code == codes.FOUND and method != \"HEAD\":\n            method = \"GET\"\n\n        # If a POST is responded to with a 301, turn it into a GET.\n        # This bizarre behaviour is explained in 'requests' issue 1704.\n        if response.status_code == codes.MOVED_PERMANENTLY and method == \"POST\":\n            method = \"GET\"\n\n        return method\n\n    def _redirect_url(self, request: Request, response: Response) -> URL:\n        \"\"\"\n        Return the URL for the redirect to follow.\n        \"\"\"\n        location = response.headers[\"Location\"]\n\n        try:\n            url = URL(location)\n        except InvalidURL as exc:\n            raise RemoteProtocolError(\n                f\"Invalid URL in location header: {exc}.\", request=request\n            ) from None\n\n        # Handle malformed 'Location' headers that are \"absolute\" form, have no host.\n        # See: https://github.com/encode/httpx/issues/771\n        if url.scheme and not url.host:\n            url = url.copy_with(host=request.url.host)\n\n        # Facilitate relative 'Location' headers, as allowed by RFC 7231.\n        # (e.g. '/path/to/resource' instead of 'http://domain.tld/path/to/resource')\n        if url.is_relative_url:\n            url = request.url.join(url)\n\n        # Attach previous fragment if needed (RFC 7231 7.1.2)\n        if request.url.fragment and not url.fragment:\n            url = url.copy_with(fragment=request.url.fragment)\n\n        return url\n\n    def _redirect_headers(self, request: Request, url: URL, method: str) -> Headers:\n        \"\"\"\n        Return the headers that should be used for the redirect request.\n        \"\"\"\n        headers = Headers(request.headers)\n\n        if not _same_origin(url, request.url):\n            if not _is_https_redirect(request.url, url):\n                # Strip Authorization headers when responses are redirected\n                # away from the origin. (Except for direct HTTP to HTTPS redirects.)\n                headers.pop(\"Authorization\", None)\n\n            # Update the Host header.\n            headers[\"Host\"] = url.netloc.decode(\"ascii\")\n\n        if method != request.method and method == \"GET\":\n            # If we've switch to a 'GET' request, then strip any headers which\n            # are only relevant to the request body.\n            headers.pop(\"Content-Length\", None)\n            headers.pop(\"Transfer-Encoding\", None)\n\n        # We should use the client cookie store to determine any cookie header,\n        # rather than whatever was on the original outgoing request.\n        headers.pop(\"Cookie\", None)\n\n        return headers\n\n    def _redirect_stream(\n        self, request: Request, method: str\n    ) -> SyncByteStream | AsyncByteStream | None:\n        \"\"\"\n        Return the body that should be used for the redirect request.\n        \"\"\"\n        if method != request.method and method == \"GET\":\n            return None\n\n        return request.stream\n\n    def _set_timeout(self, request: Request) -> None:\n        if \"timeout\" not in request.extensions:\n            timeout = (\n                self.timeout\n                if isinstance(self.timeout, UseClientDefault)\n                else Timeout(self.timeout)\n            )\n            request.extensions = dict(**request.extensions, timeout=timeout.as_dict())\n\n\nclass Client(BaseClient):\n    \"\"\"\n    An HTTP client, with connection pooling, HTTP/2, redirects, cookie persistence, etc.\n\n    It can be shared between threads.\n\n    Usage:\n\n    ```python\n    >>> client = httpx.Client()\n    >>> response = client.get('https://example.org')\n    ```\n\n    **Parameters:**\n\n    * **auth** - *(optional)* An authentication class to use when sending\n    requests.\n    * **params** - *(optional)* Query parameters to include in request URLs, as\n    a string, dictionary, or sequence of two-tuples.\n    * **headers** - *(optional)* Dictionary of HTTP headers to include when\n    sending requests.\n    * **cookies** - *(optional)* Dictionary of Cookie items to include when\n    sending requests.\n    * **verify** - *(optional)* Either `True` to use an SSL context with the\n    default CA bundle, `False` to disable verification, or an instance of\n    `ssl.SSLContext` to use a custom context.\n    * **http2** - *(optional)* A boolean indicating if HTTP/2 support should be\n    enabled. Defaults to `False`.\n    * **proxy** - *(optional)* A proxy URL where all the traffic should be routed.\n    * **timeout** - *(optional)* The timeout configuration to use when sending\n    requests.\n    * **limits** - *(optional)* The limits configuration to use.\n    * **max_redirects** - *(optional)* The maximum number of redirect responses\n    that should be followed.\n    * **base_url** - *(optional)* A URL to use as the base when building\n    request URLs.\n    * **transport** - *(optional)* A transport class to use for sending requests\n    over the network.\n    * **trust_env** - *(optional)* Enables or disables usage of environment\n    variables for configuration.\n    * **default_encoding** - *(optional)* The default encoding to use for decoding\n    response text, if no charset information is included in a response Content-Type\n    header. Set to a callable for automatic character set detection. Default: \"utf-8\".\n    \"\"\"\n\n    def __init__(\n        self,\n        *,\n        auth: AuthTypes | None = None,\n        params: QueryParamTypes | None = None,\n        headers: HeaderTypes | None = None,\n        cookies: CookieTypes | None = None,\n        verify: ssl.SSLContext | str | bool = True,\n        cert: CertTypes | None = None,\n        trust_env: bool = True,\n        http1: bool = True,\n        http2: bool = False,\n        proxy: ProxyTypes | None = None,\n        mounts: None | (typing.Mapping[str, BaseTransport | None]) = None,\n        timeout: TimeoutTypes = DEFAULT_TIMEOUT_CONFIG,\n        follow_redirects: bool = False,\n        limits: Limits = DEFAULT_LIMITS,\n        max_redirects: int = DEFAULT_MAX_REDIRECTS,\n        event_hooks: None | (typing.Mapping[str, list[EventHook]]) = None,\n        base_url: URL | str = \"\",\n        transport: BaseTransport | None = None,\n        default_encoding: str | typing.Callable[[bytes], str] = \"utf-8\",\n    ) -> None:\n        super().__init__(\n            auth=auth,\n            params=params,\n            headers=headers,\n            cookies=cookies,\n            timeout=timeout,\n            follow_redirects=follow_redirects,\n            max_redirects=max_redirects,\n            event_hooks=event_hooks,\n            base_url=base_url,\n            trust_env=trust_env,\n            default_encoding=default_encoding,\n        )\n\n        if http2:\n            try:\n                import h2  # noqa\n            except ImportError:  # pragma: no cover\n                raise ImportError(\n                    \"Using http2=True, but the 'h2' package is not installed. \"\n                    \"Make sure to install httpx using `pip install httpx[http2]`.\"\n                ) from None\n\n        allow_env_proxies = trust_env and transport is None\n        proxy_map = self._get_proxy_map(proxy, allow_env_proxies)\n\n        self._transport = self._init_transport(\n            verify=verify,\n            cert=cert,\n            trust_env=trust_env,\n            http1=http1,\n            http2=http2,\n            limits=limits,\n            transport=transport,\n        )\n        self._mounts: dict[URLPattern, BaseTransport | None] = {\n            URLPattern(key): None\n            if proxy is None\n            else self._init_proxy_transport(\n                proxy,\n                verify=verify,\n                cert=cert,\n                trust_env=trust_env,\n                http1=http1,\n                http2=http2,\n                limits=limits,\n            )\n            for key, proxy in proxy_map.items()\n        }\n        if mounts is not None:\n            self._mounts.update(\n                {URLPattern(key): transport for key, transport in mounts.items()}\n            )\n\n        self._mounts = dict(sorted(self._mounts.items()))\n\n    def _init_transport(\n        self,\n        verify: ssl.SSLContext | str | bool = True,\n        cert: CertTypes | None = None,\n        trust_env: bool = True,\n        http1: bool = True,\n        http2: bool = False,\n        limits: Limits = DEFAULT_LIMITS,\n        transport: BaseTransport | None = None,\n    ) -> BaseTransport:\n        if transport is not None:\n            return transport\n\n        return HTTPTransport(\n            verify=verify,\n            cert=cert,\n            trust_env=trust_env,\n            http1=http1,\n            http2=http2,\n            limits=limits,\n        )\n\n    def _init_proxy_transport(\n        self,\n        proxy: Proxy,\n        verify: ssl.SSLContext | str | bool = True,\n        cert: CertTypes | None = None,\n        trust_env: bool = True,\n        http1: bool = True,\n        http2: bool = False,\n        limits: Limits = DEFAULT_LIMITS,\n    ) -> BaseTransport:\n        return HTTPTransport(\n            verify=verify,\n            cert=cert,\n            trust_env=trust_env,\n            http1=http1,\n            http2=http2,\n            limits=limits,\n            proxy=proxy,\n        )\n\n    def _transport_for_url(self, url: URL) -> BaseTransport:\n        \"\"\"\n        Returns the transport instance that should be used for a given URL.\n        This will either be the standard connection pool, or a proxy.\n        \"\"\"\n        for pattern, transport in self._mounts.items():\n            if pattern.matches(url):\n                return self._transport if transport is None else transport\n\n        return self._transport\n\n    def request(\n        self,\n        method: str,\n        url: URL | str,\n        *,\n        content: RequestContent | None = None,\n        data: RequestData | None = None,\n        files: RequestFiles | None = None,\n        json: typing.Any | None = None,\n        params: QueryParamTypes | None = None,\n        headers: HeaderTypes | None = None,\n        cookies: CookieTypes | None = None,\n        auth: AuthTypes | UseClientDefault | None = USE_CLIENT_DEFAULT,\n        follow_redirects: bool | UseClientDefault = USE_CLIENT_DEFAULT,\n        timeout: TimeoutTypes | UseClientDefault = USE_CLIENT_DEFAULT,\n        extensions: RequestExtensions | None = None,\n    ) -> Response:\n        \"\"\"\n        Build and send a request.\n\n        Equivalent to:\n\n        ```python\n        request = client.build_request(...)\n        response = client.send(request, ...)\n        ```\n\n        See `Client.build_request()`, `Client.send()` and\n        [Merging of configuration][0] for how the various parameters\n        are merged with client-level configuration.\n\n        [0]: /advanced/clients/#merging-of-configuration\n        \"\"\"\n        if cookies is not None:\n            message = (\n                \"Setting per-request cookies=<...> is being deprecated, because \"\n                \"the expected behaviour on cookie persistence is ambiguous. Set \"\n                \"cookies directly on the client instance instead.\"\n            )\n            warnings.warn(message, DeprecationWarning, stacklevel=2)\n\n        request = self.build_request(\n            method=method,\n            url=url,\n            content=content,\n            data=data,\n            files=files,\n            json=json,\n            params=params,\n            headers=headers,\n            cookies=cookies,\n            timeout=timeout,\n            extensions=extensions,\n        )\n        return self.send(request, auth=auth, follow_redirects=follow_redirects)\n\n    @contextmanager\n    def stream(\n        self,\n        method: str,\n        url: URL | str,\n        *,\n        content: RequestContent | None = None,\n        data: RequestData | None = None,\n        files: RequestFiles | None = None,\n        json: typing.Any | None = None,\n        params: QueryParamTypes | None = None,\n        headers: HeaderTypes | None = None,\n        cookies: CookieTypes | None = None,\n        auth: AuthTypes | UseClientDefault | None = USE_CLIENT_DEFAULT,\n        follow_redirects: bool | UseClientDefault = USE_CLIENT_DEFAULT,\n        timeout: TimeoutTypes | UseClientDefault = USE_CLIENT_DEFAULT,\n        extensions: RequestExtensions | None = None,\n    ) -> typing.Iterator[Response]:\n        \"\"\"\n        Alternative to `httpx.request()` that streams the response body\n        instead of loading it into memory at once.\n\n        **Parameters**: See `httpx.request`.\n\n        See also: [Streaming Responses][0]\n\n        [0]: /quickstart#streaming-responses\n        \"\"\"\n        request = self.build_request(\n            method=method,\n            url=url,\n            content=content,\n            data=data,\n            files=files,\n            json=json,\n            params=params,\n            headers=headers,\n            cookies=cookies,\n            timeout=timeout,\n            extensions=extensions,\n        )\n        response = self.send(\n            request=request,\n            auth=auth,\n            follow_redirects=follow_redirects,\n            stream=True,\n        )\n        try:\n            yield response\n        finally:\n            response.close()\n\n    def send(\n        self,\n        request: Request,\n        *,\n        stream: bool = False,\n        auth: AuthTypes | UseClientDefault | None = USE_CLIENT_DEFAULT,\n        follow_redirects: bool | UseClientDefault = USE_CLIENT_DEFAULT,\n    ) -> Response:\n        \"\"\"\n        Send a request.\n\n        The request is sent as-is, unmodified.\n\n        Typically you'll want to build one with `Client.build_request()`\n        so that any client-level configuration is merged into the request,\n        but passing an explicit `httpx.Request()` is supported as well.\n\n        See also: [Request instances][0]\n\n        [0]: /advanced/clients/#request-instances\n        \"\"\"\n        if self._state == ClientState.CLOSED:\n            raise RuntimeError(\"Cannot send a request, as the client has been closed.\")\n\n        self._state = ClientState.OPENED\n        follow_redirects = (\n            self.follow_redirects\n            if isinstance(follow_redirects, UseClientDefault)\n            else follow_redirects\n        )\n\n        self._set_timeout(request)\n\n        auth = self._build_request_auth(request, auth)\n\n        response = self._send_handling_auth(\n            request,\n            auth=auth,\n            follow_redirects=follow_redirects,\n            history=[],\n        )\n        try:\n            if not stream:\n                response.read()\n\n            return response\n\n        except BaseException as exc:\n            response.close()\n            raise exc\n\n    def _send_handling_auth(\n        self,\n        request: Request,\n        auth: Auth,\n        follow_redirects: bool,\n        history: list[Response],\n    ) -> Response:\n        auth_flow = auth.sync_auth_flow(request)\n        try:\n            request = next(auth_flow)\n\n            while True:\n                response = self._send_handling_redirects(\n                    request,\n                    follow_redirects=follow_redirects,\n                    history=history,\n                )\n                try:\n                    try:\n                        next_request = auth_flow.send(response)\n                    except StopIteration:\n                        return response\n\n                    response.history = list(history)\n                    response.read()\n                    request = next_request\n                    history.append(response)\n\n                except BaseException as exc:\n                    response.close()\n                    raise exc\n        finally:\n            auth_flow.close()\n\n    def _send_handling_redirects(\n        self,\n        request: Request,\n        follow_redirects: bool,\n        history: list[Response],\n    ) -> Response:\n        while True:\n            if len(history) > self.max_redirects:\n                raise TooManyRedirects(\n                    \"Exceeded maximum allowed redirects.\", request=request\n                )\n\n            for hook in self._event_hooks[\"request\"]:\n                hook(request)\n\n            response = self._send_single_request(request)\n            try:\n                for hook in self._event_hooks[\"response\"]:\n                    hook(response)\n                response.history = list(history)\n\n                if not response.has_redirect_location:\n                    return response\n\n                request = self._build_redirect_request(request, response)\n                history = history + [response]\n\n                if follow_redirects:\n                    response.read()\n                else:\n                    response.next_request = request\n                    return response\n\n            except BaseException as exc:\n                response.close()\n                raise exc\n\n    def _send_single_request(self, request: Request) -> Response:\n        \"\"\"\n        Sends a single request, without handling any redirections.\n        \"\"\"\n        transport = self._transport_for_url(request.url)\n        start = time.perf_counter()\n\n        if not isinstance(request.stream, SyncByteStream):\n            raise RuntimeError(\n                \"Attempted to send an async request with a sync Client instance.\"\n            )\n\n        with request_context(request=request):\n            response = transport.handle_request(request)\n\n        assert isinstance(response.stream, SyncByteStream)\n\n        response.request = request\n        response.stream = BoundSyncStream(\n            response.stream, response=response, start=start\n        )\n        self.cookies.extract_cookies(response)\n        response.default_encoding = self._default_encoding\n\n        logger.info(\n            'HTTP Request: %s %s \"%s %d %s\"',\n            request.method,\n            request.url,\n            response.http_version,\n            response.status_code,\n            response.reason_phrase,\n        )\n\n        return response\n\n    def get(\n        self,\n        url: URL | str,\n        *,\n        params: QueryParamTypes | None = None,\n        headers: HeaderTypes | None = None,\n        cookies: CookieTypes | None = None,\n        auth: AuthTypes | UseClientDefault | None = USE_CLIENT_DEFAULT,\n        follow_redirects: bool | UseClientDefault = USE_CLIENT_DEFAULT,\n        timeout: TimeoutTypes | UseClientDefault = USE_CLIENT_DEFAULT,\n        extensions: RequestExtensions | None = None,\n    ) -> Response:\n        \"\"\"\n        Send a `GET` request.\n\n        **Parameters**: See `httpx.request`.\n        \"\"\"\n        return self.request(\n            \"GET\",\n            url,\n            params=params,\n            headers=headers,\n            cookies=cookies,\n            auth=auth,\n            follow_redirects=follow_redirects,\n            timeout=timeout,\n            extensions=extensions,\n        )\n\n    def options(\n        self,\n        url: URL | str,\n        *,\n        params: QueryParamTypes | None = None,\n        headers: HeaderTypes | None = None,\n        cookies: CookieTypes | None = None,\n        auth: AuthTypes | UseClientDefault = USE_CLIENT_DEFAULT,\n        follow_redirects: bool | UseClientDefault = USE_CLIENT_DEFAULT,\n        timeout: TimeoutTypes | UseClientDefault = USE_CLIENT_DEFAULT,\n        extensions: RequestExtensions | None = None,\n    ) -> Response:\n        \"\"\"\n        Send an `OPTIONS` request.\n\n        **Parameters**: See `httpx.request`.\n        \"\"\"\n        return self.request(\n            \"OPTIONS\",\n            url,\n            params=params,\n            headers=headers,\n            cookies=cookies,\n            auth=auth,\n            follow_redirects=follow_redirects,\n            timeout=timeout,\n            extensions=extensions,\n        )\n\n    def head(\n        self,\n        url: URL | str,\n        *,\n        params: QueryParamTypes | None = None,\n        headers: HeaderTypes | None = None,\n        cookies: CookieTypes | None = None,\n        auth: AuthTypes | UseClientDefault = USE_CLIENT_DEFAULT,\n        follow_redirects: bool | UseClientDefault = USE_CLIENT_DEFAULT,\n        timeout: TimeoutTypes | UseClientDefault = USE_CLIENT_DEFAULT,\n        extensions: RequestExtensions | None = None,\n    ) -> Response:\n        \"\"\"\n        Send a `HEAD` request.\n\n        **Parameters**: See `httpx.request`.\n        \"\"\"\n        return self.request(\n            \"HEAD\",\n            url,\n            params=params,\n            headers=headers,\n            cookies=cookies,\n            auth=auth,\n            follow_redirects=follow_redirects,\n            timeout=timeout,\n            extensions=extensions,\n        )\n\n    def post(\n        self,\n        url: URL | str,\n        *,\n        content: RequestContent | None = None,\n        data: RequestData | None = None,\n        files: RequestFiles | None = None,\n        json: typing.Any | None = None,\n        params: QueryParamTypes | None = None,\n        headers: HeaderTypes | None = None,\n        cookies: CookieTypes | None = None,\n        auth: AuthTypes | UseClientDefault = USE_CLIENT_DEFAULT,\n        follow_redirects: bool | UseClientDefault = USE_CLIENT_DEFAULT,\n        timeout: TimeoutTypes | UseClientDefault = USE_CLIENT_DEFAULT,\n        extensions: RequestExtensions | None = None,\n    ) -> Response:\n        \"\"\"\n        Send a `POST` request.\n\n        **Parameters**: See `httpx.request`.\n        \"\"\"\n        return self.request(\n            \"POST\",\n            url,\n            content=content,\n            data=data,\n            files=files,\n            json=json,\n            params=params,\n            headers=headers,\n            cookies=cookies,\n            auth=auth,\n            follow_redirects=follow_redirects,\n            timeout=timeout,\n            extensions=extensions,\n        )\n\n    def put(\n        self,\n        url: URL | str,\n        *,\n        content: RequestContent | None = None,\n        data: RequestData | None = None,\n        files: RequestFiles | None = None,\n        json: typing.Any | None = None,\n        params: QueryParamTypes | None = None,\n        headers: HeaderTypes | None = None,\n        cookies: CookieTypes | None = None,\n        auth: AuthTypes | UseClientDefault = USE_CLIENT_DEFAULT,\n        follow_redirects: bool | UseClientDefault = USE_CLIENT_DEFAULT,\n        timeout: TimeoutTypes | UseClientDefault = USE_CLIENT_DEFAULT,\n        extensions: RequestExtensions | None = None,\n    ) -> Response:\n        \"\"\"\n        Send a `PUT` request.\n\n        **Parameters**: See `httpx.request`.\n        \"\"\"\n        return self.request(\n            \"PUT\",\n            url,\n            content=content,\n            data=data,\n            files=files,\n            json=json,\n            params=params,\n            headers=headers,\n            cookies=cookies,\n            auth=auth,\n            follow_redirects=follow_redirects,\n            timeout=timeout,\n            extensions=extensions,\n        )\n\n    def patch(\n        self,\n        url: URL | str,\n        *,\n        content: RequestContent | None = None,\n        data: RequestData | None = None,\n        files: RequestFiles | None = None,\n        json: typing.Any | None = None,\n        params: QueryParamTypes | None = None,\n        headers: HeaderTypes | None = None,\n        cookies: CookieTypes | None = None,\n        auth: AuthTypes | UseClientDefault = USE_CLIENT_DEFAULT,\n        follow_redirects: bool | UseClientDefault = USE_CLIENT_DEFAULT,\n        timeout: TimeoutTypes | UseClientDefault = USE_CLIENT_DEFAULT,\n        extensions: RequestExtensions | None = None,\n    ) -> Response:\n        \"\"\"\n        Send a `PATCH` request.\n\n        **Parameters**: See `httpx.request`.\n        \"\"\"\n        return self.request(\n            \"PATCH\",\n            url,\n            content=content,\n            data=data,\n            files=files,\n            json=json,\n            params=params,\n            headers=headers,\n            cookies=cookies,\n            auth=auth,\n            follow_redirects=follow_redirects,\n            timeout=timeout,\n            extensions=extensions,\n        )\n\n    def delete(\n        self,\n        url: URL | str,\n        *,\n        params: QueryParamTypes | None = None,\n        headers: HeaderTypes | None = None,\n        cookies: CookieTypes | None = None,\n        auth: AuthTypes | UseClientDefault = USE_CLIENT_DEFAULT,\n        follow_redirects: bool | UseClientDefault = USE_CLIENT_DEFAULT,\n        timeout: TimeoutTypes | UseClientDefault = USE_CLIENT_DEFAULT,\n        extensions: RequestExtensions | None = None,\n    ) -> Response:\n        \"\"\"\n        Send a `DELETE` request.\n\n        **Parameters**: See `httpx.request`.\n        \"\"\"\n        return self.request(\n            \"DELETE\",\n            url,\n            params=params,\n            headers=headers,\n            cookies=cookies,\n            auth=auth,\n            follow_redirects=follow_redirects,\n            timeout=timeout,\n            extensions=extensions,\n        )\n\n    def close(self) -> None:\n        \"\"\"\n        Close transport and proxies.\n        \"\"\"\n        if self._state != ClientState.CLOSED:\n            self._state = ClientState.CLOSED\n\n            self._transport.close()\n            for transport in self._mounts.values():\n                if transport is not None:\n                    transport.close()\n\n    def __enter__(self: T) -> T:\n        if self._state != ClientState.UNOPENED:\n            msg = {\n                ClientState.OPENED: \"Cannot open a client instance more than once.\",\n                ClientState.CLOSED: (\n                    \"Cannot reopen a client instance, once it has been closed.\"\n                ),\n            }[self._state]\n            raise RuntimeError(msg)\n\n        self._state = ClientState.OPENED\n\n        self._transport.__enter__()\n        for transport in self._mounts.values():\n            if transport is not None:\n                transport.__enter__()\n        return self\n\n    def __exit__(\n        self,\n        exc_type: type[BaseException] | None = None,\n        exc_value: BaseException | None = None,\n        traceback: TracebackType | None = None,\n    ) -> None:\n        self._state = ClientState.CLOSED\n\n        self._transport.__exit__(exc_type, exc_value, traceback)\n        for transport in self._mounts.values():\n            if transport is not None:\n                transport.__exit__(exc_type, exc_value, traceback)\n\n\nclass AsyncClient(BaseClient):\n    \"\"\"\n    An asynchronous HTTP client, with connection pooling, HTTP/2, redirects,\n    cookie persistence, etc.\n\n    It can be shared between tasks.\n\n    Usage:\n\n    ```python\n    >>> async with httpx.AsyncClient() as client:\n    >>>     response = await client.get('https://example.org')\n    ```\n\n    **Parameters:**\n\n    * **auth** - *(optional)* An authentication class to use when sending\n    requests.\n    * **params** - *(optional)* Query parameters to include in request URLs, as\n    a string, dictionary, or sequence of two-tuples.\n    * **headers** - *(optional)* Dictionary of HTTP headers to include when\n    sending requests.\n    * **cookies** - *(optional)* Dictionary of Cookie items to include when\n    sending requests.\n    * **verify** - *(optional)* Either `True` to use an SSL context with the\n    default CA bundle, `False` to disable verification, or an instance of\n    `ssl.SSLContext` to use a custom context.\n    * **http2** - *(optional)* A boolean indicating if HTTP/2 support should be\n    enabled. Defaults to `False`.\n    * **proxy** - *(optional)* A proxy URL where all the traffic should be routed.\n    * **timeout** - *(optional)* The timeout configuration to use when sending\n    requests.\n    * **limits** - *(optional)* The limits configuration to use.\n    * **max_redirects** - *(optional)* The maximum number of redirect responses\n    that should be followed.\n    * **base_url** - *(optional)* A URL to use as the base when building\n    request URLs.\n    * **transport** - *(optional)* A transport class to use for sending requests\n    over the network.\n    * **trust_env** - *(optional)* Enables or disables usage of environment\n    variables for configuration.\n    * **default_encoding** - *(optional)* The default encoding to use for decoding\n    response text, if no charset information is included in a response Content-Type\n    header. Set to a callable for automatic character set detection. Default: \"utf-8\".\n    \"\"\"\n\n    def __init__(\n        self,\n        *,\n        auth: AuthTypes | None = None,\n        params: QueryParamTypes | None = None,\n        headers: HeaderTypes | None = None,\n        cookies: CookieTypes | None = None,\n        verify: ssl.SSLContext | str | bool = True,\n        cert: CertTypes | None = None,\n        http1: bool = True,\n        http2: bool = False,\n        proxy: ProxyTypes | None = None,\n        mounts: None | (typing.Mapping[str, AsyncBaseTransport | None]) = None,\n        timeout: TimeoutTypes = DEFAULT_TIMEOUT_CONFIG,\n        follow_redirects: bool = False,\n        limits: Limits = DEFAULT_LIMITS,\n        max_redirects: int = DEFAULT_MAX_REDIRECTS,\n        event_hooks: None | (typing.Mapping[str, list[EventHook]]) = None,\n        base_url: URL | str = \"\",\n        transport: AsyncBaseTransport | None = None,\n        trust_env: bool = True,\n        default_encoding: str | typing.Callable[[bytes], str] = \"utf-8\",\n    ) -> None:\n        super().__init__(\n            auth=auth,\n            params=params,\n            headers=headers,\n            cookies=cookies,\n            timeout=timeout,\n            follow_redirects=follow_redirects,\n            max_redirects=max_redirects,\n            event_hooks=event_hooks,\n            base_url=base_url,\n            trust_env=trust_env,\n            default_encoding=default_encoding,\n        )\n\n        if http2:\n            try:\n                import h2  # noqa\n            except ImportError:  # pragma: no cover\n                raise ImportError(\n                    \"Using http2=True, but the 'h2' package is not installed. \"\n                    \"Make sure to install httpx using `pip install httpx[http2]`.\"\n                ) from None\n\n        allow_env_proxies = trust_env and transport is None\n        proxy_map = self._get_proxy_map(proxy, allow_env_proxies)\n\n        self._transport = self._init_transport(\n            verify=verify,\n            cert=cert,\n            trust_env=trust_env,\n            http1=http1,\n            http2=http2,\n            limits=limits,\n            transport=transport,\n        )\n\n        self._mounts: dict[URLPattern, AsyncBaseTransport | None] = {\n            URLPattern(key): None\n            if proxy is None\n            else self._init_proxy_transport(\n                proxy,\n                verify=verify,\n                cert=cert,\n                trust_env=trust_env,\n                http1=http1,\n                http2=http2,\n                limits=limits,\n            )\n            for key, proxy in proxy_map.items()\n        }\n        if mounts is not None:\n            self._mounts.update(\n                {URLPattern(key): transport for key, transport in mounts.items()}\n            )\n        self._mounts = dict(sorted(self._mounts.items()))\n\n    def _init_transport(\n        self,\n        verify: ssl.SSLContext | str | bool = True,\n        cert: CertTypes | None = None,\n        trust_env: bool = True,\n        http1: bool = True,\n        http2: bool = False,\n        limits: Limits = DEFAULT_LIMITS,\n        transport: AsyncBaseTransport | None = None,\n    ) -> AsyncBaseTransport:\n        if transport is not None:\n            return transport\n\n        return AsyncHTTPTransport(\n            verify=verify,\n            cert=cert,\n            trust_env=trust_env,\n            http1=http1,\n            http2=http2,\n            limits=limits,\n        )\n\n    def _init_proxy_transport(\n        self,\n        proxy: Proxy,\n        verify: ssl.SSLContext | str | bool = True,\n        cert: CertTypes | None = None,\n        trust_env: bool = True,\n        http1: bool = True,\n        http2: bool = False,\n        limits: Limits = DEFAULT_LIMITS,\n    ) -> AsyncBaseTransport:\n        return AsyncHTTPTransport(\n            verify=verify,\n            cert=cert,\n            trust_env=trust_env,\n            http1=http1,\n            http2=http2,\n            limits=limits,\n            proxy=proxy,\n        )\n\n    def _transport_for_url(self, url: URL) -> AsyncBaseTransport:\n        \"\"\"\n        Returns the transport instance that should be used for a given URL.\n        This will either be the standard connection pool, or a proxy.\n        \"\"\"\n        for pattern, transport in self._mounts.items():\n            if pattern.matches(url):\n                return self._transport if transport is None else transport\n\n        return self._transport\n\n    async def request(\n        self,\n        method: str,\n        url: URL | str,\n        *,\n        content: RequestContent | None = None,\n        data: RequestData | None = None,\n        files: RequestFiles | None = None,\n        json: typing.Any | None = None,\n        params: QueryParamTypes | None = None,\n        headers: HeaderTypes | None = None,\n        cookies: CookieTypes | None = None,\n        auth: AuthTypes | UseClientDefault | None = USE_CLIENT_DEFAULT,\n        follow_redirects: bool | UseClientDefault = USE_CLIENT_DEFAULT,\n        timeout: TimeoutTypes | UseClientDefault = USE_CLIENT_DEFAULT,\n        extensions: RequestExtensions | None = None,\n    ) -> Response:\n        \"\"\"\n        Build and send a request.\n\n        Equivalent to:\n\n        ```python\n        request = client.build_request(...)\n        response = await client.send(request, ...)\n        ```\n\n        See `AsyncClient.build_request()`, `AsyncClient.send()`\n        and [Merging of configuration][0] for how the various parameters\n        are merged with client-level configuration.\n\n        [0]: /advanced/clients/#merging-of-configuration\n        \"\"\"\n\n        if cookies is not None:  # pragma: no cover\n            message = (\n                \"Setting per-request cookies=<...> is being deprecated, because \"\n                \"the expected behaviour on cookie persistence is ambiguous. Set \"\n                \"cookies directly on the client instance instead.\"\n            )\n            warnings.warn(message, DeprecationWarning, stacklevel=2)\n\n        request = self.build_request(\n            method=method,\n            url=url,\n            content=content,\n            data=data,\n            files=files,\n            json=json,\n            params=params,\n            headers=headers,\n            cookies=cookies,\n            timeout=timeout,\n            extensions=extensions,\n        )\n        return await self.send(request, auth=auth, follow_redirects=follow_redirects)\n\n    @asynccontextmanager\n    async def stream(\n        self,\n        method: str,\n        url: URL | str,\n        *,\n        content: RequestContent | None = None,\n        data: RequestData | None = None,\n        files: RequestFiles | None = None,\n        json: typing.Any | None = None,\n        params: QueryParamTypes | None = None,\n        headers: HeaderTypes | None = None,\n        cookies: CookieTypes | None = None,\n        auth: AuthTypes | UseClientDefault | None = USE_CLIENT_DEFAULT,\n        follow_redirects: bool | UseClientDefault = USE_CLIENT_DEFAULT,\n        timeout: TimeoutTypes | UseClientDefault = USE_CLIENT_DEFAULT,\n        extensions: RequestExtensions | None = None,\n    ) -> typing.AsyncIterator[Response]:\n        \"\"\"\n        Alternative to `httpx.request()` that streams the response body\n        instead of loading it into memory at once.\n\n        **Parameters**: See `httpx.request`.\n\n        See also: [Streaming Responses][0]\n\n        [0]: /quickstart#streaming-responses\n        \"\"\"\n        request = self.build_request(\n            method=method,\n            url=url,\n            content=content,\n            data=data,\n            files=files,\n            json=json,\n            params=params,\n            headers=headers,\n            cookies=cookies,\n            timeout=timeout,\n            extensions=extensions,\n        )\n        response = await self.send(\n            request=request,\n            auth=auth,\n            follow_redirects=follow_redirects,\n            stream=True,\n        )\n        try:\n            yield response\n        finally:\n            await response.aclose()\n\n    async def send(\n        self,\n        request: Request,\n        *,\n        stream: bool = False,\n        auth: AuthTypes | UseClientDefault | None = USE_CLIENT_DEFAULT,\n        follow_redirects: bool | UseClientDefault = USE_CLIENT_DEFAULT,\n    ) -> Response:\n        \"\"\"\n        Send a request.\n\n        The request is sent as-is, unmodified.\n\n        Typically you'll want to build one with `AsyncClient.build_request()`\n        so that any client-level configuration is merged into the request,\n        but passing an explicit `httpx.Request()` is supported as well.\n\n        See also: [Request instances][0]\n\n        [0]: /advanced/clients/#request-instances\n        \"\"\"\n        if self._state == ClientState.CLOSED:\n            raise RuntimeError(\"Cannot send a request, as the client has been closed.\")\n\n        self._state = ClientState.OPENED\n        follow_redirects = (\n            self.follow_redirects\n            if isinstance(follow_redirects, UseClientDefault)\n            else follow_redirects\n        )\n\n        self._set_timeout(request)\n\n        auth = self._build_request_auth(request, auth)\n\n        response = await self._send_handling_auth(\n            request,\n            auth=auth,\n            follow_redirects=follow_redirects,\n            history=[],\n        )\n        try:\n            if not stream:\n                await response.aread()\n\n            return response\n\n        except BaseException as exc:\n            await response.aclose()\n            raise exc\n\n    async def _send_handling_auth(\n        self,\n        request: Request,\n        auth: Auth,\n        follow_redirects: bool,\n        history: list[Response],\n    ) -> Response:\n        auth_flow = auth.async_auth_flow(request)\n        try:\n            request = await auth_flow.__anext__()\n\n            while True:\n                response = await self._send_handling_redirects(\n                    request,\n                    follow_redirects=follow_redirects,\n                    history=history,\n                )\n                try:\n                    try:\n                        next_request = await auth_flow.asend(response)\n                    except StopAsyncIteration:\n                        return response\n\n                    response.history = list(history)\n                    await response.aread()\n                    request = next_request\n                    history.append(response)\n\n                except BaseException as exc:\n                    await response.aclose()\n                    raise exc\n        finally:\n            await auth_flow.aclose()\n\n    async def _send_handling_redirects(\n        self,\n        request: Request,\n        follow_redirects: bool,\n        history: list[Response],\n    ) -> Response:\n        while True:\n            if len(history) > self.max_redirects:\n                raise TooManyRedirects(\n                    \"Exceeded maximum allowed redirects.\", request=request\n                )\n\n            for hook in self._event_hooks[\"request\"]:\n                await hook(request)\n\n            response = await self._send_single_request(request)\n            try:\n                for hook in self._event_hooks[\"response\"]:\n                    await hook(response)\n\n                response.history = list(history)\n\n                if not response.has_redirect_location:\n                    return response\n\n                request = self._build_redirect_request(request, response)\n                history = history + [response]\n\n                if follow_redirects:\n                    await response.aread()\n                else:\n                    response.next_request = request\n                    return response\n\n            except BaseException as exc:\n                await response.aclose()\n                raise exc\n\n    async def _send_single_request(self, request: Request) -> Response:\n        \"\"\"\n        Sends a single request, without handling any redirections.\n        \"\"\"\n        transport = self._transport_for_url(request.url)\n        start = time.perf_counter()\n\n        if not isinstance(request.stream, AsyncByteStream):\n            raise RuntimeError(\n                \"Attempted to send a sync request with an AsyncClient instance.\"\n            )\n\n        with request_context(request=request):\n            response = await transport.handle_async_request(request)\n\n        assert isinstance(response.stream, AsyncByteStream)\n        response.request = request\n        response.stream = BoundAsyncStream(\n            response.stream, response=response, start=start\n        )\n        self.cookies.extract_cookies(response)\n        response.default_encoding = self._default_encoding\n\n        logger.info(\n            'HTTP Request: %s %s \"%s %d %s\"',\n            request.method,\n            request.url,\n            response.http_version,\n            response.status_code,\n            response.reason_phrase,\n        )\n\n        return response\n\n    async def get(\n        self,\n        url: URL | str,\n        *,\n        params: QueryParamTypes | None = None,\n        headers: HeaderTypes | None = None,\n        cookies: CookieTypes | None = None,\n        auth: AuthTypes | UseClientDefault | None = USE_CLIENT_DEFAULT,\n        follow_redirects: bool | UseClientDefault = USE_CLIENT_DEFAULT,\n        timeout: TimeoutTypes | UseClientDefault = USE_CLIENT_DEFAULT,\n        extensions: RequestExtensions | None = None,\n    ) -> Response:\n        \"\"\"\n        Send a `GET` request.\n\n        **Parameters**: See `httpx.request`.\n        \"\"\"\n        return await self.request(\n            \"GET\",\n            url,\n            params=params,\n            headers=headers,\n            cookies=cookies,\n            auth=auth,\n            follow_redirects=follow_redirects,\n            timeout=timeout,\n            extensions=extensions,\n        )\n\n    async def options(\n        self,\n        url: URL | str,\n        *,\n        params: QueryParamTypes | None = None,\n        headers: HeaderTypes | None = None,\n        cookies: CookieTypes | None = None,\n        auth: AuthTypes | UseClientDefault = USE_CLIENT_DEFAULT,\n        follow_redirects: bool | UseClientDefault = USE_CLIENT_DEFAULT,\n        timeout: TimeoutTypes | UseClientDefault = USE_CLIENT_DEFAULT,\n        extensions: RequestExtensions | None = None,\n    ) -> Response:\n        \"\"\"\n        Send an `OPTIONS` request.\n\n        **Parameters**: See `httpx.request`.\n        \"\"\"\n        return await self.request(\n            \"OPTIONS\",\n            url,\n            params=params,\n            headers=headers,\n            cookies=cookies,\n            auth=auth,\n            follow_redirects=follow_redirects,\n            timeout=timeout,\n            extensions=extensions,\n        )\n\n    async def head(\n        self,\n        url: URL | str,\n        *,\n        params: QueryParamTypes | None = None,\n        headers: HeaderTypes | None = None,\n        cookies: CookieTypes | None = None,\n        auth: AuthTypes | UseClientDefault = USE_CLIENT_DEFAULT,\n        follow_redirects: bool | UseClientDefault = USE_CLIENT_DEFAULT,\n        timeout: TimeoutTypes | UseClientDefault = USE_CLIENT_DEFAULT,\n        extensions: RequestExtensions | None = None,\n    ) -> Response:\n        \"\"\"\n        Send a `HEAD` request.\n\n        **Parameters**: See `httpx.request`.\n        \"\"\"\n        return await self.request(\n            \"HEAD\",\n            url,\n            params=params,\n            headers=headers,\n            cookies=cookies,\n            auth=auth,\n            follow_redirects=follow_redirects,\n            timeout=timeout,\n            extensions=extensions,\n        )\n\n    async def post(\n        self,\n        url: URL | str,\n        *,\n        content: RequestContent | None = None,\n        data: RequestData | None = None,\n        files: RequestFiles | None = None,\n        json: typing.Any | None = None,\n        params: QueryParamTypes | None = None,\n        headers: HeaderTypes | None = None,\n        cookies: CookieTypes | None = None,\n        auth: AuthTypes | UseClientDefault = USE_CLIENT_DEFAULT,\n        follow_redirects: bool | UseClientDefault = USE_CLIENT_DEFAULT,\n        timeout: TimeoutTypes | UseClientDefault = USE_CLIENT_DEFAULT,\n        extensions: RequestExtensions | None = None,\n    ) -> Response:\n        \"\"\"\n        Send a `POST` request.\n\n        **Parameters**: See `httpx.request`.\n        \"\"\"\n        return await self.request(\n            \"POST\",\n            url,\n            content=content,\n            data=data,\n            files=files,\n            json=json,\n            params=params,\n            headers=headers,\n            cookies=cookies,\n            auth=auth,\n            follow_redirects=follow_redirects,\n            timeout=timeout,\n            extensions=extensions,\n        )\n\n    async def put(\n        self,\n        url: URL | str,\n        *,\n        content: RequestContent | None = None,\n        data: RequestData | None = None,\n        files: RequestFiles | None = None,\n        json: typing.Any | None = None,\n        params: QueryParamTypes | None = None,\n        headers: HeaderTypes | None = None,\n        cookies: CookieTypes | None = None,\n        auth: AuthTypes | UseClientDefault = USE_CLIENT_DEFAULT,\n        follow_redirects: bool | UseClientDefault = USE_CLIENT_DEFAULT,\n        timeout: TimeoutTypes | UseClientDefault = USE_CLIENT_DEFAULT,\n        extensions: RequestExtensions | None = None,\n    ) -> Response:\n        \"\"\"\n        Send a `PUT` request.\n\n        **Parameters**: See `httpx.request`.\n        \"\"\"\n        return await self.request(\n            \"PUT\",\n            url,\n            content=content,\n            data=data,\n            files=files,\n            json=json,\n            params=params,\n            headers=headers,\n            cookies=cookies,\n            auth=auth,\n            follow_redirects=follow_redirects,\n            timeout=timeout,\n            extensions=extensions,\n        )\n\n    async def patch(\n        self,\n        url: URL | str,\n        *,\n        content: RequestContent | None = None,\n        data: RequestData | None = None,\n        files: RequestFiles | None = None,\n        json: typing.Any | None = None,\n        params: QueryParamTypes | None = None,\n        headers: HeaderTypes | None = None,\n        cookies: CookieTypes | None = None,\n        auth: AuthTypes | UseClientDefault = USE_CLIENT_DEFAULT,\n        follow_redirects: bool | UseClientDefault = USE_CLIENT_DEFAULT,\n        timeout: TimeoutTypes | UseClientDefault = USE_CLIENT_DEFAULT,\n        extensions: RequestExtensions | None = None,\n    ) -> Response:\n        \"\"\"\n        Send a `PATCH` request.\n\n        **Parameters**: See `httpx.request`.\n        \"\"\"\n        return await self.request(\n            \"PATCH\",\n            url,\n            content=content,\n            data=data,\n            files=files,\n            json=json,\n            params=params,\n            headers=headers,\n            cookies=cookies,\n            auth=auth,\n            follow_redirects=follow_redirects,\n            timeout=timeout,\n            extensions=extensions,\n        )\n\n    async def delete(\n        self,\n        url: URL | str,\n        *,\n        params: QueryParamTypes | None = None,\n        headers: HeaderTypes | None = None,\n        cookies: CookieTypes | None = None,\n        auth: AuthTypes | UseClientDefault = USE_CLIENT_DEFAULT,\n        follow_redirects: bool | UseClientDefault = USE_CLIENT_DEFAULT,\n        timeout: TimeoutTypes | UseClientDefault = USE_CLIENT_DEFAULT,\n        extensions: RequestExtensions | None = None,\n    ) -> Response:\n        \"\"\"\n        Send a `DELETE` request.\n\n        **Parameters**: See `httpx.request`.\n        \"\"\"\n        return await self.request(\n            \"DELETE\",\n            url,\n            params=params,\n            headers=headers,\n            cookies=cookies,\n            auth=auth,\n            follow_redirects=follow_redirects,\n            timeout=timeout,\n            extensions=extensions,\n        )\n\n    async def aclose(self) -> None:\n        \"\"\"\n        Close transport and proxies.\n        \"\"\"\n        if self._state != ClientState.CLOSED:\n            self._state = ClientState.CLOSED\n\n            await self._transport.aclose()\n            for proxy in self._mounts.values():\n                if proxy is not None:\n                    await proxy.aclose()\n\n    async def __aenter__(self: U) -> U:\n        if self._state != ClientState.UNOPENED:\n            msg = {\n                ClientState.OPENED: \"Cannot open a client instance more than once.\",\n                ClientState.CLOSED: (\n                    \"Cannot reopen a client instance, once it has been closed.\"\n                ),\n            }[self._state]\n            raise RuntimeError(msg)\n\n        self._state = ClientState.OPENED\n\n        await self._transport.__aenter__()\n        for proxy in self._mounts.values():\n            if proxy is not None:\n                await proxy.__aenter__()\n        return self\n\n    async def __aexit__(\n        self,\n        exc_type: type[BaseException] | None = None,\n        exc_value: BaseException | None = None,\n        traceback: TracebackType | None = None,\n    ) -> None:\n        self._state = ClientState.CLOSED\n\n        await self._transport.__aexit__(exc_type, exc_value, traceback)\n        for proxy in self._mounts.values():\n            if proxy is not None:\n                await proxy.__aexit__(exc_type, exc_value, traceback)\n",
+      "url": "https://github.com/encode/httpx/blob/b5addb64f0161ff6bfe94c124ef76f6a1fba5254/httpx/_client.py",
+      "date": "2026-11-01T11:00:32.532614+00:00",
+      "author": "Repository source",
+      "retrieved_at": "2026-11-01T11:00:32.532614+00:00",
+      "sha256": "ed717b3ac00debb48d089daeb4dd7fbaf47cb5642ebc4a6e76f3a2fc6cfc0f70",
+      "path": "httpx/_client.py",
+      "commit": "b5addb64f0161ff6bfe94c124ef76f6a1fba5254"
+    }
+  ],
+  "links": [
+    {
+      "source": "pr-2241",
+      "target": "diff-2241-httpx/_models.py",
+      "relation": "CHANGES",
+      "evidence": "diff-2241-httpx/_models.py"
+    },
+    {
+      "source": "pr-2241",
+      "target": "diff-2241-httpx/_types.py",
+      "relation": "CHANGES",
+      "evidence": "diff-2241-httpx/_types.py"
+    },
+    {
+      "source": "pr-2241",
+      "target": "diff-2241-httpx/_urls.py",
+      "relation": "CHANGES",
+      "evidence": "diff-2241-httpx/_urls.py"
+    },
+    {
+      "source": "pr-2241",
+      "target": "diff-2241-tests/client/test_proxies.py",
+      "relation": "CHANGES",
+      "evidence": "diff-2241-tests/client/test_proxies.py"
+    },
+    {
+      "source": "pr-2241",
+      "target": "diff-2241-tests/models/test_url.py",
+      "relation": "CHANGES",
+      "evidence": "diff-2241-tests/models/test_url.py"
+    },
+    {
+      "source": "comment-1335495879",
+      "target": "pr-2481",
+      "relation": "DISCUSSES",
+      "evidence": "comment-1335495879"
+    },
+    {
+      "source": "review-1200742619",
+      "target": "pr-2481",
+      "relation": "DISCUSSES",
+      "evidence": "review-1200742619"
+    },
+    {
+      "source": "pr-2481",
+      "target": "diff-2481-httpx/_types.py",
+      "relation": "CHANGES",
+      "evidence": "diff-2481-httpx/_types.py"
+    },
+    {
+      "source": "pr-2481",
+      "target": "diff-2481-httpx/_urls.py",
+      "relation": "CHANGES",
+      "evidence": "diff-2481-httpx/_urls.py"
+    },
+    {
+      "source": "pr-2481",
+      "target": "diff-2481-tests/models/test_url.py",
+      "relation": "CHANGES",
+      "evidence": "diff-2481-tests/models/test_url.py"
+    },
+    {
+      "source": "pr-2481",
+      "target": "issue-2462",
+      "relation": "REFERENCES",
+      "evidence": "pr-2481"
+    },
+    {
+      "source": "comment-1910687506",
+      "target": "pr-3050",
+      "relation": "DISCUSSES",
+      "evidence": "comment-1910687506"
+    },
+    {
+      "source": "comment-1911776086",
+      "target": "pr-3050",
+      "relation": "DISCUSSES",
+      "evidence": "comment-1911776086"
+    },
+    {
+      "source": "comment-1923527826",
+      "target": "pr-3050",
+      "relation": "DISCUSSES",
+      "evidence": "comment-1923527826"
+    },
+    {
+      "source": "comment-2381498485",
+      "target": "pr-3050",
+      "relation": "DISCUSSES",
+      "evidence": "comment-2381498485"
+    },
+    {
+      "source": "review_comment-1451676418",
+      "target": "pr-3050",
+      "relation": "DISCUSSES",
+      "evidence": "review_comment-1451676418"
+    },
+    {
+      "source": "review_comment-1451678340",
+      "target": "pr-3050",
+      "relation": "DISCUSSES",
+      "evidence": "review_comment-1451678340"
+    },
+    {
+      "source": "review_comment-1452183188",
+      "target": "pr-3050",
+      "relation": "DISCUSSES",
+      "evidence": "review_comment-1452183188"
+    },
+    {
+      "source": "review_comment-1452230760",
+      "target": "pr-3050",
+      "relation": "DISCUSSES",
+      "evidence": "review_comment-1452230760"
+    },
+    {
+      "source": "review_comment-1452235919",
+      "target": "pr-3050",
+      "relation": "DISCUSSES",
+      "evidence": "review_comment-1452235919"
+    },
+    {
+      "source": "review_comment-1466121446",
+      "target": "pr-3050",
+      "relation": "DISCUSSES",
+      "evidence": "review_comment-1466121446"
+    },
+    {
+      "source": "review_comment-1466369932",
+      "target": "pr-3050",
+      "relation": "DISCUSSES",
+      "evidence": "review_comment-1466369932"
+    },
+    {
+      "source": "review_comment-1466801181",
+      "target": "pr-3050",
+      "relation": "DISCUSSES",
+      "evidence": "review_comment-1466801181"
+    },
+    {
+      "source": "review_comment-1467435754",
+      "target": "pr-3050",
+      "relation": "DISCUSSES",
+      "evidence": "review_comment-1467435754"
+    },
+    {
+      "source": "review_comment-1467463864",
+      "target": "pr-3050",
+      "relation": "DISCUSSES",
+      "evidence": "review_comment-1467463864"
+    },
+    {
+      "source": "review_comment-1467491476",
+      "target": "pr-3050",
+      "relation": "DISCUSSES",
+      "evidence": "review_comment-1467491476"
+    },
+    {
+      "source": "pr-3050",
+      "target": "diff-3050-CHANGELOG.md",
+      "relation": "CHANGES",
+      "evidence": "diff-3050-CHANGELOG.md"
+    },
+    {
+      "source": "pr-3050",
+      "target": "diff-3050-docs/advanced/transports.md",
+      "relation": "CHANGES",
+      "evidence": "diff-3050-docs/advanced/transports.md"
+    },
+    {
+      "source": "pr-3050",
+      "target": "diff-3050-docs/async.md",
+      "relation": "CHANGES",
+      "evidence": "diff-3050-docs/async.md"
+    },
+    {
+      "source": "pr-3050",
+      "target": "diff-3050-httpx/_client.py",
+      "relation": "CHANGES",
+      "evidence": "diff-3050-httpx/_client.py"
+    },
+    {
+      "source": "pr-3050",
+      "target": "diff-3050-tests/test_asgi.py",
+      "relation": "CHANGES",
+      "evidence": "diff-3050-tests/test_asgi.py"
+    },
+    {
+      "source": "pr-3050",
+      "target": "diff-3050-tests/test_wsgi.py",
+      "relation": "CHANGES",
+      "evidence": "diff-3050-tests/test_wsgi.py"
+    },
+    {
+      "source": "comment-1033645523",
+      "target": "pr-2074",
+      "relation": "DISCUSSES",
+      "evidence": "comment-1033645523"
+    },
+    {
+      "source": "review_comment-802548304",
+      "target": "pr-2074",
+      "relation": "DISCUSSES",
+      "evidence": "review_comment-802548304"
+    },
+    {
+      "source": "pr-2074",
+      "target": "diff-2074-httpx/_client.py",
+      "relation": "CHANGES",
+      "evidence": "diff-2074-httpx/_client.py"
+    },
+    {
+      "source": "pr-2074",
+      "target": "diff-2074-httpx/_utils.py",
+      "relation": "CHANGES",
+      "evidence": "diff-2074-httpx/_utils.py"
+    },
+    {
+      "source": "pr-2074",
+      "target": "diff-2074-tests/client/test_redirects.py",
+      "relation": "CHANGES",
+      "evidence": "diff-2074-tests/client/test_redirects.py"
+    },
+    {
+      "source": "pr-2074",
+      "target": "diff-2074-tests/test_utils.py",
+      "relation": "CHANGES",
+      "evidence": "diff-2074-tests/test_utils.py"
+    },
+    {
+      "source": "pr-2074",
+      "target": "issue-1850",
+      "relation": "REFERENCES",
+      "evidence": "pr-2074"
+    },
+    {
+      "source": "comment-1324204686",
+      "target": "issue-2462",
+      "relation": "DISCUSSES",
+      "evidence": "comment-1324204686"
+    },
+    {
+      "source": "comment-1327392317",
+      "target": "issue-2462",
+      "relation": "DISCUSSES",
+      "evidence": "comment-1327392317"
+    },
+    {
+      "source": "comment-1329537180",
+      "target": "issue-2462",
+      "relation": "DISCUSSES",
+      "evidence": "comment-1329537180"
+    },
+    {
+      "source": "comment-1332767221",
+      "target": "issue-2462",
+      "relation": "DISCUSSES",
+      "evidence": "comment-1332767221"
+    },
+    {
+      "source": "pr-3050",
+      "target": "comment-1727389402",
+      "relation": "CITES_RATIONALE",
+      "evidence": "pr-3050"
+    }
+  ],
+  "git_records": [
+    {
+      "sha": "9baf3a6cd2fa9ebeb17dba5a3e5c6e9e0af83a96",
+      "date": "2022-05-30T14:54:47+01:00",
+      "message": "Drop RawURL (#2241)",
+      "paths": [
+        "httpx/_models.py",
+        "httpx/_types.py",
+        "httpx/_urls.py",
+        "tests/client/test_proxies.py",
+        "tests/models/test_url.py"
+      ]
+    },
+    {
+      "sha": "40a0da093b423ca37feee2b85df7c3f0ce3cc96c",
+      "date": "2022-12-02T16:20:05+00:00",
+      "message": "Add back in URL.raw with NamedTuple (#2481)\n\n* add back in URL.raw with NamedTuple\r\n\r\n* Update _urls.py\r\n\r\n* Update _urls.py\r\n\r\nCo-authored-by: Tom Christie <tom@tomchristie.com>",
+      "paths": [
+        "httpx/_types.py",
+        "httpx/_urls.py",
+        "tests/models/test_url.py"
+      ]
+    },
+    {
+      "sha": "cabd1c095e52e2f67ab63ec17941d3a539d7c877",
+      "date": "2024-02-02T13:29:41+00:00",
+      "message": "Deprecate `app=...` in favor of explicit `WSGITransport`/`ASGITransport`. (#3050)\n\n* Deprecate app=... in favour of explicit WSGITransport/ASGITransport\r\n\r\n* Linting\r\n\r\n* Linting\r\n\r\n* Update WSGITransport and ASGITransport docs\r\n\r\n* Deprecate app\r\n\r\n* Drop deprecation tests\r\n\r\n* Add CHANGELOG\r\n\r\n* Deprecate 'app=...' shortcut, rather than removing it.\r\n\r\n* Update CHANGELOG\r\n\r\n* Fix test_asgi.test_deprecated_shortcut",
+      "paths": [
+        "CHANGELOG.md",
+        "docs/advanced/transports.md",
+        "docs/async.md",
+        "httpx/_client.py",
+        "tests/test_asgi.py",
+        "tests/test_wsgi.py"
+      ]
+    },
+    {
+      "sha": "4401d55ecf0d95be237098b6c73c45420d54d499",
+      "date": "2022-02-09T11:18:21+00:00",
+      "message": "Preserve Authorization header on HTTPS redirect (#1850) (#2074)\n\n* Preserve Authorization header on HTTPS redirect (#1850)\r\n\r\n* Update httpx/_client.py\r\n\r\nCo-authored-by: Tom Christie <tom@tomchristie.com>",
+      "paths": [
+        "httpx/_client.py",
+        "httpx/_utils.py",
+        "tests/client/test_redirects.py",
+        "tests/test_utils.py"
+      ]
+    }
+  ],
+  "coverage": {
+    "scope": "Four selected historical PRs, two linked issues, their comments/reviews, one rationale comment and two current source files",
+    "full_repository_history": false,
+    "pull_requests": [
+      2241,
+      2481,
+      3050,
+      2074
+    ],
+    "issues": [
+      2462,
+      1850
+    ],
+    "complete_for_selected_endpoints": true
+  }
+}
