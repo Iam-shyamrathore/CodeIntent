@@ -1,0 +1,17 @@
+# Optional HTTPS entrypoint for a single VM with a public domain.
+services:
+  caddy:
+    image: caddy:2-alpine
+    environment:
+      CODEINTENT_DOMAIN: ${CODEINTENT_DOMAIN:?Set a public domain}
+    ports: ['80:80', '443:443', '443:443/udp']
+    volumes:
+      - ./infra/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      web: {condition: service_healthy}
+    restart: unless-stopped
+volumes:
+  caddy_data:
+  caddy_config:

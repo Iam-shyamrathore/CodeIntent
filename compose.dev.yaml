@@ -1,0 +1,6 @@
+# Expose databases on loopback for native API/worker/frontend development.
+services:
+  postgres:
+    ports: ['127.0.0.1:5442:5432']
+  neo4j:
+    ports: ['127.0.0.1:7692:7687']

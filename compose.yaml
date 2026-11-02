@@ -1,0 +1,92 @@
+name: codeintent
+x-backend: &backend
+  build:
+    context: .
+    dockerfile: infra/Dockerfile.api
+  environment: &backend-env
+    CODEINTENT_ENV: production
+    DATABASE_URL: postgresql://codeintent:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}@postgres:5432/codeintent
+    NEO4J_URI: bolt://neo4j:7687
+    NEO4J_USERNAME: neo4j
+    NEO4J_PASSWORD: ${NEO4J_PASSWORD:?Set NEO4J_PASSWORD}
+    CODEINTENT_API_SECRET: ${CODEINTENT_API_SECRET:?Set CODEINTENT_API_SECRET}
+    CODEINTENT_OPERATOR_TOKEN: ${CODEINTENT_OPERATOR_TOKEN:?Set CODEINTENT_OPERATOR_TOKEN}
+    GOOGLE_API_KEY: ${GOOGLE_API_KEY:-}
+    GOOGLE_CLOUD_PROJECT: ${GOOGLE_CLOUD_PROJECT:-}
+    GOOGLE_CLOUD_LOCATION: ${GOOGLE_CLOUD_LOCATION:-global}
+    VERTEX_GENERATION_MODEL: ${VERTEX_GENERATION_MODEL:-gemini-2.5-flash}
+    VERTEX_EMBEDDING_MODEL: ${VERTEX_EMBEDDING_MODEL:-gemini-embedding-001}
+    GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+    CODEINTENT_QUESTIONS_PER_DAY: ${CODEINTENT_QUESTIONS_PER_DAY:-30}
+    CODEINTENT_GLOBAL_QUESTIONS_PER_DAY: ${CODEINTENT_GLOBAL_QUESTIONS_PER_DAY:-300}
+    CODEINTENT_IMPORTS_PER_DAY: ${CODEINTENT_IMPORTS_PER_DAY:-20}
+  restart: unless-stopped
+  init: true
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: codeintent
+      POSTGRES_DB: codeintent
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+    volumes: [postgres_data:/var/lib/postgresql/data]
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U codeintent -d codeintent']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+  neo4j:
+    image: neo4j:5.26-community
+    environment:
+      NEO4J_AUTH: neo4j/${NEO4J_PASSWORD:?Set NEO4J_PASSWORD}
+      NEO4J_server_memory_heap_initial__size: 256m
+      NEO4J_server_memory_heap_max__size: 512m
+      NEO4J_server_memory_pagecache_size: 256m
+    volumes: [neo4j_data:/data]
+    healthcheck:
+      test: [CMD-SHELL, 'wget -q --spider http://localhost:7474 || exit 1']
+      interval: 10s
+      timeout: 5s
+      retries: 30
+    restart: unless-stopped
+  api:
+    <<: *backend
+    depends_on:
+      postgres: {condition: service_healthy}
+      neo4j: {condition: service_healthy}
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8210/health', timeout=5)"]
+      interval: 10s
+      timeout: 6s
+      retries: 20
+  worker:
+    <<: *backend
+    command: [sh, -c, 'python -m scripts.seed && exec python -m scripts.worker']
+    depends_on:
+      api: {condition: service_healthy}
+  web:
+    build:
+      context: .
+      dockerfile: infra/Dockerfile.web
+    environment:
+      CODEINTENT_API_URL: http://api:8210
+      CODEINTENT_API_SECRET: ${CODEINTENT_API_SECRET:?Set CODEINTENT_API_SECRET}
+      CODEINTENT_OPERATOR_TOKEN: ${CODEINTENT_OPERATOR_TOKEN:?Set CODEINTENT_OPERATOR_TOKEN}
+      CODEINTENT_SESSION_SECRET: ${CODEINTENT_SESSION_SECRET:?Set CODEINTENT_SESSION_SECRET}
+      CODEINTENT_PUBLIC_URL: ${CODEINTENT_PUBLIC_URL:-http://localhost:3000}
+    ports: ['${CODEINTENT_BIND:-127.0.0.1}:${CODEINTENT_PORT:-3000}:3000']
+    depends_on:
+      api: {condition: service_healthy}
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:3000').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 8s
+      retries: 10
+    restart: unless-stopped
+    init: true
+volumes:
+  postgres_data:
+    name: ${COMPOSE_PROJECT_NAME:-codeintent}_ledger_v1
+  neo4j_data:
+    name: ${COMPOSE_PROJECT_NAME:-codeintent}_graph_v1
