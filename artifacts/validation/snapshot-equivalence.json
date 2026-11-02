@@ -1,0 +1,5 @@
+{
+  "sources": 50,
+  "native_evaluation_matches_runtime": true,
+  "shipped_fixture_matches_runtime": true
+}

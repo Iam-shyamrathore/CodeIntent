@@ -1,0 +1,17 @@
+{
+  "questions": 30,
+  "policy_version": "evidence-v3",
+  "index_id": "6e38e780fb16896fe97f66c9",
+  "errors": [],
+  "exact_citation_passes": 30,
+  "expected_abstentions": 7,
+  "abstention_passes": 7,
+  "median_seconds": 4.115,
+  "observed_p95_seconds": 6.1,
+  "max_seconds": 6.78,
+  "graph_changes_context": 30,
+  "without_graph_essential_recall": 1.0,
+  "without_graph_complete_retrieval": 23,
+  "graph_essential_recall": 1.0,
+  "graph_complete_retrieval": 23
+}

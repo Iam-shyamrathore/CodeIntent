@@ -1,0 +1,24 @@
+{
+  "readiness": 200,
+  "unauthorized_import": 403,
+  "foreign_origin": 403,
+  "saved_report_policy": "evidence-v3",
+  "report_id": "d244078f-9eff-4ffb-958a-6946cf0e1b65",
+  "status": "supported",
+  "seconds": 8.64,
+  "source_hashes": true,
+  "repositories": [
+    {
+      "name": "encode/httpx",
+      "sources": 50,
+      "index": "e0a117e910da9496a5f27678"
+    },
+    {
+      "name": "pallets/itsdangerous",
+      "sources": 11,
+      "index": "db45bf4752600699e726f4ab"
+    }
+  ],
+  "cancel_retry_verified": true,
+  "retried_import_status": "ready"
+}
