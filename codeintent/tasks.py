@@ -238,6 +238,15 @@ def analyze_pull_request(context, analysis_id: str):
                     analysis_id,
                 ),
             )
+        try:
+            notify_telegram.defer(analysis_id=analysis_id)
+        except Exception as exc:
+            # Alerts are best-effort: never fail or retry the analysis because of Telegram.
+            logger.warning(
+                "Could not queue Telegram alert for %s (%s)",
+                analysis_id,
+                type(exc).__name__,
+            )
     except Exception as exc:
         # Exception text may echo upstream responses; store and log only the category.
         logger.warning("Pull analysis %s failed (%s)", analysis_id, type(exc).__name__)
@@ -271,6 +280,24 @@ def analyze_pull_request(context, analysis_id: str):
         raise RuntimeError(type(exc).__name__) from None
     finally:
         client.close()
+
+
+@app.task(
+    name="notify_telegram",
+    queue="pulls",
+    retry=procrastinate.RetryStrategy(max_attempts=3, wait=60),
+)
+def notify_telegram(analysis_id: str):
+    from codeintent import telegram
+
+    try:
+        telegram.notify(analysis_id)
+    except Exception as exc:
+        # Never log exception text: it could describe the request; the token is never in it.
+        logger.warning(
+            "Telegram alert for %s failed (%s)", analysis_id, type(exc).__name__
+        )
+        raise RuntimeError(type(exc).__name__) from None
 
 
 @app.periodic(cron="17 */6 * * *")

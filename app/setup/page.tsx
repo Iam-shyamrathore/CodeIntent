@@ -100,12 +100,34 @@ export default function Setup() {
         >
           <div className="section-line">
             <h2 id="telegram-heading">Telegram notifications</h2>
-            <span>Coming next</span>
+            <span>Optional</span>
           </div>
           <p>
-            Link a Telegram chat to hear about a “Breaks you” verdict without
-            watching GitHub. Not available yet; nothing needs to be set up now.
+            Link a Telegram chat, private or group, to hear about a “Breaks you”
+            or “Needs a change” verdict, or an upgrade to a version with known
+            advisories, without watching GitHub. Each pull request alerts each
+            linked chat once.
           </p>
+          <ol className="telegram-steps">
+            <li>
+              Open the <Link href="/dashboard">dashboard</Link>, signed in as
+              the workspace operator, and choose{" "}
+              <strong>Connect Telegram</strong> under the account. You get a
+              one-time code valid for 15 minutes.
+            </li>
+            <li>
+              Open the bot from the link shown next to the code and press{" "}
+              <strong>Start</strong>, or add the bot to a group and send{" "}
+              <code>/link CODE</code> there.
+            </li>
+            <li>
+              In the chat, <code>/status</code> lists the repositories with
+              their latest verdict and the newest breaking pull requests;{" "}
+              <code>/why httpx</code> shows the lines a package upgrade affects,
+              what to use instead and the upstream pull request behind it.{" "}
+              <code>/unlink</code> stops alerts.
+            </li>
+          </ol>
         </section>
 
         <p className="collection-footnote">

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowRight, GitBranch, LockKeyhole } from "lucide-react";
 import { ConsoleHeader } from "@/components/console-header";
 import { OperatorSignIn } from "@/components/operator-access";
+import { TelegramConnect } from "@/components/telegram-connect";
 import { VerdictLabel } from "@/components/verdict";
 import { isOperator } from "@/lib/session";
 import {
@@ -12,12 +13,14 @@ import {
   type Installation,
   type InstalledRepository,
 } from "@/lib/dashboard";
+import type { TelegramLinks } from "@/lib/telegram";
 
 export const metadata = { title: "Dashboard · Code Intent" };
 
 type Workspace = Installation & {
   repos:
     { state: "ok"; list: InstalledRepository[] } | { state: "unavailable" };
+  telegram: TelegramLinks | null;
 };
 
 async function loadWorkspaces(): Promise<Workspace[] | null> {
@@ -27,10 +30,14 @@ async function loadWorkspaces(): Promise<Workspace[] | null> {
   if (installations.state !== "ok") return null;
   return Promise.all(
     installations.data.installations.map(async (installation) => {
-      const repos = await read<{ repositories: InstalledRepository[] }>(
-        `/app/installations/${installation.id}/repositories`,
-      );
+      const [repos, telegram] = await Promise.all([
+        read<{ repositories: InstalledRepository[] }>(
+          `/app/installations/${installation.id}/repositories`,
+        ),
+        read<TelegramLinks>(`/app/installations/${installation.id}/telegram`),
+      ]);
       return {
+        telegram: telegram.state === "ok" ? telegram.data : null,
         ...installation,
         repos:
           repos.state === "ok"
@@ -38,6 +45,61 @@ async function loadWorkspaces(): Promise<Workspace[] | null> {
             : { state: "unavailable" as const },
       };
     }),
+  );
+}
+
+function Telegram({ workspace }: { workspace: Workspace }) {
+  const links = workspace.telegram;
+  return (
+    <div
+      className="telegram-panel"
+      aria-labelledby={`telegram-${workspace.id}`}
+      role="group"
+    >
+      <h3 id={`telegram-${workspace.id}`}>Telegram alerts</h3>
+      {links === null && (
+        <p className="muted-state" role="status">
+          Linked Telegram chats could not be loaded.
+        </p>
+      )}
+      {links && !links.configured && (
+        <p className="telegram-note">
+          Telegram is not configured on this deployment. The operator sets{" "}
+          <code>TELEGRAM_BOT_TOKEN</code>, <code>TELEGRAM_BOT_USERNAME</code>{" "}
+          and <code>TELEGRAM_WEBHOOK_SECRET</code>; see{" "}
+          <Link href="/setup#telegram-heading">Setup</Link>.
+        </p>
+      )}
+      {links && links.chats.length > 0 && (
+        <ul className="telegram-chats">
+          {links.chats.map((chat, i) => (
+            <li key={`${chat.linked_at}-${i}`}>
+              {chat.title || "Telegram chat"}
+              <span>
+                Linked{" "}
+                <time dateTime={chat.linked_at}>
+                  {formatDate(chat.linked_at)}
+                </time>
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {links?.configured && links.chats.length === 0 && (
+        <p className="telegram-note">
+          No chat is linked. Linked chats get an alert when a pull request
+          breaks your code, needs a change, or moves to a version with known
+          advisories, and can ask <code>/status</code> and{" "}
+          <code>/why package</code>.
+        </p>
+      )}
+      {links?.configured && (
+        <TelegramConnect
+          installation={workspace.id}
+          account={workspace.account_login}
+        />
+      )}
+    </div>
   );
 }
 
@@ -196,6 +258,7 @@ export default async function Dashboard() {
                 })}
               </ul>
             )}
+            <Telegram workspace={w} />
           </section>
         ))}
         <p className="collection-footnote">

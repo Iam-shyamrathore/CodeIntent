@@ -3221,3 +3221,93 @@ input:focus-visible {
   font-weight: 400;
   vertical-align: baseline;
 }
+
+/* --- Telegram alerts (T20): dashboard panel and setup steps ------------------------------------ */
+.telegram-panel {
+  margin-top: 24px;
+  padding: 22px 0 0;
+  border-top: 1px solid var(--line);
+}
+.telegram-panel h3 {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink);
+  margin-bottom: 10px;
+}
+.telegram-panel .muted-state {
+  padding: 0;
+}
+.telegram-note,
+.telegram-code > p {
+  font-size: 13px;
+  color: var(--secondary);
+  line-height: 1.7;
+  max-width: 600px;
+}
+.telegram-panel a:not(.primary-button):not(.text-link) {
+  color: var(--accent);
+}
+.telegram-chats {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+}
+.telegram-chats li {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 10px 0;
+  font-size: 13px;
+  color: var(--ink);
+  border-bottom: 1px solid var(--line);
+}
+.telegram-chats li span {
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.telegram-connect {
+  margin-top: 6px;
+}
+.telegram-start:disabled {
+  color: var(--muted);
+  cursor: progress;
+}
+.telegram-code {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 22px 24px;
+  margin-top: 8px;
+  background: #141a21;
+  border-radius: 10px;
+}
+.telegram-code-value {
+  font-family: var(--font-mono);
+  font-size: 26px;
+  letter-spacing: 0.18em;
+  color: var(--mark);
+  user-select: all;
+}
+.telegram-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 24px;
+}
+.telegram-steps {
+  margin: 8px 0 0;
+  padding-left: 20px;
+  max-width: 640px;
+}
+.telegram-steps li {
+  font-size: 13px;
+  color: var(--secondary);
+  line-height: 1.7;
+  margin-bottom: 8px;
+}
+.telegram-steps li::marker {
+  font-family: var(--font-mono);
+  color: var(--muted);
+}

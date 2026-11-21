@@ -11,7 +11,16 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 from uuid import UUID
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Path, Query, Request
+from fastapi import (
+    BackgroundTasks,
+    Depends,
+    FastAPI,
+    Header,
+    HTTPException,
+    Path,
+    Query,
+    Request,
+)
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, field_validator
 from starlette.concurrency import run_in_threadpool
@@ -626,6 +635,91 @@ def app_pull(analysis_id: UUID, installation: int | None = Query(default=None, g
         "private": row["private"],
         "diff": row["diff"],
         "verdicts": row["verdicts"] if isinstance(row["verdicts"], list) else [],
+    }
+
+
+# --- Telegram bot -------------------------------------------------------------------------------
+
+
+@app.post("/telegram/webhook")
+async def telegram_webhook(
+    request: Request,
+    background: BackgroundTasks,
+    x_telegram_bot_api_secret_token: str = Header(default=""),
+):
+    """Bot API webhook: check the secret_token header, acknowledge at once, reply in the background."""
+    import json
+
+    from codeintent import telegram
+
+    secret = os.getenv("TELEGRAM_WEBHOOK_SECRET", "")
+    if not secret or not os.getenv("TELEGRAM_BOT_TOKEN"):
+        raise HTTPException(503, "Telegram is not configured")
+    if not hmac.compare_digest(
+        x_telegram_bot_api_secret_token.encode(), secret.encode()
+    ):
+        raise HTTPException(401, "Invalid Telegram secret token")
+    body = await request.body()
+    if len(body) > 1_000_000:
+        raise HTTPException(413, "Update is too large")
+    try:
+        update = json.loads(body)
+    except ValueError:
+        raise HTTPException(400, "Update must be JSON") from None
+    if isinstance(update, dict):
+        # Replies run after the response is sent, so Telegram never waits on the database or sendMessage.
+        background.add_task(telegram.handle_update, update)
+    return {"ok": True}
+
+
+def _live_installation(installation_id: int) -> None:
+    with store.connection() as conn:
+        if (
+            installation_id < 1
+            or not conn.execute(
+                "SELECT 1 FROM ci_installations WHERE id=%s AND deleted_at IS NULL",
+                (installation_id,),
+            ).fetchone()
+        ):
+            raise HTTPException(404, "Installation not found")
+
+
+@app.post(
+    "/app/installations/{installation_id}/telegram-code",
+    dependencies=[Depends(authenticated)],
+)
+def app_telegram_code(installation_id: int):
+    from codeintent import telegram
+
+    _live_installation(installation_id)
+    if not telegram.configured():
+        raise HTTPException(503, "Telegram is not configured")
+    try:
+        created = telegram.new_link_code(installation_id)
+    except LookupError:
+        raise HTTPException(404, "Installation not found") from None
+    bot = telegram.bot_username()
+    return {
+        "code": created["code"],
+        "expires_at": created["expires_at"],
+        "deep_link": f"https://t.me/{bot}?start={created['code']}",
+        "group_link": f"https://t.me/{bot}?startgroup={created['code']}",
+        "bot_username": bot,
+    }
+
+
+@app.get(
+    "/app/installations/{installation_id}/telegram",
+    dependencies=[Depends(authenticated)],
+)
+def app_telegram_chats(installation_id: int):
+    from codeintent import telegram
+
+    _live_installation(installation_id)
+    return {
+        "configured": telegram.configured(),
+        "bot_username": telegram.bot_username() or None,
+        "chats": telegram.linked_chats(installation_id),
     }
 
 
