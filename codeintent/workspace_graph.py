@@ -623,9 +623,16 @@ def configured() -> bool:
     )
 
 
+_schema_ready = False
+
+
 def schema(db) -> None:
+    """Constraints and indexes, created once per process (each statement is idempotent)."""
+    global _schema_ready
     from codeintent.graph import run_query
 
+    if _schema_ready:
+        return
     for label in LABELS:
         run_query(
             db,
@@ -635,6 +642,7 @@ def schema(db) -> None:
             db,
             f"CREATE INDEX ws_{label.lower()}_ws IF NOT EXISTS FOR (n:{label}) ON (n.ws)",
         )
+    _schema_ready = True
 
 
 def write(
@@ -688,7 +696,7 @@ def write(
 
 def project(run_id: str) -> dict | None:
     """Project one finished run into its workspace graph and mark it projected. None if not projectable."""
-    from codeintent.graph import driver
+    from codeintent.graph import shared
 
     with store.connection() as conn:
         run = conn.execute(
@@ -722,7 +730,7 @@ def project(run_id: str) -> dict | None:
         )
     batch = build(run, steps, found, login, hint)
     scan = run["kind"] == "scan" and run["status"] in ("succeeded", "partial")
-    with driver() as db:
+    with shared() as db:
         schema(db)
         counts = write(
             db,

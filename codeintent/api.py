@@ -1062,7 +1062,7 @@ def _graph():
 
     if not workspace_graph.configured():
         raise HTTPException(503, "The workspace graph is not configured")
-    return graph.driver()
+    return graph.shared()
 
 
 @app.get("/app/graph/impact", dependencies=[Depends(authenticated)])

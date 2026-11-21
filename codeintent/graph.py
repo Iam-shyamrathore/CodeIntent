@@ -27,6 +27,20 @@ def driver():
     )
 
 
+_shared = None
+_shared_lock = __import__("threading").Lock()
+
+
+@__import__("contextlib").contextmanager
+def shared():
+    """A process-wide driver (thread-safe, pooled): no TLS handshake to Aura per job or request."""
+    global _shared
+    with _shared_lock:
+        if _shared is None:
+            _shared = driver()
+    yield _shared
+
+
 def run_query(db, query, **parameters):
     return db.execute_query(
         query, database_=os.getenv("NEO4J_DATABASE") or None, **parameters

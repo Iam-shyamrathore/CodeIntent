@@ -186,7 +186,7 @@ def index_release(package: str, version: str, http: httpx.Client) -> dict:
     pairs = [(n, v) for n, v in pairs if n and v][:MAX_TREE]
     checks = osv.check(pairs or [(package, version)], http)
     batch, found = build_release(package, version, info, tree, facts, checks)
-    with graph.driver() as db:
+    with graph.shared() as db:
         workspace_graph.schema(db)
         counts = workspace_graph.write(db, batch)
     _mark(package, version, "indexed", dependencies=max(len(found) - 1, 0))
@@ -354,7 +354,7 @@ def seed_project(full_name: str, client, http: httpx.Client) -> dict:
                         resolved="lock" if name in exact else "newest allowed",
                     )
                     pairs.append((name, version))
-    with graph.driver() as db:
+    with graph.shared() as db:
         workspace_graph.schema(db)
         counts = workspace_graph.write(db, b)
     queued = queue(pairs)
