@@ -21,6 +21,7 @@ Code Intent uses upstream packages through their APIs. Their notices and licence
 | poetry-core | Converting Poetry `^`/`~` constraints to PEP 440 | MIT |
 | LibCST (Meta / Instagram) | Scope and qualified-name metadata for finding how consumer code uses a library | MIT; marked PSF portions |
 | griffe / griffelib (Timothée Mazzucotelli) | Static, import-free model of each released library version: modules, aliases, classes, signatures | ISC |
+| [OSV.dev](https://osv.dev) API (Google) and the advisory data it aggregates | Known-vulnerability advisories for exact PyPI versions (`codeintent/upgrades/advisories.py`); records are fetched at run time and summarised with their ids and links, not redistributed in bulk | OSV.dev service code Apache-2.0. Data keeps each source's licence as listed on [OSV data sources](https://google.github.io/osv.dev/data/): [GitHub Advisory Database](https://github.com/github/advisory-database) (GHSA) CC-BY-4.0, [PyPA Advisory Database](https://github.com/pypa/advisory-database) (PYSEC) CC-BY-4.0, [OpenSSF Malicious Packages](https://github.com/ossf/malicious-packages) (MAL) Apache-2.0, Python Software Foundation Database (PSF) CC-BY-4.0 |
 | IBM Plex Sans / Mono | Self-hosted fonts | SIL OFL-1.1 |
 | Lucide | Interface icons | ISC |
 | PostgreSQL / Neo4j Community | Ledger and graph services | PostgreSQL Licence / GPL-3.0, separate container distributions |
