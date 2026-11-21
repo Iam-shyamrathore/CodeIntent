@@ -1563,7 +1563,17 @@ def fix_brief(
         )
         traced = graph.get(verdict.package) or {}
         drafted = agent.get(verdict.package) or {}
-        patches = {(p["file"], p["line"]): p for p in drafted.get("patches") or []}
+        drafts = drafted.get("patches") or []
+
+        def drafted_for(loc):
+            """The agent's edit for a reported place: same file, within the statement's lines."""
+            near = [
+                p
+                for p in drafts
+                if p["file"] == loc.file and 0 <= p["line"] - (loc.line or 0) <= 3
+            ]
+            return min(near, key=lambda p: p["line"], default=None)
+
         blast = {(b["file"], b["line"]): b for b in traced.get("blast") or []}
         edits = []
         for index, finding in enumerate(verdict.findings):
@@ -1622,11 +1632,11 @@ def fix_brief(
                         tests=where.get("tests") or [],
                         agent_patch=AgentPatch(
                             **{
-                                k: patches[(loc.file, loc.line)][k]
+                                k: draft[k]
                                 for k in ("before", "after", "explanation", "verified")
                             }
                         )
-                        if (loc.file, loc.line) in patches
+                        if (draft := drafted_for(loc))
                         else None,
                     )
                 )

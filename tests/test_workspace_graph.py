@@ -446,6 +446,26 @@ def test_fix_brief_hands_the_agent_every_edit_with_what_depends_on_it(
             summary={"verdict": "breaks"},
             result={"verdicts": [verdict], "graph": traced},
         )
+    from psycopg.types.json import Jsonb
+
+    drafted = {
+        "file": "src/app/client.py",
+        "line": 6,  # the argument's own line, inside the statement CodeIntent reported at line 5
+        "before": "    return httpx.Client(proxies=proxy)",
+        "after": "    return httpx.Client(proxy=proxy)",
+        "explanation": "proxies= was removed.",
+        "verified": True,
+    }
+    with store.connection() as conn:
+        conn.execute(
+            """INSERT INTO ci_agent_reviews(run_id,installation_id,repository,pull_number,model,result)
+            VALUES(%s,%s,'acme/app',12,'gemini-test',%s)""",
+            (
+                run.id,
+                a,
+                Jsonb({"upgrades": [{"package": "httpx", "patches": [drafted]}]}),
+            ),
+        )
     reset = mcp_server._installation.set(a)
     try:
         brief = mcp_server.fix_brief("acme/app", 12)
@@ -459,6 +479,9 @@ def test_fix_brief_hands_the_agent_every_edit_with_what_depends_on_it(
     assert {"GET /users", "scripts/run.py"} <= set(edit.entry_points)
     assert brief.tests_to_run == ["tests/test_client.py"]
     assert brief.steps[-1] == "Run tests/test_client.py"
+    assert brief.agent == "gemini-test"
+    assert edit.agent_patch.after == "    return httpx.Client(proxy=proxy)"
+    assert edit.agent_patch.verified is True
     reset = mcp_server._installation.set(b)
     try:
         with pytest.raises(ToolError):
