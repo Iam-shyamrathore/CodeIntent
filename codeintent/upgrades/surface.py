@@ -185,6 +185,8 @@ class Surface:
             return Found(obj, obj.path, rest=rest)
         if obj.is_function and rest:
             target = self._annotation_class(obj.returns, obj.parent)
+            if target is None and obj.returns is None:
+                target = self._returned_class(obj)
         else:
             value = obj.value if obj.is_attribute else None
             is_name = isinstance(value, (griffe.ExprName, griffe.ExprAttribute))
@@ -194,6 +196,96 @@ class Surface:
         if self._inside(target):
             return self.lookup(".".join((target, *rest)), depth + 1)
         return Found(None, obj.path, external=target, rest=rest)
+
+    def _returned_class(self, function: griffe.Object) -> str | None:
+        """For an unannotated function whose every ``return`` constructs the same class in this
+        distribution (``return ProxyManager(...)``), that class."""
+        tree = self.source(function)
+        node = (
+            next(
+                (
+                    n
+                    for n in ast.walk(tree)
+                    if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
+                ),
+                None,
+            )
+            if tree is not None
+            else None
+        )
+        if node is None:
+            return None
+        returns, stack = [], list(node.body)
+        while stack:
+            child = stack.pop()
+            if isinstance(
+                child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef, ast.Lambda)
+            ):
+                continue
+            if isinstance(child, ast.Return):
+                returns.append(child.value)
+            stack.extend(ast.iter_child_nodes(child))
+        module = function
+        while module is not None and not module.is_module:
+            module = module.parent
+        classes = set()
+        for value in returns:
+            if not isinstance(value, ast.Call) or module is None:
+                return None
+            if ast.unparse(value.func).endswith(("raise_from", "reraise")):
+                continue
+            path = self._name_in(ast.unparse(value.func), module)
+            found = self.lookup(path, 5) if path and self._inside(path) else None
+            if not (
+                isinstance(found, Found)
+                and found.obj is not None
+                and found.obj.is_class
+            ):
+                return None
+            classes.add(found.obj.path)
+        return classes.pop() if len(classes) == 1 else None
+
+    def _fields(self, cls: griffe.Object) -> set[str]:
+        """Field names of a class built on ``namedtuple(...)`` or ``typing.NamedTuple(...)``."""
+        fields: set[str] = set()
+        for base in cls.bases:
+            if not isinstance(
+                base, griffe.ExprCall
+            ) or not base.canonical_path.endswith(("namedtuple", "NamedTuple")):
+                continue
+            arguments = [
+                a for a in base.arguments if not isinstance(a, griffe.ExprKeyword)
+            ]
+            if len(arguments) < 2:
+                continue
+            spec = arguments[1]
+            if (
+                isinstance(spec, (griffe.ExprName, griffe.ExprAttribute))
+                and cls.parent is not None
+            ):
+                held = cls.parent.members.get(str(spec))
+                spec = (
+                    getattr(held, "value", None)
+                    if held is not None and not held.is_alias
+                    else None
+                )
+            try:
+                tree = (
+                    ast.parse(str(spec), mode="eval").body if spec is not None else None
+                )
+            except SyntaxError:
+                tree = None
+            if isinstance(tree, ast.Constant) and isinstance(tree.value, str):
+                fields |= set(tree.value.replace(",", " ").split())
+            elif isinstance(tree, (ast.List, ast.Tuple)):
+                for element in tree.elts:
+                    if isinstance(element, (ast.Tuple, ast.List)) and element.elts:
+                        element = element.elts[0]
+                    if isinstance(element, ast.Constant) and isinstance(
+                        element.value, str
+                    ):
+                        fields.add(element.value)
+        return fields
 
     def _annotation_class(self, expr, scope, depth: int = 0) -> str | None:
         """The one class an annotation names, unwrapping ``Optional``, ``X | None`` and bound TypeVars.
@@ -348,6 +440,8 @@ class Surface:
             folder = parent.filepath.parent
             if any(f.suffix in COMPILED for f in folder.glob(f"{name}.*")):
                 return Unknown("compiled-module", f"{path} is a compiled extension")
+        if parent.is_class and name in self._fields(parent):
+            return Found(None, path, external=f"tuple field {name}")
         inherited = self._standard_member(parent, name) if parent.is_class else None
         if inherited is not None:
             return Found(None, path, external=inherited)
@@ -362,7 +456,7 @@ class Surface:
     def _external_base(cls: griffe.Object) -> bool:
         declared = [b for b in cls.bases if str(b) not in ("object", "builtins.object")]
         try:
-            return len(cls.resolved_bases) < len(declared)
+            return len([b for b in cls.resolved_bases if b.is_class]) < len(declared)
         except (griffe.AliasResolutionError, griffe.CyclicAliasError):
             return True
 
