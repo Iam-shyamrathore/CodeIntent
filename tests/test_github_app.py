@@ -120,10 +120,20 @@ def test_uv_lock_group_update_reports_each_locked_bump():
     assert all(c["file"] == "uv.lock" and c["direct"] for c in diff["changed"])
 
 
-def test_files_outside_the_manifest_parser_are_not_downloaded():
-    # The PR bumps pytest in development-requirements.txt, a name scan() does not read.
-    diff = changes("unsupported-requirements-name")
-    assert diff["files"] == [] and diff["changed"] == [] and diff["merge_base"] is None
+def test_prefixed_requirements_file_is_read():
+    # "bump pytest from 9.1.1 to 9.2.0" in development-requirements.txt, a name Dependabot treats
+    # as a requirements file.
+    diff = changes("dev-requirements-name")
+    assert summary(diff) == {
+        (
+            "development-requirements.txt",
+            "pytest",
+            "==9.1.1",
+            "==9.2.0",
+            "9.1.1",
+            "9.2.0",
+        )
+    }
 
 
 @pytest.mark.parametrize(
@@ -135,7 +145,7 @@ def test_files_outside_the_manifest_parser_are_not_downloaded():
         ("svc/requirements/requirements-dev.txt", "svc"),
         ("requirements-test.lock", "."),
         ("pkg/poetry.lock", "pkg"),
-        ("development-requirements.txt", None),
+        ("development-requirements.txt", "."),
         ("docs/conf.py", None),
         ("requirements/notes.md", None),
     ],

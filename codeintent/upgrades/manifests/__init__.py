@@ -16,12 +16,11 @@ _SETUPTOOLS = {"setup.cfg": setup_cfg, "setup.py": setup_py}
 _LOCKS = ("uv.lock", "poetry.lock")
 
 
+REQUIREMENT_PATTERNS = ("*requirements*.txt", "*requirements*.in", "requirements*.lock")
+
+
 def _requirement_files(root: Path) -> list[Path]:
-    found = [
-        *root.glob("requirements*.txt"),
-        *root.glob("requirements*.in"),
-        *root.glob("requirements*.lock"),
-    ]
+    found = [path for pattern in REQUIREMENT_PATTERNS for path in root.glob(pattern)]
     folder = root / "requirements"
     if folder.is_dir():
         found += [*folder.glob("*.txt"), *folder.glob("*.in")]

@@ -31,7 +31,7 @@ from codeintent.upgrades.models import Location, Unchecked, Usage, UsageScan
 
 # Bump whenever anything that changes extracted records changes (FileScan, _Prepass, helpers, models):
 # it is part of every per-file cache key, so old cached results stop being used.
-EXTRACTOR_VERSION = 1
+EXTRACTOR_VERSION = 2
 LIBCST_VERSION = _package_version("libcst")
 # Below this many files to parse, a process pool costs more to start than it saves.
 MIN_PARALLEL_FILES = 8
@@ -544,9 +544,29 @@ def _scan_text(name: str, text: str, modules: tuple[str, ...]) -> dict:
         )
         return {"usages": [], "unchecked": [found.model_dump(mode="json")]}
     result = FileScan(module, name, modules)
+    usages = sorted(
+        result.usages.values(),
+        key=lambda u: (
+            u.location.line or 0,
+            u.location.column or 0,
+            u.symbol,
+            u.kind,
+            u.via,
+            u.keywords,
+        ),
+    )
+    unchecked = sorted(
+        result.unchecked,
+        key=lambda u: (
+            u.location.line or 0,
+            u.location.column or 0,
+            u.reason,
+            u.detail,
+        ),
+    )
     return {
-        "usages": [u.model_dump(mode="json") for u in result.usages.values()],
-        "unchecked": [u.model_dump(mode="json") for u in result.unchecked],
+        "usages": [u.model_dump(mode="json") for u in usages],
+        "unchecked": [u.model_dump(mode="json") for u in unchecked],
     }
 
 

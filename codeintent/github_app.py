@@ -20,6 +20,8 @@ from typing import Callable
 
 import httpx
 
+from codeintent.upgrades.manifests import REQUIREMENT_PATTERNS
+
 logger = logging.getLogger(__name__)
 
 API = "https://api.github.com"
@@ -189,14 +191,14 @@ class Client:
 # --- Dependency diff ------------------------------------------------------------------------
 
 _ROOT_FILES = {"pyproject.toml", "uv.lock", "poetry.lock", "setup.cfg", "setup.py"}
-_REQUIREMENT_PATTERNS = ("requirements*.txt", "requirements*.in", "requirements*.lock")
+_REQUIREMENT_PATTERNS = REQUIREMENT_PATTERNS
 
 
 def manifest_root(path: str) -> str | None:
     """The directory the manifest parser would scan to read ``path``, or None if unsupported.
 
     Mirrors ``codeintent.upgrades.manifests.scan``: root-level manifests and lock files,
-    ``requirements*.{txt,in,lock}`` and ``requirements/*.{txt,in}``. Nested projects are
+    ``REQUIREMENT_PATTERNS`` (e.g. ``dev-requirements.txt``) and ``requirements/*.{txt,in}``. Nested projects are
     scanned from their own directory.
     """
     parts = PurePosixPath(path)
