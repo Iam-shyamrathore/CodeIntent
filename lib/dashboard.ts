@@ -16,6 +16,7 @@ export type Change = {
   parameter?: string | null;
   detail: string;
   message?: string | null;
+  message_version?: string | null;
   replacement?: string | null;
   replacement_source?: "message" | "message-unverified" | "signature" | null;
   before?: Location | null;
@@ -218,4 +219,15 @@ export function formatDate(value: string) {
 
 export function pullUrl(repository: string, number: number) {
   return `https://github.com/${repository}/pull/${number}`;
+}
+
+/** `httpx._client.Client` as users import it: `httpx.Client`. Mirrors `_target` in codeintent/upgrades/report.py. */
+export function publicSymbol(symbol: string): string {
+  return symbol
+    .split(".")
+    .filter(
+      (part, index) =>
+        index === 0 || !part.startsWith("_") || part.startsWith("__"),
+    )
+    .join(".");
 }

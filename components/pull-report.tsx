@@ -10,7 +10,7 @@ import type {
   Unchecked,
   UpgradeVerdict,
 } from "@/lib/dashboard";
-import { formatDate, pullUrl } from "@/lib/dashboard";
+import { formatDate, publicSymbol, pullUrl } from "@/lib/dashboard";
 
 const KIND: Record<Change["kind"], string> = {
   removed: "Removed",
@@ -121,7 +121,7 @@ function FindingEntry({
       </div>
       <h4>
         <code>
-          {change.symbol}
+          {publicSymbol(change.symbol)}
           {change.parameter ? `(${change.parameter}=)` : ""}
         </code>
       </h4>
@@ -172,7 +172,10 @@ function FindingEntry({
             </p>
           </blockquote>
           <figcaption>
-            {verdict.package} {verdict.end}, in its own words
+            {verdict.package}{" "}
+            {change.message_version ??
+              (change.kind === "deprecated" ? verdict.end : verdict.start)}
+            , in its own words
           </figcaption>
         </figure>
       )}
