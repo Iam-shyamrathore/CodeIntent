@@ -638,6 +638,25 @@ def upcoming_items(latest: str = "0.28.0") -> list[dict]:
                 "advisories": JINJA["advisories"][0],
             },
             {
+                "package": "markupsafe",
+                "current": "2.1.5",
+                "latest": "3.0.2",
+                "status": "compared",
+                "location": {"file": "pyproject.toml", "line": 9},
+                "verdict": CLEAN
+                | {"package": "markupsafe", "start": "2.1.5", "end": "3.0.2"},
+                "specifier": "<3",
+                "pins": [{"kind": "upper_bound", "clause": "<3"}],
+                "allows_latest": False,
+                "lift": "can-be-lifted",
+                "lift_reason": "the latest release changes nothing your code uses",
+                "origin": {
+                    "commit": "a" * 40,
+                    "commit_url": "https://github.com/acme/app/commit/" + "a" * 40,
+                    "message": "Pin markupsafe below 3 until Jinja catches up\n\nSee #12",
+                },
+            },
+            {
                 "package": "idna",
                 "current": "3.6",
                 "latest": "3.7",
@@ -677,6 +696,10 @@ def test_upcoming_alerts_once_per_finding_and_again_for_a_newer_release(
         "Known advisories: jinja2 3.1.4, the version you run now: GHSA-q2x7-8rv6-6q7h (fixed in 3.1.5)"
         in visible
     )
+    assert (
+        "Pin can be lifted: markupsafe<3 blocks 3.0.2, which changes nothing your code uses.\n"
+        "  Pinned at pyproject.toml:9\n  Added in Pin markupsafe below 3 until Jinja catches up"
+    ) in visible
     assert "idna" not in visible and "other/secret" not in visible
     assert (
         "https://codeintent.example/dashboard/acme/app"
@@ -688,6 +711,7 @@ def test_upcoming_alerts_once_per_finding_and_again_for_a_newer_release(
     assert telegram.notify_upcoming(11) == 1
     again = check_html(recorder.sent()[-1]["text"])
     assert "0.27.2 → 0.28.1" in again and "jinja2" not in again
+    assert "markupsafe" not in again
 
 
 @integration

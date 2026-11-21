@@ -31,12 +31,18 @@ network = pytest.mark.skipif(
 SHA = "c" * 40
 
 
-def test_python_manifests_are_found_where_the_parser_reads_them():
-    assert scans.has_python_manifests(["README.md", "requirements.txt"])
-    assert scans.has_python_manifests(["services/api/pyproject.toml"])
-    assert scans.has_python_manifests(["requirements/dev.in"])
-    assert not scans.has_python_manifests(["package.json", "src/app.ts"])
-    assert not scans.has_python_manifests([".github/requirements.txt"])
+def test_projects_are_found_where_the_parser_reads_them():
+    assert scans.projects(["README.md", "requirements.txt"]) == ["."]
+    assert scans.projects(
+        [
+            "src/time/pyproject.toml",
+            "src/fetch/pyproject.toml",
+            "pyproject.toml",
+            "requirements/dev.in",
+        ]
+    ) == [".", "src/fetch", "src/time"]
+    assert scans.projects(["package.json", "src/app.ts"]) == []
+    assert scans.projects([".github/requirements.txt", "node_modules/x/setup.py"]) == []
 
 
 def test_alert_keys_name_versions_and_skip_withdrawn_advisories():
@@ -305,7 +311,10 @@ def test_scan_results_are_scoped_to_the_callers_installations(schema, client):
     summary = client.get("/app/upcoming?installations=21").json()
     assert summary["findings"][0] | {"scanned_at": None} == {
         "repository": "acme/app",
+        "project": ".",
         "package": "httpx",
+        "specifier": "",
+        "lift": None,
         "current": "0.27.2",
         "latest": "0.28.1",
         "verdict": "breaks",

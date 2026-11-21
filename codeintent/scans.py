@@ -56,14 +56,31 @@ def defer_all(conn) -> int:
     return sum(defer(conn, r["installation_id"], r["full_name"]) for r in rows)
 
 
-def has_python_manifests(paths: list[str]) -> bool:
+MAX_PROJECTS = 8
+SKIPPED_FOLDERS = {"node_modules", "site-packages", "vendor", "third_party", "fixtures"}
+
+
+def projects(paths: list[str]) -> list[str]:
+    """Folders holding a Python project's manifests, shallowest first, at most ``MAX_PROJECTS``.
+
+    Hidden and vendored folders are left out; ``"."`` is the repository root.
+    """
     from codeintent.github_app import manifest_root
 
-    return any(
-        manifest_root(p) is not None
+    roots = {
+        root
         for p in paths
-        if not any(part.startswith(".") for part in p.split("/"))
-    )
+        if not any(
+            part.startswith(".") or part in SKIPPED_FOLDERS
+            for part in p.split("/")[:-1]
+        )
+        and (root := manifest_root(p)) is not None
+    }
+    return sorted(roots, key=lambda r: (r != ".", r.count("/"), r))[:MAX_PROJECTS]
+
+
+def has_python_manifests(paths: list[str]) -> bool:
+    return bool(projects(paths))
 
 
 def _finish(installation_id: int, repository: str, **fields) -> None:
@@ -142,7 +159,8 @@ def run(installation_id: int, repository: str, client, pypi) -> str:
         for e in (tree.get("tree") or [])[:MAX_TREE_ENTRIES]
         if e.get("type") == "blob"
     ]
-    if not has_python_manifests(paths):
+    found = projects(paths)
+    if not found:
         _finish(
             installation_id,
             repository,
@@ -156,7 +174,17 @@ def run(installation_id: int, repository: str, client, pypi) -> str:
         return "skipped"
     with source.temporary() as folder:
         root = source.download(repository, sha, Path(folder), client.token())
-        items = upcoming.scan(root, pypi, explain=True)
+        items = [
+            item
+            for project in found
+            for item in upcoming.scan(
+                root if project == "." else root / project,
+                pypi,
+                explain=True,
+                source=(repository, sha),
+                project=project,
+            )
+        ]
     _finish(
         installation_id,
         repository,
@@ -177,13 +205,16 @@ def fail(installation_id: int, repository: str, error: str) -> None:
 
 
 def alert_keys(item: dict) -> list[tuple[str, str]]:
-    """``(key, kind)`` for each part of an upcoming item worth an alert: a breaking next release, or an
-    active advisory on the version in use now. Keys name the versions, so a newer release alerts again.
+    """``(key, kind)`` for each part of an upcoming item worth an alert: a breaking next release, a pin the
+    latest release no longer needs, or an active advisory on the version in use now. Keys name the versions,
+    so a newer release alerts again.
     """
     keys = []
     verdict = item.get("verdict") or {}
     if verdict.get("verdict") == "breaks" and item.get("latest"):
         keys.append((f"breaks:{item['package']}@{item['latest']}", "breaks"))
+    if item.get("lift") == "can-be-lifted" and item.get("latest"):
+        keys.append((f"lift:{item['package']}@{item['latest']}", "lift"))
     check = item.get("advisories") or {}
     if check.get("status") == "advisories":
         for advisory in check.get("advisories") or []:

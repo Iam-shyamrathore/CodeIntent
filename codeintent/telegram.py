@@ -687,6 +687,26 @@ def upcoming_block(item: dict, kinds: set[str]) -> str:
     verdict = item.get("verdict") or {}
     if "breaks" in kinds and verdict:
         lines.append(package_block(verdict))
+    if "lift" in kinds:
+        where = item.get("location") or {}
+        spot = (
+            f"{where.get('file')}:{where.get('line')}"
+            if where.get("line")
+            else where.get("file")
+        )
+        lines.append(
+            f"<b>Pin can be lifted</b>: <code>{esc(item.get('package'), 100)}{esc(item.get('specifier'), 60)}</code> "
+            f"blocks {esc(item.get('latest'), 40)}, which changes nothing your code uses."
+        )
+        if spot:
+            lines.append(f"  Pinned at <code>{esc(spot, 160)}</code>")
+        origin = item.get("origin") or {}
+        if origin.get("pr_url") and origin.get("pr_number"):
+            title = f"#{origin['pr_number']} {origin.get('pr_title') or ''}".strip()
+            lines.append(f"  Added in {link(origin['pr_url'], esc(title, 160))}")
+        elif origin.get("commit_url"):
+            first = str(origin.get("message") or "").split("\n", 1)[0]
+            lines.append(f"  Added in {link(origin['commit_url'], esc(first, 160))}")
     if "advisory" in kinds:
         check = item.get("advisories") or {}
         active = [

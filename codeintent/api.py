@@ -775,12 +775,20 @@ def app_upcoming(installations: list[int] | None = Query(default=None)):
                 for a in check.get("advisories") or []
                 if isinstance(a, dict) and not a.get("withdrawn")
             ]
-            if verdict.get("verdict") not in ("breaks", "needs-change") and not active:
+            liftable = item.get("lift") == "can-be-lifted"
+            if (
+                verdict.get("verdict") not in ("breaks", "needs-change")
+                and not active
+                and not liftable
+            ):
                 continue
             findings.append(
                 {
                     "repository": row["repository"],
+                    "project": item.get("project") or ".",
                     "package": item.get("package"),
+                    "specifier": item.get("specifier") or "",
+                    "lift": item.get("lift"),
                     "current": item.get("current"),
                     "latest": item.get("latest"),
                     "verdict": verdict.get("verdict"),
@@ -799,6 +807,7 @@ def app_upcoming(installations: list[int] | None = Query(default=None)):
     findings.sort(
         key=lambda f: (
             rank.get(f["verdict"], 2),
+            f["lift"] != "can-be-lifted",
             -len(f["advisories"]),
             f["repository"].lower(),
             str(f["package"]),

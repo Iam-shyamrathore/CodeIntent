@@ -15,9 +15,10 @@ from packaging.utils import canonicalize_name
 from packaging.version import InvalidVersion, Version
 
 from codeintent.upgrades import advisories as osv
-from codeintent.upgrades import manifests
+from codeintent.upgrades import manifests, pins
 from codeintent.upgrades.advisories import AdvisoryCheck
-from codeintent.upgrades.models import Location, Record
+from codeintent.upgrades.models import Location, Pin, Record
+from codeintent.upgrades.pins import Lift, PinOrigin
 from codeintent.upgrades.verdict import UpgradeVerdict, evaluate
 
 PYPI = "https://pypi.org/pypi"
@@ -28,6 +29,8 @@ Status = Literal["compared", "current", "not-locked", "not-on-pypi", "unreadable
 
 class Upcoming(Record):
     package: str
+    project: str = "."
+    """The folder of the project declaring it, relative to the repository root."""
     current: str | None = None
     latest: str | None = None
     status: Status
@@ -36,6 +39,15 @@ class Upcoming(Record):
     detail: str | None = None
     advisories: AdvisoryCheck | None = None
     """Known advisories for the version in use now, whether or not a newer release exists."""
+    specifier: str = ""
+    pins: tuple[Pin, ...] = ()
+    """Deliberate restrictions in the declaration (see ``pins.deliberate``)."""
+    allows_latest: bool | None = None
+    lift: Lift | None = None
+    lift_reason: str | None = None
+    origin: PinOrigin | None = None
+    """The commit and pull request that added the restricting clause."""
+    origin_detail: str | None = None
 
 
 def latest(name: str, client: httpx.Client) -> str | None:
@@ -69,11 +81,15 @@ def scan(
     limit: int = MAX_PACKAGES,
     *,
     explain: bool = False,
+    source: tuple[str, str] | None = None,
+    project: str = ".",
 ) -> list[Upcoming]:
     """One entry per direct registry dependency; verdicts for those with a newer release.
 
     ``explain`` looks up the release range and the upstream pull request behind each finding, only for
-    upgrades that have findings, since that costs GitHub API calls.
+    upgrades that have findings, since that costs GitHub API calls. ``source`` is ``(owner/name, commit)`` of
+    the repository on GitHub: with it, each pin's origin is read from git blame. ``project`` is ``root``'s
+    folder inside the repository; locations are reported relative to the repository root.
     """
     dependencies = [
         d
@@ -102,14 +118,21 @@ def scan(
         )
         seen[name] = Upcoming(
             package=name,
+            project=project,
             current=current,
             status="not-locked",
-            location=dependency.location,
+            location=_within(project, dependency.location),
+            specifier=dependency.specifier,
+            pins=pins.deliberate(dependency.pins, dependency.format),
         )
         if current is not None:
             pending.append(name)
+    lookup = [n for n, item in seen.items() if item.current or item.pins]
     with ThreadPoolExecutor(max_workers=8) as pool:
-        newest_of = dict(zip(pending, pool.map(lambda n: latest(n, client), pending)))
+        newest_of = dict(zip(lookup, pool.map(lambda n: latest(n, client), lookup)))
+    for name in lookup:
+        if name not in pending:
+            seen[name] = seen[name].model_copy(update={"latest": newest_of[name]})
     for name in pending:
         item, newest = seen[name], newest_of[name]
         current = item.current
@@ -143,9 +166,65 @@ def scan(
                     "detail": verdict.reason if unreadable else None,
                 }
             )
+        if item.pins:
+            blocks = (
+                None
+                if (allowed := pins.allows(item.specifier, item.latest)) is None
+                else not allowed
+            )
+            status, reason = pins.lift(
+                blocks, item.verdict.verdict if item.verdict else None
+            )
+            item = item.model_copy(
+                update={
+                    "allows_latest": allowed,
+                    "lift": status,
+                    "lift_reason": reason,
+                }
+            )
+            if source:
+                item = _with_origin(item, source, client)
         results.append(item)
     order = {"breaks": 0, "not-checked": 1, "needs-change": 2, "no-known-impact": 3}
     return sorted(
         results,
         key=lambda r: (order.get(r.verdict.verdict, 4) if r.verdict else 5, r.package),
     )
+
+
+def _within(project: str, location: Location) -> Location:
+    if project in ("", "."):
+        return location
+    return location.model_copy(update={"file": f"{project}/{location.file}"})
+
+
+def _with_origin(
+    item: Upcoming, source: tuple[str, str], client: httpx.Client
+) -> Upcoming:
+    from codeintent.upgrades.repository import token
+    from codeintent.upgrades.upstream import GitHubCache, RateLimited, Repo
+
+    if not item.location.line:
+        return item.model_copy(
+            update={"origin_detail": "the declaring line is unknown"}
+        )
+    gh = GitHubCache(client, token())
+    repo = Repo(gh, source[0])
+    try:
+        meta, _ = gh.get(
+            repo.base,
+            shape=lambda d: {"parent": (d.get("parent") or {}).get("full_name")},
+        )
+        parent = (meta or {}).get("parent")
+        found, detail = pins.origin(
+            repo,
+            source[1],
+            item.location.file,
+            item.location.line,
+            item.package,
+            item.pins[0].clause,
+            Repo(gh, parent) if parent else None,
+        )
+    except (httpx.HTTPError, RateLimited, KeyError, LookupError) as error:
+        found, detail = None, f"git history could not be read: {type(error).__name__}"
+    return item.model_copy(update={"origin": found, "origin_detail": detail})
