@@ -1,0 +1,2114 @@
+[
+  {
+    "id": "httpx-0.28-openai",
+    "label": "breaks",
+    "consumer": {
+      "repo": "openai/openai-python",
+      "ref": "v1.54.4",
+      "commit": "52357cff50bee57ef442e94d78a0de38b4173fc2"
+    },
+    "package": "httpx",
+    "from": "0.27.2",
+    "to": "0.28.0",
+    "expected": [
+      {
+        "symbol": "httpx.Client",
+        "parameter": "proxies",
+        "file": "src/openai/_base_client.py",
+        "line": 857,
+        "kind": "parameter-removed"
+      },
+      {
+        "symbol": "httpx.AsyncClient",
+        "parameter": "proxies",
+        "file": "src/openai/_base_client.py",
+        "line": 1438,
+        "kind": "parameter-removed"
+      },
+      {
+        "symbol": "httpx.Client",
+        "parameter": "proxies",
+        "file": "src/openai/cli/_cli.py",
+        "line": 179,
+        "kind": "parameter-removed"
+      }
+    ],
+    "evidence": [
+      "https://github.com/openai/openai-python/issues/1903",
+      "https://github.com/openai/openai-python/issues/1915",
+      "https://github.com/encode/httpx/releases/tag/0.28.0"
+    ],
+    "notes": "httpx 0.28.0: 'The deprecated proxies argument has now been removed.' Lines are the call starts: SyncHttpxClientWrapper(...) at 857 (proxies= kwarg on 861; wrapper subclasses DefaultHttpxClient = httpx.Client), AsyncHttpxClientWrapper(...) at 1438 (kwarg on 1442), httpx.Client(...) at cli/_cli.py:179 (kwarg on 180)."
+  },
+  {
+    "id": "itsdangerous-2.1-flask-1.1.2",
+    "label": "breaks",
+    "consumer": {
+      "repo": "pallets/flask",
+      "ref": "1.1.2",
+      "commit": "93dd1709d05a1cf0e886df6223377bdab3b077fb"
+    },
+    "package": "itsdangerous",
+    "from": "2.0.1",
+    "to": "2.1.0",
+    "expected": [
+      {
+        "symbol": "itsdangerous.json",
+        "file": "src/flask/json/__init__.py",
+        "line": 15,
+        "kind": "import-removed"
+      }
+    ],
+    "evidence": [
+      "https://github.com/pallets/flask/issues/4455",
+      "https://github.com/pallets/itsdangerous/issues/291",
+      "https://github.com/pallets/itsdangerous/releases/tag/2.1.0"
+    ],
+    "notes": "`from itsdangerous import json as _json` at module import time; itsdangerous 2.1.0 removed the deprecated json shim. Flask 1.1.2 setup.py requires itsdangerous>=0.24 (no upper bound)."
+  },
+  {
+    "id": "markupsafe-2.1-jinja-2.11.3",
+    "label": "breaks",
+    "consumer": {
+      "repo": "pallets/jinja",
+      "ref": "2.11.3",
+      "commit": "cf215390d4a4d6f0a4de27e2687eed176878f13d"
+    },
+    "package": "markupsafe",
+    "from": "2.0.1",
+    "to": "2.1.0",
+    "expected": [
+      {
+        "symbol": "markupsafe.soft_unicode",
+        "file": "src/jinja2/filters.py",
+        "line": 13,
+        "kind": "import-removed"
+      },
+      {
+        "symbol": "markupsafe.soft_unicode",
+        "file": "src/jinja2/runtime.py",
+        "line": 9,
+        "kind": "import-removed"
+      }
+    ],
+    "evidence": [
+      "https://github.com/pallets/jinja/issues/1585",
+      "https://github.com/pallets/jinja/pull/1589",
+      "https://github.com/pallets/markupsafe/releases/tag/2.1.0"
+    ],
+    "notes": "`from markupsafe import soft_unicode`; MarkupSafe 2.1.0 removed soft_unicode (use soft_str). Fixed by pinning MarkupSafe<2.1 in 2.11.x (#1589)."
+  },
+  {
+    "id": "urllib3-2.0-botocore-1.29.121",
+    "label": "breaks",
+    "consumer": {
+      "repo": "boto/botocore",
+      "ref": "1.29.121",
+      "commit": "e8d4926ee64a50ae901d228bbda9fb4925331be3"
+    },
+    "package": "urllib3",
+    "from": "1.26.15",
+    "to": "2.0.0",
+    "expected": [
+      {
+        "symbol": "urllib3.util.ssl_.DEFAULT_CIPHERS",
+        "file": "botocore/httpsession.py",
+        "line": 23,
+        "kind": "import-removed"
+      }
+    ],
+    "evidence": [
+      "https://github.com/boto/botocore/pull/2922",
+      "https://github.com/urllib3/urllib3/blob/2.0.0/CHANGES.rst",
+      "https://urllib3.readthedocs.io/en/stable/v2-migration-guide.html"
+    ],
+    "notes": "DEFAULT_CIPHERS imported in an unguarded multi-name `from urllib3.util.ssl_ import (...)` block (lines 22-30); used at line 109. urllib3 2.0.0: 'Removed DEFAULT_CIPHERS, HAS_SNI, USE_DEFAULT_SSLCONTEXT_CIPHERS from the private module urllib3.util.ssl_ (#2168)'. Fixed in 1.29.122 by #2922."
+  },
+  {
+    "id": "urllib3-2.0-botocore-1.29.130",
+    "label": "guarded",
+    "consumer": {
+      "repo": "boto/botocore",
+      "ref": "1.29.130",
+      "commit": "a92842897928bc4ae386df01482a926ef919614f"
+    },
+    "package": "urllib3",
+    "from": "1.26.15",
+    "to": "2.0.0",
+    "expected": [
+      {
+        "symbol": "urllib3.util.ssl_.DEFAULT_CIPHERS",
+        "file": "botocore/httpsession.py",
+        "line": 52,
+        "kind": "import-removed"
+      }
+    ],
+    "evidence": [
+      "https://github.com/boto/botocore/pull/2922",
+      "https://github.com/boto/botocore/blob/1.29.130/botocore/httpsession.py#L51-L57"
+    ],
+    "notes": "Import is inside `try:` (line 51) / `except ImportError:` (line 53) with `DEFAULT_CIPHERS = None` fallback (line 57); use at 118 is gated by `elif DEFAULT_CIPHERS:`."
+  },
+  {
+    "id": "werkzeug-3.0-flask-2.2.2",
+    "label": "breaks",
+    "consumer": {
+      "repo": "pallets/flask",
+      "ref": "2.2.2",
+      "commit": "a1c478bc93d3dc018a6e7a1ba3cf5409553c9df3"
+    },
+    "package": "werkzeug",
+    "from": "2.3.7",
+    "to": "3.0.0",
+    "expected": [
+      {
+        "symbol": "werkzeug.urls.url_quote",
+        "file": "src/flask/app.py",
+        "line": 30,
+        "kind": "import-removed"
+      },
+      {
+        "symbol": "werkzeug.urls.url_parse",
+        "file": "src/flask/testing.py",
+        "line": 10,
+        "kind": "import-removed"
+      }
+    ],
+    "evidence": [
+      "https://github.com/pallets/werkzeug/issues/2789",
+      "https://github.com/pallets/werkzeug/releases/tag/3.0.0",
+      "https://github.com/pallets/werkzeug/pull/2768"
+    ],
+    "notes": "Werkzeug 3.0.0 'Remove previously deprecated code' (#2768) removed werkzeug.urls url_quote/url_parse (deprecated in 2.3). Flask 2.2.2 setup.py requires 'Werkzeug >= 2.2.2' with no upper bound; werkzeug#2789 reproduces with `pip install Flask==2.2.2 Werkzeug==3.0.0`."
+  },
+  {
+    "id": "jinja2-3.1-flask-1.1.2",
+    "label": "breaks",
+    "consumer": {
+      "repo": "pallets/flask",
+      "ref": "1.1.2",
+      "commit": "93dd1709d05a1cf0e886df6223377bdab3b077fb"
+    },
+    "package": "jinja2",
+    "from": "3.0.3",
+    "to": "3.1.0",
+    "expected": [
+      {
+        "symbol": "jinja2.escape",
+        "file": "src/flask/__init__.py",
+        "line": 14,
+        "kind": "import-removed"
+      },
+      {
+        "symbol": "jinja2.Markup",
+        "file": "src/flask/__init__.py",
+        "line": 15,
+        "kind": "import-removed"
+      }
+    ],
+    "evidence": [
+      "https://github.com/pallets/flask/issues/4494",
+      "https://github.com/pallets/jinja/issues/1626",
+      "https://github.com/pallets/jinja/blob/3.1.0/CHANGES.rst"
+    ],
+    "notes": "Jinja 3.1.0 removed deprecated code: 'Markup and escape should be imported from MarkupSafe' (CHANGES.rst line 17). Flask 1.1.2 requires Jinja2>=2.10.1 with no upper bound. flask#4494 traceback shows flask/__init__.py line 14 `from jinja2 import escape`."
+  },
+  {
+    "id": "werkzeug-2.1-flask-1.1.1",
+    "label": "breaks",
+    "consumer": {
+      "repo": "pallets/flask",
+      "ref": "1.1.1",
+      "commit": "ffc68840f821fb0a4c41a7b2b4eaad6d71f539b7"
+    },
+    "package": "werkzeug",
+    "from": "2.0.3",
+    "to": "2.1.0",
+    "expected": [
+      {
+        "symbol": "werkzeug.wrappers.BaseResponse",
+        "file": "src/flask/app.py",
+        "line": 32,
+        "kind": "import-removed"
+      },
+      {
+        "symbol": "werkzeug.wrappers.json.JSONMixin",
+        "file": "src/flask/wrappers.py",
+        "line": 14,
+        "kind": "module-removed"
+      }
+    ],
+    "evidence": [
+      "https://github.com/pallets/flask/issues/4505",
+      "https://github.com/pallets/werkzeug/releases/tag/2.1.0",
+      "https://github.com/pallets/werkzeug/pull/2276"
+    ],
+    "notes": "Werkzeug 2.1.0 'Remove previously deprecated code' (#2276); 'Request and response mixins have all been merged into the Request and Response classes'. werkzeug/wrappers/__init__.py at 2.1.0 exports only Request, Response, ResponseStream; wrappers/json.py no longer exists. Flask 1.1.1 requires Werkzeug>=0.15 (no upper bound). flask#4505 traceback: flask/app.py line 32 `from werkzeug.wrappers import BaseResponse`. The wrappers.py:14 entry is verified from the 2.1.0 tree (module deleted), not from the issue."
+  },
+  {
+    "id": "werkzeug-2.1-httpbin-0.7.0",
+    "label": "breaks",
+    "consumer": {
+      "repo": "postmanlabs/httpbin",
+      "ref": "v0.7.0",
+      "commit": "2607b7e6c78bab21f9791331bdde15c583521c90"
+    },
+    "package": "werkzeug",
+    "from": "2.0.3",
+    "to": "2.1.0",
+    "expected": [
+      {
+        "symbol": "werkzeug.wrappers.BaseResponse",
+        "file": "httpbin/core.py",
+        "line": 22,
+        "kind": "import-removed"
+      }
+    ],
+    "evidence": [
+      "https://github.com/postmanlabs/httpbin/issues/673",
+      "https://github.com/pallets/werkzeug/releases/tag/2.1.0"
+    ],
+    "notes": "`from werkzeug.wrappers import BaseResponse` (also used at line 51 `BaseResponse.autocorrect_location_header = False`). httpbin 0.7.0 (latest PyPI release) requires werkzeug>=0.14.1. httpbin#673 traceback matches core.py line 22."
+  },
+  {
+    "id": "werkzeug-2.1-flask-login-0.5.0",
+    "label": "breaks",
+    "consumer": {
+      "repo": "maxcountryman/flask-login",
+      "ref": "0.5.0",
+      "commit": "d4fa75305fdfb73bb55386d95bc09664bca8f902"
+    },
+    "package": "werkzeug",
+    "from": "2.0.3",
+    "to": "2.1.0",
+    "expected": [
+      {
+        "symbol": "werkzeug.security.safe_str_cmp",
+        "file": "flask_login/utils.py",
+        "line": 13,
+        "kind": "import-removed"
+      }
+    ],
+    "evidence": [
+      "https://github.com/maxcountryman/flask-login/issues/636",
+      "https://github.com/OctoPrint/OctoPrint/issues/4477",
+      "https://github.com/pallets/werkzeug/releases/tag/2.1.0"
+    ],
+    "notes": "Werkzeug 2.1.0: 'Remove the pbkdf2_hex, pbkdf2_bin, and safe_str_cmp functions'. Flask-Login 0.5.0 imports it at module level (used at line 63). Werkzeug is a transitive dep (install_requires=['Flask'])."
+  },
+  {
+    "id": "click-8.1-black-22.1.0",
+    "label": "breaks",
+    "consumer": {
+      "repo": "psf/black",
+      "ref": "22.1.0",
+      "commit": "d038a24ca200da9dacc1dcb05090c9e5b45b7869"
+    },
+    "package": "click",
+    "from": "8.0.4",
+    "to": "8.1.0",
+    "expected": [
+      {
+        "symbol": "click._unicodefun",
+        "file": "src/black/__init__.py",
+        "line": 1409,
+        "kind": "module-removed"
+      }
+    ],
+    "evidence": [
+      "https://github.com/psf/black/issues/2964",
+      "https://github.com/psf/black/pull/2966",
+      "https://github.com/pallets/click/releases/tag/8.1.0"
+    ],
+    "notes": "Tricky guard: `from click import _unicodefun` sits in `try:` (1407) but the handler is `except ModuleNotFoundError:` (1410). A missing submodule in a from-import raises plain ImportError ('cannot import name'), which is NOT caught, so the guard does not protect it. click 8.1.0 removed the private _unicodefun module (locale detection removed, click#2198; present in 8.0.4 tree, absent in 8.1.0). Executed on every black run via patch_click()."
+  },
+  {
+    "id": "importlib-metadata-5.0-celery-5.2.7",
+    "label": "breaks",
+    "consumer": {
+      "repo": "celery/celery",
+      "ref": "v5.2.7",
+      "commit": "d2aad4c650f8e742257fb0c829025058d26cc0c4"
+    },
+    "package": "importlib-metadata",
+    "from": "4.13.0",
+    "to": "5.0.0",
+    "expected": [
+      {
+        "symbol": "importlib_metadata.entry_points",
+        "attribute": "get",
+        "file": "celery/utils/imports.py",
+        "line": 145,
+        "kind": "return-type-changed"
+      }
+    ],
+    "evidence": [
+      "https://github.com/celery/celery/issues/7783",
+      "https://github.com/celery/celery/pull/7785",
+      "https://github.com/python/importlib_metadata/pull/405",
+      "https://github.com/python/importlib_metadata/blob/v5.0.0/CHANGES.rst"
+    ],
+    "notes": "`entry_points().get(namespace, [])`: importlib_metadata 5.0.0 'Removed compatibility shims for deprecated entry point interfaces' (#405) so entry_points() returns EntryPoints with no dict .get. Only affects Python < 3.8, where celery falls back to the importlib_metadata backport (lines 9-12: try stdlib importlib.metadata / except ImportError backport); celery requires importlib-metadata>=1.4.0 on python<3.8."
+  },
+  {
+    "id": "importlib-metadata-5.0-celery-5.3.0",
+    "label": "guarded",
+    "consumer": {
+      "repo": "celery/celery",
+      "ref": "v5.3.0",
+      "commit": "50d4c0b07a8aa5f079b7e3fdc5e765b77ea391fa"
+    },
+    "package": "importlib-metadata",
+    "from": "4.13.0",
+    "to": "5.0.0",
+    "expected": [
+      {
+        "symbol": "importlib_metadata.entry_points",
+        "attribute": "get",
+        "file": "celery/utils/imports.py",
+        "line": 148,
+        "kind": "return-type-changed"
+      }
+    ],
+    "evidence": [
+      "https://github.com/celery/celery/pull/7785",
+      "https://github.com/celery/celery/blob/v5.3.0/celery/utils/imports.py#L143-L151"
+    ],
+    "notes": "After the fix (#7785): `entry_points().get(namespace, [])` at 148 is inside `try:` (147) / `except AttributeError:` (149) falling back to `entry_points().select(group=namespace)`; Python>=3.10 uses entry_points(group=...) (144-145)."
+  },
+  {
+    "id": "urllib3-2.0-pytrends-4.9.1",
+    "label": "breaks",
+    "consumer": {
+      "repo": "GeneralMills/pytrends",
+      "ref": "v4.9.1",
+      "commit": "5a091731ab150f0b93e4d58a49720aa45f53ad0b"
+    },
+    "package": "urllib3",
+    "from": "1.26.15",
+    "to": "2.0.0",
+    "expected": [
+      {
+        "symbol": "urllib3.util.retry.Retry",
+        "parameter": "method_whitelist",
+        "file": "pytrends/request.py",
+        "line": 124,
+        "kind": "parameter-removed"
+      }
+    ],
+    "evidence": [
+      "https://github.com/GeneralMills/pytrends/issues/591",
+      "https://github.com/urllib3/urllib3/blob/2.0.0/CHANGES.rst",
+      "https://github.com/urllib3/urllib3/pull/2086"
+    ],
+    "notes": "Retry(...) call starts at 124, `method_whitelist=` kwarg at 128. Retry is imported via the requests alias `from requests.packages.urllib3.util.retry import Retry` (line 7), so the engine must resolve requests.packages.urllib3 -> urllib3. Path only runs when retries>0 or backoff_factor>0 (line 123). urllib3 2.0.0: 'Removed deprecated Retry options method_whitelist, DEFAULT_REDIRECT_HEADERS_BLACKLIST (#2086)'."
+  },
+  {
+    "id": "urllib3-2.0-pyowm-3.3.0",
+    "label": "breaks",
+    "consumer": {
+      "repo": "csparpa/pyowm",
+      "ref": "3.3.0",
+      "commit": "da1dd612eb9eaed96c4e4f66fa3056e5849390e8"
+    },
+    "package": "urllib3",
+    "from": "1.26.15",
+    "to": "2.0.0",
+    "expected": [
+      {
+        "symbol": "urllib3.util.retry.Retry",
+        "parameter": "method_whitelist",
+        "file": "pyowm/commons/http_client.py",
+        "line": 127,
+        "kind": "parameter-removed"
+      }
+    ],
+    "evidence": [
+      "https://github.com/csparpa/pyowm/issues/437",
+      "https://github.com/urllib3/urllib3/blob/2.0.0/CHANGES.rst"
+    ],
+    "notes": "Retry(...) call at 127, `method_whitelist=` kwarg at 130; imported via `from requests.packages.urllib3.util.retry import Retry` (line 7). Only reached when config['connection']['max_retries'] is not None (default None in pyowm/config.py:14). pyowm#437 traceback matches http_client.py line 127."
+  },
+  {
+    "id": "numpy-2.0-freqtrade-2024.6",
+    "label": "breaks",
+    "consumer": {
+      "repo": "freqtrade/freqtrade",
+      "ref": "2024.6",
+      "commit": "a55691ea7fcb6d8cddd9c585abf88459d32046b9"
+    },
+    "package": "numpy",
+    "from": "1.26.4",
+    "to": "2.0.0",
+    "expected": [
+      {
+        "symbol": "numpy.NAN",
+        "file": "freqtrade/rpc/rpc.py",
+        "line": 14,
+        "kind": "import-removed"
+      }
+    ],
+    "evidence": [
+      "https://github.com/freqtrade/freqtrade/issues/10401",
+      "https://github.com/numpy/numpy/blob/v2.0.0/doc/source/release/2.0.0-notes.rst",
+      "https://numpy.org/doc/stable/numpy_2_0_migration_guide.html"
+    ],
+    "notes": "`from numpy import NAN, inf, int64, mean`. numpy is compiled. NumPy 2.0 (NEP 52) removed the NaN/NAN aliases; the release notes list `np.NaN` explicitly but NAN only disappears via the explicit-imports cleanup (gh-24357) and is NOT in numpy/_expired_attrs_2_0.py, so a changelog-only engine may miss it while an API diff catches it. freqtrade pins numpy==1.26.4 in requirements.txt; the issue is a user with numpy 2.0 installed."
+  },
+  {
+    "id": "pandas-2.0-moses",
+    "label": "breaks",
+    "consumer": {
+      "repo": "molecularsets/moses",
+      "ref": "master",
+      "commit": "dd7ed6ab38e23afd3ef5371d67939a1760bd8599"
+    },
+    "package": "pandas",
+    "from": "1.5.3",
+    "to": "2.0.0",
+    "expected": [
+      {
+        "symbol": "pandas.DataFrame.append",
+        "file": "moses/metrics/utils.py",
+        "line": 24,
+        "kind": "method-removed"
+      }
+    ],
+    "evidence": [
+      "https://github.com/molecularsets/moses/issues/107",
+      "https://github.com/pandas-dev/pandas/blob/v2.0.0/doc/source/whatsnew/v2.0.0.rst"
+    ],
+    "notes": "Repo has no tags; ref is master @ dd7ed6a (2023-06-22, unchanged since before the issue). `_mcf.append(_pains, sort=True)` at module import time where _mcf = pd.read_csv(...) (line 20), so the receiver type must be inferred from pd.read_csv. pandas 2.0.0 whatsnew: 'Removed deprecated Series.append, DataFrame.append, use concat instead (GH 35407)'. setup.py requires pandas>=0.25. pandas is compiled."
+  },
+  {
+    "id": "pydantic-2-krr-1.7.1",
+    "label": "breaks",
+    "consumer": {
+      "repo": "robusta-dev/krr",
+      "ref": "v1.7.1",
+      "commit": "50147bd63ea57246d6b2653a849fb16da26f6339"
+    },
+    "package": "pydantic",
+    "from": "1.10.7",
+    "to": "2.0",
+    "expected": [
+      {
+        "symbol": "pydantic.BaseSettings",
+        "file": "robusta_krr/core/models/config.py",
+        "line": 20,
+        "kind": "moved"
+      }
+    ],
+    "evidence": [
+      "https://github.com/robusta-dev/krr/issues/244",
+      "https://docs.pydantic.dev/2.0/migration/#basesettings-has-moved-to-pydantic-settings",
+      "https://github.com/pydantic/pydantic/blob/v2.0/pydantic/_migration.py#L278-L281"
+    ],
+    "notes": "Attribute-style access: `import pydantic as pd` (line 7) then `class Config(pd.BaseSettings):` (line 20). pydantic 2.0 raises PydanticImportError via _migration.getattr. krr pins pydantic==1.10.7 (requirements.txt/pyproject), the issue is a distro build with pydantic 2."
+  },
+  {
+    "id": "pydantic-2-mlserver-1.4.0",
+    "label": "breaks",
+    "consumer": {
+      "repo": "SeldonIO/MLServer",
+      "ref": "1.4.0",
+      "commit": "45a4e2d30b0e73d9f947c6b71711209be02aa3d6"
+    },
+    "package": "pydantic",
+    "from": "1.10.14",
+    "to": "2.0",
+    "expected": [
+      {
+        "symbol": "pydantic.BaseSettings",
+        "file": "mlserver/settings.py",
+        "line": 8,
+        "kind": "moved"
+      },
+      {
+        "symbol": "pydantic.PyObject",
+        "file": "mlserver/settings.py",
+        "line": 8,
+        "kind": "import-removed"
+      }
+    ],
+    "evidence": [
+      "https://github.com/SeldonIO/MLServer/issues/1594",
+      "https://docs.pydantic.dev/2.0/migration/#basesettings-has-moved-to-pydantic-settings",
+      "https://github.com/pydantic/pydantic/blob/v2.0/pydantic/_migration.py"
+    ],
+    "notes": "`from pydantic import PyObject, Extra, Field, BaseSettings as _BaseSettings`. BaseSettings -> pydantic-settings (PydanticImportError); PyObject is in REMOVED_IN_V2 (_migration.py line 59). MLServer 1.4.0 does not pin pydantic directly (comes via fastapi<=0.109.2, which allows v2). Issue reproduced with pydantic 2.6.3."
+  },
+  {
+    "id": "sqlalchemy-2.0-dataset-1.5.2",
+    "label": "breaks",
+    "consumer": {
+      "repo": "pudo/dataset",
+      "ref": "75c12f79cc35e2fb7425218538f8d4124bb880dd",
+      "commit": "75c12f79cc35e2fb7425218538f8d4124bb880dd"
+    },
+    "package": "sqlalchemy",
+    "from": "1.4.46",
+    "to": "2.0.0",
+    "expected": [
+      {
+        "symbol": "sqlalchemy.schema.MetaData",
+        "parameter": "bind",
+        "file": "dataset/database.py",
+        "line": 109,
+        "kind": "parameter-removed"
+      }
+    ],
+    "evidence": [
+      "https://github.com/pudo/dataset/issues/410",
+      "https://github.com/pudo/dataset/commit/cea87af0b2c65b78d2973429b3a8a2ca08f587b5",
+      "https://github.com/sqlalchemy/sqlalchemy/blob/rel_2_0_0/doc/build/changelog/migration_20.rst"
+    ],
+    "notes": "dataset 1.5.2 is untagged; ref is the 'Bump version: 1.5.1 -> 1.5.2' commit. `return MetaData(schema=self.schema, bind=self.executable)`; setup.py requires sqlalchemy >= 1.3.2. Upstream response was 'pin sqlalchemy below 2.0.0' (cea87af, released as 1.6.0). Other 2.0 removals in the same release (Table(autoload=True) at table.py:306, select(whereclause=) at table.py:628) were not independently confirmed by the issue and are not listed."
+  },
+  {
+    "id": "setuptools-72-requests-2.32.3",
+    "label": "breaks",
+    "consumer": {
+      "repo": "psf/requests",
+      "ref": "v2.32.3",
+      "commit": "0e322af87745eff34caffe4df68456ebc20d9068"
+    },
+    "package": "setuptools",
+    "from": "71.1.0",
+    "to": "72.0.0",
+    "expected": [
+      {
+        "symbol": "setuptools.command.test",
+        "file": "setup.py",
+        "line": 7,
+        "kind": "module-removed"
+      }
+    ],
+    "evidence": [
+      "https://github.com/psf/requests/issues/6775",
+      "https://github.com/pypa/setuptools/blob/v72.0.0/NEWS.rst",
+      "https://github.com/pypa/setuptools/issues/4519"
+    ],
+    "notes": "`from setuptools.command.test import test as TestCommand` in setup.py (build-time; breaks sdist/git installs). setuptools 72.0.0: 'The test command has been removed' (#931); restored in 72.1.0 after #4519."
+  },
+  {
+    "id": "harmless-alpacahq-alpaca-py-712",
+    "label": "harmless",
+    "consumer": {
+      "repo": "alpacahq/alpaca-py",
+      "ref": "0029f6aed1db611c2dca30a5ecf23e27e39d88e4",
+      "commit": "0029f6aed1db611c2dca30a5ecf23e27e39d88e4"
+    },
+    "package": "msgpack",
+    "from": "1.0.8",
+    "to": "1.2.1",
+    "expected": [],
+    "evidence": [
+      "https://github.com/alpacahq/alpaca-py/pull/712",
+      "https://github.com/alpacahq/alpaca-py/commit/9ad78795bd35e2d20856e3cdcc707153cdeb06b4/checks",
+      "statusCheckRollup=SUCCESS (7 checks/statuses: 1 neutral, 6 success) at head 9ad78795bd35e2d20856e3cdcc707153cdeb06b4"
+    ],
+    "notes": "Mechanically sampled (minor bump). Merged 2026-08-03T16:14:24Z into master; merge commit 593e9d3aea532b1a6a31b8ac862fb1e48ad7cb40. Files: poetry.lock. Stars at sampling: 1600. Query: is:pr is:merged author:app/dependabot language:Python head:dependabot/pip merged:2026-08-03 sort:created-asc"
+  },
+  {
+    "id": "harmless-transmute-app-transmute-227",
+    "label": "harmless",
+    "consumer": {
+      "repo": "transmute-app/transmute",
+      "ref": "92b6aa5fe5e777b34207b9230829c6d9ee75aa3c",
+      "commit": "92b6aa5fe5e777b34207b9230829c6d9ee75aa3c"
+    },
+    "package": "pillow-heif",
+    "from": "1.2.1",
+    "to": "1.3.0",
+    "expected": [],
+    "evidence": [
+      "https://github.com/transmute-app/transmute/pull/227",
+      "https://github.com/transmute-app/transmute/commit/688d00304460fc57731f315af9a75d77ff933ee5/checks",
+      "statusCheckRollup=SUCCESS (5 checks/statuses: 1 neutral, 4 success) at head 688d00304460fc57731f315af9a75d77ff933ee5"
+    ],
+    "notes": "Mechanically sampled (minor bump). Merged 2026-08-03T12:36:28Z into main; merge commit fa7c115b6c19f33ae5da69bea7e192144ef02ce0. Files: requirements.txt. Stars at sampling: 1481. Query: is:pr is:merged author:app/dependabot language:Python head:dependabot/pip merged:2026-08-03 sort:created-asc"
+  },
+  {
+    "id": "harmless-transmute-app-transmute-228",
+    "label": "harmless",
+    "consumer": {
+      "repo": "transmute-app/transmute",
+      "ref": "92b6aa5fe5e777b34207b9230829c6d9ee75aa3c",
+      "commit": "92b6aa5fe5e777b34207b9230829c6d9ee75aa3c"
+    },
+    "package": "pillow",
+    "from": "12.2.0",
+    "to": "12.3.0",
+    "expected": [],
+    "evidence": [
+      "https://github.com/transmute-app/transmute/pull/228",
+      "https://github.com/transmute-app/transmute/commit/439d26336f8f053b7e7821c98fa6042caf3faeb9/checks",
+      "statusCheckRollup=SUCCESS (5 checks/statuses: 1 neutral, 4 success) at head 439d26336f8f053b7e7821c98fa6042caf3faeb9"
+    ],
+    "notes": "Mechanically sampled (minor bump). Merged 2026-08-03T12:36:41Z into main; merge commit 24de48e2e26a00fa7c5f933e306649bb228149c2. Files: requirements.txt. Stars at sampling: 1481. Query: is:pr is:merged author:app/dependabot language:Python head:dependabot/pip merged:2026-08-03 sort:created-asc"
+  },
+  {
+    "id": "harmless-py-why-dowhy-1703",
+    "label": "harmless",
+    "consumer": {
+      "repo": "py-why/dowhy",
+      "ref": "90654ab2a0c254518296e9dff2cd4190c9b7a803",
+      "commit": "90654ab2a0c254518296e9dff2cd4190c9b7a803"
+    },
+    "package": "jupyterlab",
+    "from": "4.5.9",
+    "to": "4.5.10",
+    "expected": [],
+    "evidence": [
+      "https://github.com/py-why/dowhy/pull/1703",
+      "https://github.com/py-why/dowhy/commit/aeeff3d43e0fdc7a71b67217a4ef3c0f217c8272/checks",
+      "statusCheckRollup=SUCCESS (44 checks/statuses: 7 skipped, 37 success) at head aeeff3d43e0fdc7a71b67217a4ef3c0f217c8272"
+    ],
+    "notes": "Mechanically sampled (patch bump). Merged 2026-08-03T06:17:35Z into main; merge commit 1d1efe77b092661252038baad72dc5d53e35ebfa. Files: poetry.lock. Stars at sampling: 8411. Query: is:pr is:merged author:app/dependabot language:Python head:dependabot/pip merged:2026-08-03 sort:created-asc"
+  },
+  {
+    "id": "harmless-mozilla-ai-any-llm-1209",
+    "label": "harmless",
+    "consumer": {
+      "repo": "mozilla-ai/any-llm",
+      "ref": "d277097b7fde655adda0d53dff0516e18bb5929d",
+      "commit": "d277097b7fde655adda0d53dff0516e18bb5929d"
+    },
+    "package": "pre-commit",
+    "from": "4.6.0",
+    "to": "4.6.1",
+    "expected": [],
+    "evidence": [
+      "https://github.com/mozilla-ai/any-llm/pull/1209",
+      "https://github.com/mozilla-ai/any-llm/commit/a615d887388cfe20478247d35fa778bebff6eb85/checks",
+      "statusCheckRollup=SUCCESS (17 checks/statuses: 7 skipped, 10 success) at head a615d887388cfe20478247d35fa778bebff6eb85"
+    ],
+    "notes": "Mechanically sampled (patch bump). Merged 2026-08-03T08:49:19Z into main; merge commit 0cc308e32979671d4f8173508239053614a54a6a. Files: pyproject.toml. Stars at sampling: 2265. Query: is:pr is:merged author:app/dependabot language:Python head:dependabot/pip merged:2026-08-03 sort:created-asc"
+  },
+  {
+    "id": "harmless-mozilla-ai-any-llm-1212",
+    "label": "harmless",
+    "consumer": {
+      "repo": "mozilla-ai/any-llm",
+      "ref": "266dcdea64211703e32df7d656ec1e5735e316b1",
+      "commit": "266dcdea64211703e32df7d656ec1e5735e316b1"
+    },
+    "package": "pre-commit-uv",
+    "from": "4.2.2",
+    "to": "4.3.0",
+    "expected": [],
+    "evidence": [
+      "https://github.com/mozilla-ai/any-llm/pull/1212",
+      "https://github.com/mozilla-ai/any-llm/commit/73ce17e9bb7b683cde4237fe63db7e4ac4b414c6/checks",
+      "statusCheckRollup=SUCCESS (12 checks/statuses: 2 skipped, 10 success) at head 73ce17e9bb7b683cde4237fe63db7e4ac4b414c6"
+    ],
+    "notes": "Mechanically sampled (minor bump). Merged 2026-08-03T08:57:29Z into main; merge commit 2d4fb724ee651e41e8e79ae9c1fbf085f3d34069. Files: pyproject.toml. Stars at sampling: 2265. Query: is:pr is:merged author:app/dependabot language:Python head:dependabot/pip merged:2026-08-03 sort:created-asc"
+  },
+  {
+    "id": "harmless-doorstop-dev-doorstop-812",
+    "label": "harmless",
+    "consumer": {
+      "repo": "doorstop-dev/doorstop",
+      "ref": "710f1ac93fa235d5b11aa026ec206437c9d66536",
+      "commit": "710f1ac93fa235d5b11aa026ec206437c9d66536"
+    },
+    "package": "pytest-expecter",
+    "from": "3.0",
+    "to": "3.1",
+    "expected": [],
+    "evidence": [
+      "https://github.com/doorstop-dev/doorstop/pull/812",
+      "https://github.com/doorstop-dev/doorstop/commit/d731a7664dfec3e894e374e701371922d6736f06/checks",
+      "statusCheckRollup=SUCCESS (25 checks/statuses: 25 success) at head d731a7664dfec3e894e374e701371922d6736f06"
+    ],
+    "notes": "Mechanically sampled (minor bump). Merged 2026-08-03T00:07:09Z into develop; merge commit 9ce17801cfed0eeece6596cb574f419597a1f06b. Files: poetry.lock. Stars at sampling: 699. Query: is:pr is:merged author:app/dependabot language:Python head:dependabot/pip merged:2026-08-03 sort:created-asc"
+  },
+  {
+    "id": "harmless-doorstop-dev-doorstop-813",
+    "label": "harmless",
+    "consumer": {
+      "repo": "doorstop-dev/doorstop",
+      "ref": "710f1ac93fa235d5b11aa026ec206437c9d66536",
+      "commit": "710f1ac93fa235d5b11aa026ec206437c9d66536"
+    },
+    "package": "types-requests",
+    "from": "2.33.0.20260518",
+    "to": "2.33.0.20260712",
+    "expected": [],
+    "evidence": [
+      "https://github.com/doorstop-dev/doorstop/pull/813",
+      "https://github.com/doorstop-dev/doorstop/commit/7ff604bebb5d528b801f6b0224500101b98ba416/checks",
+      "statusCheckRollup=SUCCESS (25 checks/statuses: 25 success) at head 7ff604bebb5d528b801f6b0224500101b98ba416"
+    ],
+    "notes": "Mechanically sampled (patch bump). Merged 2026-08-03T00:06:54Z into develop; merge commit cec787e70eced8997abc046ded779b72f639526a. Files: poetry.lock. Stars at sampling: 699. Query: is:pr is:merged author:app/dependabot language:Python head:dependabot/pip merged:2026-08-03 sort:created-asc"
+  },
+  {
+    "id": "harmless-ttlequals0-minuspod-613",
+    "label": "harmless",
+    "consumer": {
+      "repo": "ttlequals0/MinusPod",
+      "ref": "933288e076e57ace03deab4bcd8162e103711758",
+      "commit": "933288e076e57ace03deab4bcd8162e103711758"
+    },
+    "package": "huggingface-hub",
+    "from": "1.24.0",
+    "to": "1.26.0",
+    "expected": [],
+    "evidence": [
+      "https://github.com/ttlequals0/MinusPod/pull/613",
+      "https://github.com/ttlequals0/MinusPod/commit/8d48e660ead74be6c72bd5ed723e36d80b3e7b82/checks",
+      "statusCheckRollup=SUCCESS (7 checks/statuses: 1 neutral, 6 success) at head 8d48e660ead74be6c72bd5ed723e36d80b3e7b82"
+    ],
+    "notes": "Mechanically sampled (minor bump). Merged 2026-08-03T00:17:49Z into main; merge commit d037158dd766b8dcaafa0428a4b2103d8614fbaa. Files: requirements.in, requirements.txt. Stars at sampling: 554. Query: is:pr is:merged author:app/dependabot language:Python head:dependabot/pip merged:2026-08-03 sort:created-asc"
+  },
+  {
+    "id": "harmless-ttlequals0-minuspod-614",
+    "label": "harmless",
+    "consumer": {
+      "repo": "ttlequals0/MinusPod",
+      "ref": "60bc578f3dffc4bf314694dbd0773d04e17742a3",
+      "commit": "60bc578f3dffc4bf314694dbd0773d04e17742a3"
+    },
+    "package": "openai",
+    "from": "2.48.0",
+    "to": "2.51.0",
+    "expected": [],
+    "evidence": [
+      "https://github.com/ttlequals0/MinusPod/pull/614",
+      "https://github.com/ttlequals0/MinusPod/commit/e609a0c397be57fabd847d0a2e86acd62a30882e/checks",
+      "statusCheckRollup=SUCCESS (7 checks/statuses: 1 neutral, 6 success) at head e609a0c397be57fabd847d0a2e86acd62a30882e"
+    ],
+    "notes": "Mechanically sampled (minor bump). Merged 2026-08-03T00:23:41Z into main; merge commit f796070ff6c0b438a8031603732961d156eb6d0c. Files: requirements.in, requirements.txt. Stars at sampling: 554. Query: is:pr is:merged author:app/dependabot language:Python head:dependabot/pip merged:2026-08-03 sort:created-asc"
+  },
+  {
+    "id": "harmless-freqtrade-freqtrade-13405",
+    "label": "harmless",
+    "consumer": {
+      "repo": "freqtrade/freqtrade",
+      "ref": "2345215329488a81eaf6a3ff8d8cfd58e054b590",
+      "commit": "2345215329488a81eaf6a3ff8d8cfd58e054b590"
+    },
+    "package": "pre-commit",
+    "from": "4.6.0",
+    "to": "4.6.1",
+    "expected": [],
+    "evidence": [
+      "https://github.com/freqtrade/freqtrade/pull/13405",
+      "https://github.com/freqtrade/freqtrade/commit/2fc6d3388e151570f6db7406223ab64b0000d750/checks",
+      "statusCheckRollup=SUCCESS (40 checks/statuses: 4 skipped, 36 success) at head 2fc6d3388e151570f6db7406223ab64b0000d750"
+    ],
+    "notes": "Mechanically sampled (patch bump). Merged 2026-08-03T04:33:55Z into develop; merge commit d04d01f8b5c268ab28bceb9010b68ac9e9b8a318. Files: requirements-dev.txt. Stars at sampling: 57120. Query: is:pr is:merged author:app/dependabot language:Python head:dependabot/pip merged:2026-08-03 sort:created-asc"
+  },
+  {
+    "id": "harmless-freqtrade-freqtrade-13406",
+    "label": "harmless",
+    "consumer": {
+      "repo": "freqtrade/freqtrade",
+      "ref": "2345215329488a81eaf6a3ff8d8cfd58e054b590",
+      "commit": "2345215329488a81eaf6a3ff8d8cfd58e054b590"
+    },
+    "package": "technical",
+    "from": "1.6.0",
+    "to": "1.7.0",
+    "expected": [],
+    "evidence": [
+      "https://github.com/freqtrade/freqtrade/pull/13406",
+      "https://github.com/freqtrade/freqtrade/commit/6d9b2654579180d176b8dd74779441d98d0d44b1/checks",
+      "statusCheckRollup=SUCCESS (40 checks/statuses: 4 skipped, 36 success) at head 6d9b2654579180d176b8dd74779441d98d0d44b1"
+    ],
+    "notes": "Mechanically sampled (minor bump). Merged 2026-08-03T04:36:08Z into develop; merge commit 0a8ccc7fde75aefc605185450e35ba2f5d91504d. Files: requirements.txt. Stars at sampling: 57120. Query: is:pr is:merged author:app/dependabot language:Python head:dependabot/pip merged:2026-08-03 sort:created-asc"
+  },
+  {
+    "id": "harmless-qubvel-org-segmentation_models.pytorch-1399",
+    "label": "harmless",
+    "consumer": {
+      "repo": "qubvel-org/segmentation_models.pytorch",
+      "ref": "00bbcca87efeafd0fe811c73ca823b7ddb59e2a4",
+      "commit": "00bbcca87efeafd0fe811c73ca823b7ddb59e2a4"
+    },
+    "package": "huggingface-hub",
+    "from": "1.25.1",
+    "to": "1.26.0",
+    "expected": [],
+    "evidence": [
+      "https://github.com/qubvel-org/segmentation_models.pytorch/pull/1399",
+      "https://github.com/qubvel-org/segmentation_models.pytorch/commit/1c54a1b338d1b798ae8f7c7aed5412d1a2e80b51/checks",
+      "statusCheckRollup=SUCCESS (17 checks/statuses: 17 success) at head 1c54a1b338d1b798ae8f7c7aed5412d1a2e80b51"
+    ],
+    "notes": "Mechanically sampled (minor bump). Merged 2026-08-03T08:22:39Z into main; merge commit 0dca1528e9adf90a25b7f2c49887b7129006bff9. Files: requirements/docs.txt, requirements/required.txt. Stars at sampling: 11813. Query: is:pr is:merged author:app/dependabot language:Python head:dependabot/pip merged:2026-08-03 sort:created-asc"
+  },
+  {
+    "id": "harmless-wemake-services-django-test-migrations-675",
+    "label": "harmless",
+    "consumer": {
+      "repo": "wemake-services/django-test-migrations",
+      "ref": "5769218d907d7cb86608eddb1d1ed8b16d3d9325",
+      "commit": "5769218d907d7cb86608eddb1d1ed8b16d3d9325"
+    },
+    "package": "wemake-python-styleguide",
+    "from": "1.6.2",
+    "to": "1.7.0",
+    "expected": [],
+    "evidence": [
+      "https://github.com/wemake-services/django-test-migrations/pull/675",
+      "https://github.com/wemake-services/django-test-migrations/commit/cca1d548ada2171b6a33f9278dffb5d9a0968521/checks",
+      "statusCheckRollup=SUCCESS (16 checks/statuses: 16 success) at head cca1d548ada2171b6a33f9278dffb5d9a0968521"
+    ],
+    "notes": "Mechanically sampled (minor bump). Merged 2026-08-03T04:53:39Z into master; merge commit 12050c575c6d914b8e4ae0650d7de41dfc3ca9e1. Files: poetry.lock, pyproject.toml. Stars at sampling: 580. Query: is:pr is:merged author:app/dependabot language:Python head:dependabot/pip merged:2026-08-03 sort:created-asc"
+  },
+  {
+    "id": "harmless-wemake-services-wemake-django-template-3105",
+    "label": "harmless",
+    "consumer": {
+      "repo": "wemake-services/wemake-django-template",
+      "ref": "41ad3a92b88166546ba15353ed6a752aeb18bbc6",
+      "commit": "41ad3a92b88166546ba15353ed6a752aeb18bbc6"
+    },
+    "package": "wemake-python-styleguide",
+    "from": "1.6.2",
+    "to": "1.7.0",
+    "expected": [],
+    "evidence": [
+      "https://github.com/wemake-services/wemake-django-template/pull/3105",
+      "https://github.com/wemake-services/wemake-django-template/commit/553dd047f3c9d314e36a42098c251714c2516152/checks",
+      "statusCheckRollup=SUCCESS (4 checks/statuses: 4 success) at head 553dd047f3c9d314e36a42098c251714c2516152"
+    ],
+    "notes": "Mechanically sampled (minor bump). Merged 2026-08-03T04:44:48Z into master; merge commit 9841195d33434a2f9ae08881a72c0c4c438888f6. Files: poetry.lock, pyproject.toml. Stars at sampling: 2279. Query: is:pr is:merged author:app/dependabot language:Python head:dependabot/pip merged:2026-08-03 sort:created-asc"
+  },
+  {
+    "id": "harmless-pysport-kloppy-598",
+    "label": "harmless",
+    "consumer": {
+      "repo": "PySport/kloppy",
+      "ref": "caf9ab1c779bdcadc06b63908dfc551d324c1086",
+      "commit": "caf9ab1c779bdcadc06b63908dfc551d324c1086"
+    },
+    "package": "mkdocs-autorefs",
+    "from": "1.2.0",
+    "to": "1.4.4",
+    "expected": [],
+    "evidence": [
+      "https://github.com/PySport/kloppy/pull/598",
+      "https://github.com/PySport/kloppy/commit/faa62880b6fcf66c112e6bdc64d6b23c59a3d2e1/checks",
+      "statusCheckRollup=SUCCESS (20 checks/statuses: 3 neutral, 17 success) at head faa62880b6fcf66c112e6bdc64d6b23c59a3d2e1"
+    ],
+    "notes": "Mechanically sampled (minor bump). Merged 2026-08-03T15:07:32Z into master; merge commit a1668c55c8b64276d1ec084b7fe77b65c52ac684. Files: pyproject.toml, requirements-docs.txt, uv.lock. Stars at sampling: 572. Query: is:pr is:merged author:app/dependabot language:Python head:dependabot/uv merged:2026-08-03 sort:created-asc"
+  },
+  {
+    "id": "harmless-vndee-llm-sandbox-174",
+    "label": "harmless",
+    "consumer": {
+      "repo": "vndee/llm-sandbox",
+      "ref": "555a96c13a1f0f8b753fcca456b4697711b85d85",
+      "commit": "555a96c13a1f0f8b753fcca456b4697711b85d85"
+    },
+    "package": "gitpython",
+    "from": "3.1.44",
+    "to": "3.1.54",
+    "expected": [],
+    "evidence": [
+      "https://github.com/vndee/llm-sandbox/pull/174",
+      "https://github.com/vndee/llm-sandbox/commit/04c47b9f3dab9f477f6a9687da69e57e7c61ca11/checks",
+      "statusCheckRollup=SUCCESS (11 checks/statuses: 1 neutral, 1 skipped, 9 success) at head 04c47b9f3dab9f477f6a9687da69e57e7c61ca11"
+    ],
+    "notes": "Mechanically sampled (patch bump). Merged 2026-08-03T05:51:27Z into main; merge commit c22497c2da3a0a733978377adbcf302b57b30ee1. Files: uv.lock. Stars at sampling: 1144. Query: is:pr is:merged author:app/dependabot language:Python head:dependabot/uv merged:2026-08-03 sort:created-asc"
+  },
+  {
+    "id": "harmless-vndee-llm-sandbox-175",
+    "label": "harmless",
+    "consumer": {
+      "repo": "vndee/llm-sandbox",
+      "ref": "555a96c13a1f0f8b753fcca456b4697711b85d85",
+      "commit": "555a96c13a1f0f8b753fcca456b4697711b85d85"
+    },
+    "package": "pyasn1",
+    "from": "0.6.1",
+    "to": "0.6.4",
+    "expected": [],
+    "evidence": [
+      "https://github.com/vndee/llm-sandbox/pull/175",
+      "https://github.com/vndee/llm-sandbox/commit/c11c25724efd20e5dbd0c274968247fde19f24a9/checks",
+      "statusCheckRollup=SUCCESS (11 checks/statuses: 1 neutral, 1 skipped, 9 success) at head c11c25724efd20e5dbd0c274968247fde19f24a9"
+    ],
+    "notes": "Mechanically sampled (patch bump). Merged 2026-08-03T05:51:09Z into main; merge commit b967df283d6698b4a36e8a8345b694027572684d. Files: uv.lock. Stars at sampling: 1144. Query: is:pr is:merged author:app/dependabot language:Python head:dependabot/uv merged:2026-08-03 sort:created-asc"
+  },
+  {
+    "id": "harmless-uriyyo-fastapi-pagination-1998",
+    "label": "harmless",
+    "consumer": {
+      "repo": "uriyyo/fastapi-pagination",
+      "ref": "fb11f3045a77ee632f167d32e21f55280f700c09",
+      "commit": "fb11f3045a77ee632f167d32e21f55280f700c09"
+    },
+    "package": "ruff",
+    "from": "0.16.0",
+    "to": "0.16.1",
+    "expected": [],
+    "evidence": [
+      "https://github.com/uriyyo/fastapi-pagination/pull/1998",
+      "https://github.com/uriyyo/fastapi-pagination/commit/24ccd10e2ce476bd9f45fa4eaddd7d9c1beaedf2/checks",
+      "statusCheckRollup=SUCCESS (18 checks/statuses: 4 neutral, 14 success) at head 24ccd10e2ce476bd9f45fa4eaddd7d9c1beaedf2"
+    ],
+    "notes": "Mechanically sampled (patch bump). Merged 2026-08-03T03:07:36Z into main; merge commit 852f807e3b821c2308a5d8dbb77d876cb18d3538. Files: uv.lock. Stars at sampling: 1689. Query: is:pr is:merged author:app/dependabot language:Python head:dependabot/uv merged:2026-08-03 sort:created-asc"
+  },
+  {
+    "id": "harmless-goauthentik-authentik-24636",
+    "label": "harmless",
+    "consumer": {
+      "repo": "goauthentik/authentik",
+      "ref": "4ecd287de2aaf439f4c5e255fe86a9b79b4a2437",
+      "commit": "4ecd287de2aaf439f4c5e255fe86a9b79b4a2437"
+    },
+    "package": "aws-cdk-lib",
+    "from": "2.262.0",
+    "to": "2.262.2",
+    "expected": [],
+    "evidence": [
+      "https://github.com/goauthentik/authentik/pull/24636",
+      "https://github.com/goauthentik/authentik/commit/7f91161771d8fe4cbad92f543514259b5f3c6666/checks",
+      "statusCheckRollup=SUCCESS (126 checks/statuses: 1 skipped, 99 success) at head 7f91161771d8fe4cbad92f543514259b5f3c6666"
+    ],
+    "notes": "Mechanically sampled (patch bump). Merged 2026-08-03T09:45:03Z into main; merge commit 21acc80336d734cd6c006c9d6e98638080ae558b. Files: pyproject.toml, uv.lock. Stars at sampling: 26403. Query: is:pr is:merged author:app/dependabot language:Python head:dependabot/uv merged:2026-08-03 sort:created-asc"
+  },
+  {
+    "id": "harmless-homeassistant-ai-ha-mcp-2121",
+    "label": "harmless",
+    "consumer": {
+      "repo": "homeassistant-ai/ha-mcp",
+      "ref": "58b2a7e19492f45a87ba8358821e2b3322193bc7",
+      "commit": "58b2a7e19492f45a87ba8358821e2b3322193bc7"
+    },
+    "package": "openai",
+    "from": "2.48.0",
+    "to": "2.51.0",
+    "expected": [],
+    "evidence": [
+      "https://github.com/homeassistant-ai/ha-mcp/pull/2121",
+      "https://github.com/homeassistant-ai/ha-mcp/commit/85885cf714701c41749041dca376eae7d4ebd6a6/checks",
+      "statusCheckRollup=SUCCESS (28 checks/statuses: 1 neutral, 2 skipped, 25 success) at head 85885cf714701c41749041dca376eae7d4ebd6a6"
+    ],
+    "notes": "Mechanically sampled (minor bump). Merged 2026-08-03T11:42:37Z into master; merge commit 1215483aa6fee5cd23d29d8ce1b4881784753167. Files: uv.lock. Stars at sampling: 8031. Query: is:pr is:merged author:app/dependabot language:Python head:dependabot/uv merged:2026-08-03 sort:created-asc"
+  },
+  {
+    "id": "harmless-powerdns-admin-powerdns-admin-1860",
+    "label": "harmless",
+    "consumer": {
+      "repo": "PowerDNS-Admin/PowerDNS-Admin",
+      "ref": "075fc3025b769cb6b83f9a959635ac00b0c4dd12",
+      "commit": "075fc3025b769cb6b83f9a959635ac00b0c4dd12"
+    },
+    "package": "pytz",
+    "from": "2026.2",
+    "to": "2026.3.post1",
+    "expected": [],
+    "evidence": [
+      "https://github.com/PowerDNS-Admin/PowerDNS-Admin/pull/1860",
+      "https://github.com/PowerDNS-Admin/PowerDNS-Admin/commit/70a8cd35da79f6ad36232c626a0e6b163265f0bf/checks",
+      "statusCheckRollup=SUCCESS (9 checks/statuses: 1 neutral, 1 skipped, 7 success) at head 70a8cd35da79f6ad36232c626a0e6b163265f0bf"
+    ],
+    "notes": "Mechanically sampled (minor bump). Merged 2026-08-04T02:54:50Z into dev; merge commit ad850a4a5c94e7e0d03e107014f2c48a805b0f2a. Files: requirements.txt. Stars at sampling: 2834. Query: is:pr is:merged author:app/dependabot language:Python head:dependabot/pip merged:2026-08-04 sort:created-asc"
+  },
+  {
+    "id": "harmless-bindsnet-bindsnet-776",
+    "label": "harmless",
+    "consumer": {
+      "repo": "BindsNET/bindsnet",
+      "ref": "93eae2c8fd5aeb705e6c882834a24a51225b21c8",
+      "commit": "93eae2c8fd5aeb705e6c882834a24a51225b21c8"
+    },
+    "package": "gitpython",
+    "from": "3.1.52",
+    "to": "3.1.54",
+    "expected": [],
+    "evidence": [
+      "https://github.com/BindsNET/bindsnet/pull/776",
+      "https://github.com/BindsNET/bindsnet/commit/91c6e65ff96cea74e1cc5778d5a570fd5aa53b65/checks",
+      "statusCheckRollup=SUCCESS (8 checks/statuses: 1 neutral, 7 success) at head 91c6e65ff96cea74e1cc5778d5a570fd5aa53b65"
+    ],
+    "notes": "Mechanically sampled (patch bump). Merged 2026-08-04T00:15:35Z into master; merge commit a235ddc27c9f7c0ba23a5708701e40b2955c1ebf. Files: poetry.lock. Stars at sampling: 1706. Query: is:pr is:merged author:app/dependabot language:Python head:dependabot/pip merged:2026-08-04 sort:created-asc"
+  },
+  {
+    "id": "harmless-cowrie-cowrie-40435",
+    "label": "harmless",
+    "consumer": {
+      "repo": "cowrie/cowrie",
+      "ref": "8a668fc7416099dd17318fbf268ce19161f3731f",
+      "commit": "8a668fc7416099dd17318fbf268ce19161f3731f"
+    },
+    "package": "tox",
+    "from": "4.57.2",
+    "to": "4.58.0",
+    "expected": [],
+    "evidence": [
+      "https://github.com/cowrie/cowrie/pull/40435",
+      "https://github.com/cowrie/cowrie/commit/2e4e93f93e617185fb290ba6027c9181f58d8f1e/checks",
+      "statusCheckRollup=SUCCESS (27 checks/statuses: 1 neutral, 1 skipped, 25 success) at head 2e4e93f93e617185fb290ba6027c9181f58d8f1e"
+    ],
+    "notes": "Mechanically sampled (minor bump). Merged 2026-08-04T02:55:25Z into main; merge commit f68f0f0e4cdf18f570f0a712b6ff811ec34e7124. Files: pyproject.toml. Stars at sampling: 6689. Query: is:pr is:merged author:app/dependabot language:Python head:dependabot/pip merged:2026-08-04 sort:created-asc"
+  },
+  {
+    "id": "harmless-cowrie-cowrie-40437",
+    "label": "harmless",
+    "consumer": {
+      "repo": "cowrie/cowrie",
+      "ref": "8a668fc7416099dd17318fbf268ce19161f3731f",
+      "commit": "8a668fc7416099dd17318fbf268ce19161f3731f"
+    },
+    "package": "pre-commit",
+    "from": "4.6.0",
+    "to": "4.6.1",
+    "expected": [],
+    "evidence": [
+      "https://github.com/cowrie/cowrie/pull/40437",
+      "https://github.com/cowrie/cowrie/commit/36a5048f3884038153c73bd8fce021545c9e7bfd/checks",
+      "statusCheckRollup=SUCCESS (27 checks/statuses: 1 neutral, 1 skipped, 25 success) at head 36a5048f3884038153c73bd8fce021545c9e7bfd"
+    ],
+    "notes": "Mechanically sampled (patch bump). Merged 2026-08-04T02:55:08Z into main; merge commit 671427294e1e2a68a07e75ab42b1dd21a7aab47b. Files: pyproject.toml. Stars at sampling: 6689. Query: is:pr is:merged author:app/dependabot language:Python head:dependabot/pip merged:2026-08-04 sort:created-asc"
+  },
+  {
+    "id": "harmless-cert-polska-artemis-2991",
+    "label": "harmless",
+    "consumer": {
+      "repo": "CERT-Polska/Artemis",
+      "ref": "e78f41f7e567d4b7614fbf45bddd526c55474841",
+      "commit": "e78f41f7e567d4b7614fbf45bddd526c55474841"
+    },
+    "package": "aiohttp",
+    "from": "3.14.1",
+    "to": "3.14.3",
+    "expected": [],
+    "evidence": [
+      "https://github.com/CERT-Polska/Artemis/pull/2991",
+      "https://github.com/CERT-Polska/Artemis/commit/3e2da55e4b5fcf61833182febfca0186f33b32da/checks",
+      "statusCheckRollup=SUCCESS (7 checks/statuses: 7 success) at head 3e2da55e4b5fcf61833182febfca0186f33b32da"
+    ],
+    "notes": "Mechanically sampled (patch bump). Merged 2026-08-04T09:21:54Z into main; merge commit 2fd32c93193f3784097f1524e183a31e19d9dc92. Files: docs/requirements.txt, requirements.txt. Stars at sampling: 1263. Query: is:pr is:merged author:app/dependabot language:Python head:dependabot/pip merged:2026-08-04 sort:created-asc"
+  },
+  {
+    "id": "harmless-alpacahq-alpaca-py-760",
+    "label": "harmless",
+    "consumer": {
+      "repo": "alpacahq/alpaca-py",
+      "ref": "593e9d3aea532b1a6a31b8ac862fb1e48ad7cb40",
+      "commit": "593e9d3aea532b1a6a31b8ac862fb1e48ad7cb40"
+    },
+    "package": "urllib3",
+    "from": "2.2.2",
+    "to": "2.7.0",
+    "expected": [],
+    "evidence": [
+      "https://github.com/alpacahq/alpaca-py/pull/760",
+      "https://github.com/alpacahq/alpaca-py/commit/98cd05d24a443b9705e33339fcb53ce1be0e3496/checks",
+      "statusCheckRollup=SUCCESS (7 checks/statuses: 1 neutral, 6 success) at head 98cd05d24a443b9705e33339fcb53ce1be0e3496"
+    ],
+    "notes": "Mechanically sampled (minor bump). Merged 2026-08-04T12:55:06Z into master; merge commit 95ae23d82a45912ee9547872a7da31228e0de656. Files: poetry.lock. Stars at sampling: 1600. Query: is:pr is:merged author:app/dependabot language:Python head:dependabot/pip merged:2026-08-04 sort:created-asc"
+  },
+  {
+    "id": "harmless-mandarons-icloud-docker-496",
+    "label": "harmless",
+    "consumer": {
+      "repo": "mandarons/icloud-docker",
+      "ref": "08610d14d9ae5ea1a1d29aa15594bf293197e5e3",
+      "commit": "08610d14d9ae5ea1a1d29aa15594bf293197e5e3"
+    },
+    "package": "ruff",
+    "from": "0.16.0",
+    "to": "0.16.1",
+    "expected": [],
+    "evidence": [
+      "https://github.com/mandarons/icloud-docker/pull/496",
+      "https://github.com/mandarons/icloud-docker/commit/c00886fffdfa877e5b804346003d65afde974141/checks",
+      "statusCheckRollup=SUCCESS (2 checks/statuses: 2 success) at head c00886fffdfa877e5b804346003d65afde974141"
+    ],
+    "notes": "Mechanically sampled (patch bump). Merged 2026-08-04T05:00:59Z into main; merge commit 730d23a7725bc26ece1e5095828d0ae88e6738a0. Files: requirements-test.txt. Stars at sampling: 1907. Query: is:pr is:merged author:app/dependabot language:Python head:dependabot/pip merged:2026-08-04 sort:created-asc"
+  },
+  {
+    "id": "harmless-django-hijack-django-hijack-930",
+    "label": "harmless",
+    "consumer": {
+      "repo": "django-hijack/django-hijack",
+      "ref": "2b67751b77e5566114ac273a70e62d8e0312f8b1",
+      "commit": "2b67751b77e5566114ac273a70e62d8e0312f8b1"
+    },
+    "package": "ruff",
+    "from": "0.16.0",
+    "to": "0.16.1",
+    "expected": [],
+    "evidence": [
+      "https://github.com/django-hijack/django-hijack/pull/930",
+      "https://github.com/django-hijack/django-hijack/commit/31bd3021a4821bc5f268e6ce57eed3996361a277/checks",
+      "statusCheckRollup=SUCCESS (23 checks/statuses: 1 skipped, 22 success) at head 31bd3021a4821bc5f268e6ce57eed3996361a277"
+    ],
+    "notes": "Mechanically sampled (patch bump). Merged 2026-08-04T09:47:23Z into master; merge commit 7a59c05dc1d56d42253b1fbfe9bc36421bbd3249. Files: pyproject.toml. Stars at sampling: 1743. Query: is:pr is:merged author:app/dependabot language:Python head:dependabot/pip merged:2026-08-04 sort:created-asc"
+  },
+  {
+    "id": "harmless-bindsnet-bindsnet-778",
+    "label": "harmless",
+    "consumer": {
+      "repo": "BindsNET/bindsnet",
+      "ref": "a235ddc27c9f7c0ba23a5708701e40b2955c1ebf",
+      "commit": "a235ddc27c9f7c0ba23a5708701e40b2955c1ebf"
+    },
+    "package": "gitpython",
+    "from": "3.1.54",
+    "to": "3.1.57",
+    "expected": [],
+    "evidence": [
+      "https://github.com/BindsNET/bindsnet/pull/778",
+      "https://github.com/BindsNET/bindsnet/commit/f85656905e5e3b3e8df8b4b9d2bfef98c9ab3fc8/checks",
+      "statusCheckRollup=SUCCESS (8 checks/statuses: 1 neutral, 7 success) at head f85656905e5e3b3e8df8b4b9d2bfef98c9ab3fc8"
+    ],
+    "notes": "Mechanically sampled (patch bump). Merged 2026-08-04T00:27:42Z into master; merge commit e6f211e90cac975aba20a1bc8e21904916d8e583. Files: poetry.lock. Stars at sampling: 1706. Query: is:pr is:merged author:app/dependabot language:Python head:dependabot/pip merged:2026-08-04 sort:created-asc"
+  },
+  {
+    "id": "harmless-flosell-trailscraper-899",
+    "label": "harmless",
+    "consumer": {
+      "repo": "flosell/trailscraper",
+      "ref": "69c57225112670c4482b3d1765a13298e4017e53",
+      "commit": "69c57225112670c4482b3d1765a13298e4017e53"
+    },
+    "package": "pytz",
+    "from": "2026.2",
+    "to": "2026.3.post1",
+    "expected": [],
+    "evidence": [
+      "https://github.com/flosell/trailscraper/pull/899",
+      "https://github.com/flosell/trailscraper/commit/aa0c5e4b4f31290c0283917579466ca28278ebce/checks",
+      "statusCheckRollup=SUCCESS (9 checks/statuses: 9 success) at head aa0c5e4b4f31290c0283917579466ca28278ebce"
+    ],
+    "notes": "Mechanically sampled (minor bump). Merged 2026-08-04T01:54:04Z into master; merge commit ffcdb2db4b8149989022dc03c6516667e2089015. Files: pyproject.toml. Stars at sampling: 838. Query: is:pr is:merged author:app/dependabot language:Python head:dependabot/pip merged:2026-08-04 sort:created-asc"
+  },
+  {
+    "id": "harmless-flosell-trailscraper-900",
+    "label": "harmless",
+    "consumer": {
+      "repo": "flosell/trailscraper",
+      "ref": "69c57225112670c4482b3d1765a13298e4017e53",
+      "commit": "69c57225112670c4482b3d1765a13298e4017e53"
+    },
+    "package": "boto3",
+    "from": "1.43.52",
+    "to": "1.43.57",
+    "expected": [],
+    "evidence": [
+      "https://github.com/flosell/trailscraper/pull/900",
+      "https://github.com/flosell/trailscraper/commit/1c5c392abadbfed8885a62a2f6eef614882d0d25/checks",
+      "statusCheckRollup=SUCCESS (9 checks/statuses: 9 success) at head 1c5c392abadbfed8885a62a2f6eef614882d0d25"
+    ],
+    "notes": "Mechanically sampled (patch bump). Merged 2026-08-04T01:54:26Z into master; merge commit 68ce37ec69cf37cbfb6c01c6e99ef97037874b2b. Files: pyproject.toml. Stars at sampling: 838. Query: is:pr is:merged author:app/dependabot language:Python head:dependabot/pip merged:2026-08-04 sort:created-asc"
+  },
+  {
+    "id": "harmless-sissbruecker-linkding-1414",
+    "label": "harmless",
+    "consumer": {
+      "repo": "sissbruecker/linkding",
+      "ref": "30510d3463237f0653ea8c1cdbd889c070062566",
+      "commit": "30510d3463237f0653ea8c1cdbd889c070062566"
+    },
+    "package": "soupsieve",
+    "from": "2.8.1",
+    "to": "2.8.4",
+    "expected": [],
+    "evidence": [
+      "https://github.com/sissbruecker/linkding/pull/1414",
+      "https://github.com/sissbruecker/linkding/commit/44f58008cc9b6560d9349b1beddf707795c92a7f/checks",
+      "statusCheckRollup=SUCCESS (2 checks/statuses: 2 success) at head 44f58008cc9b6560d9349b1beddf707795c92a7f"
+    ],
+    "notes": "Mechanically sampled (patch bump). Merged 2026-08-04T06:19:36Z into master; merge commit b1e4109fab00a3dbb422bc702b5eec303bf3235a. Files: uv.lock. Stars at sampling: 11439. Query: is:pr is:merged author:app/dependabot language:Python head:dependabot/uv merged:2026-08-04 sort:created-asc"
+  },
+  {
+    "id": "harmless-sissbruecker-linkding-1417",
+    "label": "harmless",
+    "consumer": {
+      "repo": "sissbruecker/linkding",
+      "ref": "30510d3463237f0653ea8c1cdbd889c070062566",
+      "commit": "30510d3463237f0653ea8c1cdbd889c070062566"
+    },
+    "package": "django",
+    "from": "6.0.5",
+    "to": "6.0.6",
+    "expected": [],
+    "evidence": [
+      "https://github.com/sissbruecker/linkding/pull/1417",
+      "https://github.com/sissbruecker/linkding/commit/d7efdacc5b000c20dfe41353822409e1bd22376f/checks",
+      "statusCheckRollup=SUCCESS (2 checks/statuses: 2 success) at head d7efdacc5b000c20dfe41353822409e1bd22376f"
+    ],
+    "notes": "Mechanically sampled (patch bump). Merged 2026-08-04T06:19:53Z into master; merge commit 51b692a3f00bce663153454f13c1423f82c5b5da. Files: pyproject.toml, uv.lock. Stars at sampling: 11439. Query: is:pr is:merged author:app/dependabot language:Python head:dependabot/uv merged:2026-08-04 sort:created-asc"
+  },
+  {
+    "id": "harmless-mozilla-bugbug-6328",
+    "label": "harmless",
+    "consumer": {
+      "repo": "mozilla/bugbug",
+      "ref": "41dece59dc7bd42f470047ba2978d93be6f8b620",
+      "commit": "41dece59dc7bd42f470047ba2978d93be6f8b620"
+    },
+    "package": "mcp",
+    "from": "1.27.2",
+    "to": "1.28.1",
+    "expected": [],
+    "evidence": [
+      "https://github.com/mozilla/bugbug/pull/6328",
+      "https://github.com/mozilla/bugbug/commit/d967d3a83bdabf8e64ec5d2725ed70362c50f6c1/checks",
+      "statusCheckRollup=SUCCESS (9 checks/statuses: 9 success) at head d967d3a83bdabf8e64ec5d2725ed70362c50f6c1"
+    ],
+    "notes": "Mechanically sampled (minor bump). Merged 2026-08-04T09:34:46Z into master; merge commit d23e241a04526c24f30dae0537d7908749ea5ded. Files: uv.lock. Stars at sampling: 580. Query: is:pr is:merged author:app/dependabot language:Python head:dependabot/uv merged:2026-08-04 sort:created-asc"
+  },
+  {
+    "id": "harmless-mozilla-bugbug-6340",
+    "label": "harmless",
+    "consumer": {
+      "repo": "mozilla/bugbug",
+      "ref": "868a2fd46012b460443c8aa4cc9646226b3057ff",
+      "commit": "868a2fd46012b460443c8aa4cc9646226b3057ff"
+    },
+    "package": "rq",
+    "from": "2.7.0",
+    "to": "2.10.0",
+    "expected": [],
+    "evidence": [
+      "https://github.com/mozilla/bugbug/pull/6340",
+      "https://github.com/mozilla/bugbug/commit/ee9bf9831a35a872564807d43ececb63ed43730a/checks",
+      "statusCheckRollup=SUCCESS (9 checks/statuses: 9 success) at head ee9bf9831a35a872564807d43ececb63ed43730a"
+    ],
+    "notes": "Mechanically sampled (minor bump). Merged 2026-08-04T09:35:44Z into master; merge commit 5d617079b14ef1376b1fd5ce3a96f33257c4aa0f. Files: http_service/pyproject.toml, uv.lock. Stars at sampling: 580. Query: is:pr is:merged author:app/dependabot language:Python head:dependabot/uv merged:2026-08-04 sort:created-asc"
+  },
+  {
+    "id": "harmless-imageio-imageio-1198",
+    "label": "harmless",
+    "consumer": {
+      "repo": "imageio/imageio",
+      "ref": "671d96a5dd9bc94050cc89c4b436e2f7c874283e",
+      "commit": "671d96a5dd9bc94050cc89c4b436e2f7c874283e"
+    },
+    "package": "pillow",
+    "from": "12.2.0",
+    "to": "12.3.0",
+    "expected": [],
+    "evidence": [
+      "https://github.com/imageio/imageio/pull/1198",
+      "https://github.com/imageio/imageio/commit/26c3895840f5da8ebc4ef627041ca8ab5ea01868/checks",
+      "statusCheckRollup=SUCCESS (17 checks/statuses: 17 success) at head 26c3895840f5da8ebc4ef627041ca8ab5ea01868"
+    ],
+    "notes": "Mechanically sampled (minor bump). Merged 2026-08-04T16:02:57Z into master; merge commit b6a096e28c4300548de590745d917440be6b2564. Files: uv.lock. Stars at sampling: 1725. Query: is:pr is:merged author:app/dependabot language:Python head:dependabot/uv merged:2026-08-04 sort:created-asc"
+  },
+  {
+    "id": "harmless-furglitch-modorganizer2-linux-installer-1056",
+    "label": "harmless",
+    "consumer": {
+      "repo": "Furglitch/modorganizer2-linux-installer",
+      "ref": "8874312d397bd820ff2e6665a69a823a2197c11d",
+      "commit": "8874312d397bd820ff2e6665a69a823a2197c11d"
+    },
+    "package": "pillow",
+    "from": "12.2.0",
+    "to": "12.3.0",
+    "expected": [],
+    "evidence": [
+      "https://github.com/Furglitch/modorganizer2-linux-installer/pull/1056",
+      "https://github.com/Furglitch/modorganizer2-linux-installer/commit/5a7060ab53e202b9afaf3388d03cc6a395b81355/checks",
+      "statusCheckRollup=SUCCESS (1 checks/statuses: 1 success) at head 5a7060ab53e202b9afaf3388d03cc6a395b81355"
+    ],
+    "notes": "Mechanically sampled (minor bump). Merged 2026-08-04T04:40:20Z into main; merge commit 28aded8f0ea77c27d9e576aa6970c0f64fd870c0. Files: uv.lock. Stars at sampling: 1875. Query: is:pr is:merged author:app/dependabot language:Python head:dependabot/uv merged:2026-08-04 sort:created-asc"
+  },
+  {
+    "id": "harmless-aws-aws-sdk-pandas-3419",
+    "label": "harmless",
+    "consumer": {
+      "repo": "aws/aws-sdk-pandas",
+      "ref": "de58132fb18d27fbd83362e8adb607663bc8206f",
+      "commit": "de58132fb18d27fbd83362e8adb607663bc8206f"
+    },
+    "package": "aws-cdk-lib",
+    "from": "2.190.0",
+    "to": "2.253.0",
+    "expected": [],
+    "evidence": [
+      "https://github.com/aws/aws-sdk-pandas/pull/3419",
+      "https://github.com/aws/aws-sdk-pandas/commit/6d89d0f7e12d999610bf7cae305a6a1417b3950a/checks",
+      "statusCheckRollup=SUCCESS (30 checks/statuses: 1 neutral, 29 success) at head 6d89d0f7e12d999610bf7cae305a6a1417b3950a"
+    ],
+    "notes": "Mechanically sampled (minor bump). Merged 2026-08-04T12:36:37Z into main; merge commit fb30b1b44a54d779d947b2e99bd1ac6436a07f23. Files: test_infra/pyproject.toml, test_infra/uv.lock. Stars at sampling: 4124. Query: is:pr is:merged author:app/dependabot language:Python head:dependabot/uv merged:2026-08-04 sort:created-asc"
+  },
+  {
+    "id": "harmless-furglitch-modorganizer2-linux-installer-1058",
+    "label": "harmless",
+    "consumer": {
+      "repo": "Furglitch/modorganizer2-linux-installer",
+      "ref": "8874312d397bd820ff2e6665a69a823a2197c11d",
+      "commit": "8874312d397bd820ff2e6665a69a823a2197c11d"
+    },
+    "package": "certifi",
+    "from": "2026.6.17",
+    "to": "2026.7.22",
+    "expected": [],
+    "evidence": [
+      "https://github.com/Furglitch/modorganizer2-linux-installer/pull/1058",
+      "https://github.com/Furglitch/modorganizer2-linux-installer/commit/fbe0a72d099738fb92bb020bee1237c005bad3a6/checks",
+      "statusCheckRollup=SUCCESS (7 checks/statuses: 7 success) at head fbe0a72d099738fb92bb020bee1237c005bad3a6"
+    ],
+    "notes": "Mechanically sampled (minor bump). Merged 2026-08-04T04:39:58Z into main; merge commit 0921aa5d8722e2db8c62c39a516ef4fc6ed93588. Files: pyproject.toml, uv.lock. Stars at sampling: 1875. Query: is:pr is:merged author:app/dependabot language:Python head:dependabot/uv merged:2026-08-04 sort:created-asc"
+  },
+  {
+    "id": "harmless-kalanakt-all-url-uploader-188",
+    "label": "harmless",
+    "consumer": {
+      "repo": "kalanakt/All-Url-Uploader",
+      "ref": "c9c749fe9e8df8a51bed09076eb7527f39967f9b",
+      "commit": "c9c749fe9e8df8a51bed09076eb7527f39967f9b"
+    },
+    "package": "yt-dlp",
+    "from": "2026.6.9",
+    "to": "2026.7.4",
+    "expected": [],
+    "evidence": [
+      "https://github.com/kalanakt/All-Url-Uploader/pull/188",
+      "https://github.com/kalanakt/All-Url-Uploader/commit/e7b81fa872ededa95881e73f419db26ea446cb6b/checks",
+      "statusCheckRollup=SUCCESS (12 checks/statuses: 12 success) at head e7b81fa872ededa95881e73f419db26ea446cb6b"
+    ],
+    "notes": "Mechanically sampled (minor bump). Merged 2026-08-04T14:35:40Z into main; merge commit 5dde5e7e96f9c979428c852b3337bea7cf86d042. Files: pyproject.toml, uv.lock. Stars at sampling: 538. Query: is:pr is:merged author:app/dependabot language:Python head:dependabot/uv merged:2026-08-04 sort:created-asc"
+  },
+  {
+    "id": "harmless-agilerl-agilerl-625",
+    "label": "harmless",
+    "consumer": {
+      "repo": "AgileRL/AgileRL",
+      "ref": "311b3a50cd748416d33116b0d0e6a17599effbc1",
+      "commit": "311b3a50cd748416d33116b0d0e6a17599effbc1"
+    },
+    "package": "hydra-core",
+    "from": "1.3.2",
+    "to": "1.3.4",
+    "expected": [],
+    "evidence": [
+      "https://github.com/AgileRL/AgileRL/pull/625",
+      "https://github.com/AgileRL/AgileRL/commit/e960f437fa8e1b10318f2accfd275dca1e29dde8/checks",
+      "statusCheckRollup=SUCCESS (18 checks/statuses: 18 success) at head e960f437fa8e1b10318f2accfd275dca1e29dde8"
+    ],
+    "notes": "Mechanically sampled (patch bump). Merged 2026-08-04T17:24:11Z into nightly; merge commit 0aced8014c299f42c53dd4825a3d363f7eb65a6e. Files: uv.lock. Stars at sampling: 971. Query: is:pr is:merged author:app/dependabot language:Python head:dependabot/uv merged:2026-08-04 sort:created-asc"
+  },
+  {
+    "id": "harmless-agilerl-agilerl-627",
+    "label": "harmless",
+    "consumer": {
+      "repo": "AgileRL/AgileRL",
+      "ref": "311b3a50cd748416d33116b0d0e6a17599effbc1",
+      "commit": "311b3a50cd748416d33116b0d0e6a17599effbc1"
+    },
+    "package": "datasets",
+    "from": "5.0.0",
+    "to": "5.0.1",
+    "expected": [],
+    "evidence": [
+      "https://github.com/AgileRL/AgileRL/pull/627",
+      "https://github.com/AgileRL/AgileRL/commit/473a4b265e21d79c7a7f3a66226767d1974899f6/checks",
+      "statusCheckRollup=SUCCESS (18 checks/statuses: 18 success) at head 473a4b265e21d79c7a7f3a66226767d1974899f6"
+    ],
+    "notes": "Mechanically sampled (patch bump). Merged 2026-08-04T17:24:34Z into nightly; merge commit 066bc0f0113140914055828bc8c90f303bd0b614. Files: pyproject.toml, uv.lock. Stars at sampling: 971. Query: is:pr is:merged author:app/dependabot language:Python head:dependabot/uv merged:2026-08-04 sort:created-asc"
+  },
+  {
+    "id": "harmless-saleor-saleor-19590",
+    "label": "harmless",
+    "consumer": {
+      "repo": "saleor/saleor",
+      "ref": "224bf29fb39fd14645a5adfda42008ea5fb8d799",
+      "commit": "224bf29fb39fd14645a5adfda42008ea5fb8d799"
+    },
+    "package": "pre-commit",
+    "from": "4.3.0",
+    "to": "4.6.0",
+    "expected": [],
+    "evidence": [
+      "https://github.com/saleor/saleor/pull/19590",
+      "https://github.com/saleor/saleor/commit/f093d77085a493d1f854f1e2582bc05615f26bcc/checks",
+      "statusCheckRollup=SUCCESS (58 checks/statuses: 1 neutral, 42 skipped, 15 success) at head f093d77085a493d1f854f1e2582bc05615f26bcc"
+    ],
+    "notes": "Mechanically sampled (minor bump). Merged 2026-08-04T08:18:38Z into main; merge commit 2056853d255afaec39fe7ae990921e223fef0287. Files: pyproject.toml, uv.lock. Stars at sampling: 23593. Query: is:pr is:merged author:app/dependabot language:Python head:dependabot/uv merged:2026-08-04 sort:created-asc"
+  },
+  {
+    "id": "harmless-saleor-saleor-19591",
+    "label": "harmless",
+    "consumer": {
+      "repo": "saleor/saleor",
+      "ref": "224bf29fb39fd14645a5adfda42008ea5fb8d799",
+      "commit": "224bf29fb39fd14645a5adfda42008ea5fb8d799"
+    },
+    "package": "botocore",
+    "from": "1.43.14",
+    "to": "1.43.46",
+    "expected": [],
+    "evidence": [
+      "https://github.com/saleor/saleor/pull/19591",
+      "https://github.com/saleor/saleor/commit/3f4f1328401d1c5b62f20ed516de798a01a0f462/checks",
+      "statusCheckRollup=SUCCESS (58 checks/statuses: 1 neutral, 42 skipped, 15 success) at head 3f4f1328401d1c5b62f20ed516de798a01a0f462"
+    ],
+    "notes": "Mechanically sampled (patch bump). Merged 2026-08-04T08:17:16Z into main; merge commit d64fa552fb943bbae2cdf6eedb09eb759e2e4012. Files: pyproject.toml, uv.lock. Stars at sampling: 23593. Query: is:pr is:merged author:app/dependabot language:Python head:dependabot/uv merged:2026-08-04 sort:created-asc"
+  },
+  {
+    "id": "harmless-torchgeo-torchgeo-3937",
+    "label": "harmless",
+    "consumer": {
+      "repo": "torchgeo/torchgeo",
+      "ref": "97d5129d534f6278c6e418e83a9927ac71b39864",
+      "commit": "97d5129d534f6278c6e418e83a9927ac71b39864"
+    },
+    "package": "pandas-stubs",
+    "from": "3.0.3.260530",
+    "to": "3.0.5.260730",
+    "expected": [],
+    "evidence": [
+      "https://github.com/torchgeo/torchgeo/pull/3937",
+      "https://github.com/torchgeo/torchgeo/commit/d9fcf733f78e2078d2a4b367450a2beaf7ad0931/checks",
+      "statusCheckRollup=SUCCESS (19 checks/statuses: 19 success) at head d9fcf733f78e2078d2a4b367450a2beaf7ad0931"
+    ],
+    "notes": "Mechanically sampled (patch bump). Merged 2026-08-04T08:46:11Z into main; merge commit 1ac4c7ffa6779a1ad1ed903c96b5acbcbf4060f5. Files: uv.lock. Stars at sampling: 4243. Query: is:pr is:merged author:app/dependabot language:Python head:dependabot/uv merged:2026-08-04 sort:created-asc"
+  },
+  {
+    "id": "harmless-goauthentik-authentik-24712",
+    "label": "harmless",
+    "consumer": {
+      "repo": "goauthentik/authentik",
+      "ref": "530750fe6eb2b2af39371810b15f5945cfae83b0",
+      "commit": "530750fe6eb2b2af39371810b15f5945cfae83b0"
+    },
+    "package": "aiohttp",
+    "from": "3.14.1",
+    "to": "3.14.3",
+    "expected": [],
+    "evidence": [
+      "https://github.com/goauthentik/authentik/pull/24712",
+      "https://github.com/goauthentik/authentik/commit/f34d71c3641767f9e0842eeea612525bfb1b0ef8/checks",
+      "statusCheckRollup=SUCCESS (144 checks/statuses: 1 skipped, 99 success) at head f34d71c3641767f9e0842eeea612525bfb1b0ef8"
+    ],
+    "notes": "Mechanically sampled (patch bump). Merged 2026-08-04T10:15:41Z into main; merge commit fda8984ce383824188d5ad06fc031a05628a9032. Files: uv.lock. Stars at sampling: 26403. Query: is:pr is:merged author:app/dependabot language:Python head:dependabot/uv merged:2026-08-04 sort:created-asc"
+  },
+  {
+    "id": "harmless-langchain-ai-deepagents-5272",
+    "label": "harmless",
+    "consumer": {
+      "repo": "langchain-ai/deepagents",
+      "ref": "10d1314fda2dc8ee031a269abdec4db7cb1d9321",
+      "commit": "10d1314fda2dc8ee031a269abdec4db7cb1d9321"
+    },
+    "package": "aiohttp",
+    "from": "3.14.2",
+    "to": "3.14.3",
+    "expected": [],
+    "evidence": [
+      "https://github.com/langchain-ai/deepagents/pull/5272",
+      "https://github.com/langchain-ai/deepagents/commit/47f7d2ab30c8384a914048a23f192b3f8972329c/checks",
+      "statusCheckRollup=SUCCESS (75 checks/statuses: 1 neutral, 44 skipped, 30 success) at head 47f7d2ab30c8384a914048a23f192b3f8972329c"
+    ],
+    "notes": "Mechanically sampled (patch bump). Merged 2026-08-04T08:15:28Z into main; merge commit 11c7ad4698f7b61ea5ea64247a0187218f765198. Files: examples/deep_research/uv.lock. Stars at sampling: 31496. Query: is:pr is:merged author:app/dependabot language:Python head:dependabot/uv merged:2026-08-04 sort:created-asc"
+  },
+  {
+    "id": "harmless-langchain-ai-deepagents-5275",
+    "label": "harmless",
+    "consumer": {
+      "repo": "langchain-ai/deepagents",
+      "ref": "10d1314fda2dc8ee031a269abdec4db7cb1d9321",
+      "commit": "10d1314fda2dc8ee031a269abdec4db7cb1d9321"
+    },
+    "package": "aiohttp",
+    "from": "3.14.2",
+    "to": "3.14.3",
+    "expected": [],
+    "evidence": [
+      "https://github.com/langchain-ai/deepagents/pull/5275",
+      "https://github.com/langchain-ai/deepagents/commit/945a4c209525f7467e2b071a2c86e3f8581f77f8/checks",
+      "statusCheckRollup=SUCCESS (75 checks/statuses: 1 neutral, 44 skipped, 30 success) at head 945a4c209525f7467e2b071a2c86e3f8581f77f8"
+    ],
+    "notes": "Mechanically sampled (patch bump). Merged 2026-08-04T08:15:19Z into main; merge commit 8bf599c0dbbb4bc25b537160fe44fa9aef50d236. Files: examples/text-to-sql-agent/uv.lock. Stars at sampling: 31496. Query: is:pr is:merged author:app/dependabot language:Python head:dependabot/uv merged:2026-08-04 sort:created-asc"
+  },
+  {
+    "id": "harmless-torchgeo-torchgeo-3939",
+    "label": "harmless",
+    "consumer": {
+      "repo": "torchgeo/torchgeo",
+      "ref": "904149d11b63902742226e45fd55da07258291c1",
+      "commit": "904149d11b63902742226e45fd55da07258291c1"
+    },
+    "package": "aiohttp",
+    "from": "3.14.1",
+    "to": "3.14.3",
+    "expected": [],
+    "evidence": [
+      "https://github.com/torchgeo/torchgeo/pull/3939",
+      "https://github.com/torchgeo/torchgeo/commit/d820097ac2bc8b3ab1d51385dbff29103c16e7ec/checks",
+      "statusCheckRollup=SUCCESS (19 checks/statuses: 19 success) at head d820097ac2bc8b3ab1d51385dbff29103c16e7ec"
+    ],
+    "notes": "Mechanically sampled (patch bump). Merged 2026-08-04T08:33:05Z into main; merge commit 1c9209b4ec18659229960691da968df8dc1d2c04. Files: uv.lock. Stars at sampling: 4243. Query: is:pr is:merged author:app/dependabot language:Python head:dependabot/uv merged:2026-08-04 sort:created-asc"
+  },
+  {
+    "id": "harmless-maa1999-m9a-868",
+    "label": "harmless",
+    "consumer": {
+      "repo": "MAA1999/M9A",
+      "ref": "01ff65ee7d96834a46fd37114ba13e1d391dce11",
+      "commit": "01ff65ee7d96834a46fd37114ba13e1d391dce11"
+    },
+    "package": "ruff",
+    "from": "0.16.0",
+    "to": "0.16.1",
+    "expected": [],
+    "evidence": [
+      "https://github.com/MAA1999/M9A/pull/868",
+      "https://github.com/MAA1999/M9A/commit/6d92214be89d902339f0ef7a76b1b8b9e8e57482/checks",
+      "statusCheckRollup=SUCCESS (3 checks/statuses: 3 success) at head 6d92214be89d902339f0ef7a76b1b8b9e8e57482"
+    ],
+    "notes": "Mechanically sampled (patch bump). Merged 2026-08-04T03:32:38Z into main; merge commit 4953658df4b7fc9fdade89b08030f623356ac95e. Files: uv.lock. Stars at sampling: 2117. Query: is:pr is:merged author:app/dependabot language:Python head:dependabot/uv merged:2026-08-04 sort:created-asc"
+  },
+  {
+    "id": "harmless-uriyyo-fastapi-pagination-1999",
+    "label": "harmless",
+    "consumer": {
+      "repo": "uriyyo/fastapi-pagination",
+      "ref": "852f807e3b821c2308a5d8dbb77d876cb18d3538",
+      "commit": "852f807e3b821c2308a5d8dbb77d876cb18d3538"
+    },
+    "package": "peewee",
+    "from": "4.2.6",
+    "to": "4.3.0",
+    "expected": [],
+    "evidence": [
+      "https://github.com/uriyyo/fastapi-pagination/pull/1999",
+      "https://github.com/uriyyo/fastapi-pagination/commit/102dd5fd8a8c904d9f20962b2d59519baa303642/checks",
+      "statusCheckRollup=SUCCESS (18 checks/statuses: 4 neutral, 14 success) at head 102dd5fd8a8c904d9f20962b2d59519baa303642"
+    ],
+    "notes": "Mechanically sampled (minor bump). Merged 2026-08-04T03:06:13Z into main; merge commit 18ac7cbac12f130df787ee995dcb68ca2d3fc61b. Files: uv.lock. Stars at sampling: 1689. Query: is:pr is:merged author:app/dependabot language:Python head:dependabot/uv merged:2026-08-04 sort:created-asc"
+  },
+  {
+    "id": "harmless-duriantaco-skylos-688",
+    "label": "harmless",
+    "consumer": {
+      "repo": "duriantaco/skylos",
+      "ref": "fa6fbd8d08940636c5e34ca9423313ab8b1a95cf",
+      "commit": "fa6fbd8d08940636c5e34ca9423313ab8b1a95cf"
+    },
+    "package": "aiohttp",
+    "from": "3.14.1",
+    "to": "3.14.3",
+    "expected": [],
+    "evidence": [
+      "https://github.com/duriantaco/skylos/pull/688",
+      "https://github.com/duriantaco/skylos/commit/46b2594aac01b05838e161735b40a15f8b8f2afe/checks",
+      "statusCheckRollup=SUCCESS (11 checks/statuses: 11 success) at head 46b2594aac01b05838e161735b40a15f8b8f2afe"
+    ],
+    "notes": "Mechanically sampled (patch bump). Merged 2026-08-04T07:13:33Z into main; merge commit df186633e2e4a57a1f2512c1dca9a160ce511121. Files: uv.lock. Stars at sampling: 951. Query: is:pr is:merged author:app/dependabot language:Python head:dependabot/uv merged:2026-08-04 sort:created-asc"
+  },
+  {
+    "id": "harmless-ag2ai-ag2-3132",
+    "label": "harmless",
+    "consumer": {
+      "repo": "ag2ai/ag2",
+      "ref": "d5d2bb034a82fa6a5eb71ae3de8dec408ddedb44",
+      "commit": "d5d2bb034a82fa6a5eb71ae3de8dec408ddedb44"
+    },
+    "package": "aiohttp",
+    "from": "3.14.1",
+    "to": "3.14.3",
+    "expected": [],
+    "evidence": [
+      "https://github.com/ag2ai/ag2/pull/3132",
+      "https://github.com/ag2ai/ag2/commit/1938546e0790339e29fed5b950431241650ac9e8/checks",
+      "statusCheckRollup=SUCCESS (21 checks/statuses: 1 neutral, 6 skipped, 14 success) at head 1938546e0790339e29fed5b950431241650ac9e8"
+    ],
+    "notes": "Mechanically sampled (patch bump). Merged 2026-08-04T09:06:57Z into main; merge commit 244b07bcbbf41211581951fb360e0a18e115479c. Files: uv.lock. Stars at sampling: 5077. Query: is:pr is:merged author:app/dependabot language:Python head:dependabot/uv merged:2026-08-04 sort:created-asc"
+  },
+  {
+    "id": "harmless-pydantic-pydantic-13577",
+    "label": "harmless",
+    "consumer": {
+      "repo": "pydantic/pydantic",
+      "ref": "4ed8903864066e7f26eeae50edd3480685f7722a",
+      "commit": "4ed8903864066e7f26eeae50edd3480685f7722a"
+    },
+    "package": "aiohttp",
+    "from": "3.14.1",
+    "to": "3.14.3",
+    "expected": [],
+    "evidence": [
+      "https://github.com/pydantic/pydantic/pull/13577",
+      "https://github.com/pydantic/pydantic/commit/c8082b3afb8976e24c4a7d314bf051961e1b48b4/checks",
+      "statusCheckRollup=SUCCESS (84 checks/statuses: 28 skipped, 56 success) at head c8082b3afb8976e24c4a7d314bf051961e1b48b4"
+    ],
+    "notes": "Mechanically sampled (patch bump). Merged 2026-08-04T06:46:26Z into main; merge commit 27f95c789b20aa23306e5ce559327db0e9a10a6e. Files: uv.lock. Stars at sampling: 29606. Query: is:pr is:merged author:app/dependabot language:Python head:dependabot/uv merged:2026-08-04 sort:created-asc"
+  },
+  {
+    "id": "harmless-langchain-ai-langchain-39236",
+    "label": "harmless",
+    "consumer": {
+      "repo": "langchain-ai/langchain",
+      "ref": "a6b904fd5b1edfd9db45302285fb959f77228056",
+      "commit": "a6b904fd5b1edfd9db45302285fb959f77228056"
+    },
+    "package": "aiohttp",
+    "from": "3.14.1",
+    "to": "3.14.3",
+    "expected": [],
+    "evidence": [
+      "https://github.com/langchain-ai/langchain/pull/39236",
+      "https://github.com/langchain-ai/langchain/commit/83be51aad902519b0a454335d6a8c6ecaa964325/checks",
+      "statusCheckRollup=SUCCESS (59 checks/statuses: 1 neutral, 12 skipped, 46 success) at head 83be51aad902519b0a454335d6a8c6ecaa964325"
+    ],
+    "notes": "Mechanically sampled (patch bump). Merged 2026-08-04T09:05:19Z into master; merge commit 94f1508ec7a6e7ea300044c7a4513c3b54ad1532. Files: libs/partners/fireworks/uv.lock. Stars at sampling: 149997. Query: is:pr is:merged author:app/dependabot language:Python head:dependabot/uv merged:2026-08-04 sort:created-asc"
+  },
+  {
+    "id": "harmless-langchain-ai-langchain-39237",
+    "label": "harmless",
+    "consumer": {
+      "repo": "langchain-ai/langchain",
+      "ref": "a6b904fd5b1edfd9db45302285fb959f77228056",
+      "commit": "a6b904fd5b1edfd9db45302285fb959f77228056"
+    },
+    "package": "aiohttp",
+    "from": "3.14.1",
+    "to": "3.14.3",
+    "expected": [],
+    "evidence": [
+      "https://github.com/langchain-ai/langchain/pull/39237",
+      "https://github.com/langchain-ai/langchain/commit/b0ff316b50ae91ba7c9a103124339039cf874e3b/checks",
+      "statusCheckRollup=SUCCESS (35 checks/statuses: 1 neutral, 12 skipped, 22 success) at head b0ff316b50ae91ba7c9a103124339039cf874e3b"
+    ],
+    "notes": "Mechanically sampled (patch bump). Merged 2026-08-04T09:05:26Z into master; merge commit 1a43a6e14ab2c8ff6e4fac250941e9568926e1b4. Files: libs/partners/huggingface/uv.lock. Stars at sampling: 149997. Query: is:pr is:merged author:app/dependabot language:Python head:dependabot/uv merged:2026-08-04 sort:created-asc"
+  },
+  {
+    "id": "harmless-pypsa-pypsa-1862",
+    "label": "harmless",
+    "consumer": {
+      "repo": "PyPSA/PyPSA",
+      "ref": "e603a7124e5c5e10c4040be11da0f7da89c5a82f",
+      "commit": "e603a7124e5c5e10c4040be11da0f7da89c5a82f"
+    },
+    "package": "gitpython",
+    "from": "3.1.52",
+    "to": "3.1.57",
+    "expected": [],
+    "evidence": [
+      "https://github.com/PyPSA/PyPSA/pull/1862",
+      "https://github.com/PyPSA/PyPSA/commit/8830b86418e7c23c40d3b6f4b4f4058904b06aeb/checks",
+      "statusCheckRollup=SUCCESS (13 checks/statuses: 13 success) at head 8830b86418e7c23c40d3b6f4b4f4058904b06aeb"
+    ],
+    "notes": "Mechanically sampled (patch bump). Merged 2026-08-04T12:14:06Z into master; merge commit 71edcbb5e88b801bc2edd0fdecc2efdf823ae41a. Files: uv.lock. Stars at sampling: 2252. Query: is:pr is:merged author:app/dependabot language:Python head:dependabot/uv merged:2026-08-04 sort:created-asc"
+  },
+  {
+    "id": "harmless-kz26-pyexcelerate-275",
+    "label": "harmless",
+    "consumer": {
+      "repo": "kz26/PyExcelerate",
+      "ref": "0e2ef0f50fdd5eceabd414f41d4132b57f9f4a16",
+      "commit": "0e2ef0f50fdd5eceabd414f41d4132b57f9f4a16"
+    },
+    "package": "black",
+    "from": "26.3.1",
+    "to": "26.5.1",
+    "expected": [],
+    "evidence": [
+      "https://github.com/kz26/PyExcelerate/pull/275",
+      "https://github.com/kz26/PyExcelerate/commit/cdee57395fcf17716d2a0f62c6d729a893f62013/checks",
+      "statusCheckRollup=SUCCESS (3 checks/statuses: 2 skipped, 1 success) at head cdee57395fcf17716d2a0f62c6d729a893f62013"
+    ],
+    "notes": "Mechanically sampled (minor bump). Merged 2026-08-05T16:32:25Z into dev; merge commit d361bde93e49c3cde3730ba65099af71c54c6daa. Files: Pipfile.lock. Stars at sampling: 560. Query: is:pr is:merged author:app/dependabot language:Python head:dependabot/pip merged:2026-08-05 sort:created-asc"
+  },
+  {
+    "id": "harmless-kz26-pyexcelerate-277",
+    "label": "harmless",
+    "consumer": {
+      "repo": "kz26/PyExcelerate",
+      "ref": "0e2ef0f50fdd5eceabd414f41d4132b57f9f4a16",
+      "commit": "0e2ef0f50fdd5eceabd414f41d4132b57f9f4a16"
+    },
+    "package": "numpy",
+    "from": "2.4.4",
+    "to": "2.5.1",
+    "expected": [],
+    "evidence": [
+      "https://github.com/kz26/PyExcelerate/pull/277",
+      "https://github.com/kz26/PyExcelerate/commit/18fa41c811be1365235d33eca67a1f61d5609487/checks",
+      "statusCheckRollup=SUCCESS (3 checks/statuses: 2 skipped, 1 success) at head 18fa41c811be1365235d33eca67a1f61d5609487"
+    ],
+    "notes": "Mechanically sampled (minor bump). Merged 2026-08-05T16:32:43Z into dev; merge commit aefe8a2a3a93d333f3b6ae2a13e03d438df04c75. Files: Pipfile.lock. Stars at sampling: 560. Query: is:pr is:merged author:app/dependabot language:Python head:dependabot/pip merged:2026-08-05 sort:created-asc"
+  },
+  {
+    "id": "harmless-jacebrowning-memegen-1048",
+    "label": "harmless",
+    "consumer": {
+      "repo": "jacebrowning/memegen",
+      "ref": "1486637f59d44c09345545cd6e419b25f8f23852",
+      "commit": "1486637f59d44c09345545cd6e419b25f8f23852"
+    },
+    "package": "locust",
+    "from": "2.44.3",
+    "to": "2.46.3",
+    "expected": [],
+    "evidence": [
+      "https://github.com/jacebrowning/memegen/pull/1048",
+      "https://github.com/jacebrowning/memegen/commit/bd34c512ff0bacb8211a1b1926de71455461075d/checks",
+      "statusCheckRollup=SUCCESS (3 checks/statuses: 3 success) at head bd34c512ff0bacb8211a1b1926de71455461075d"
+    ],
+    "notes": "Mechanically sampled (minor bump). Merged 2026-08-05T00:25:48Z into main; merge commit c8709f0720f17150b330c0af058665bb55969a6a. Files: poetry.lock, pyproject.toml. Stars at sampling: 1763. Query: is:pr is:merged author:app/dependabot language:Python head:dependabot/pip merged:2026-08-05 sort:created-asc"
+  },
+  {
+    "id": "harmless-mandiant-capa-3137",
+    "label": "harmless",
+    "consumer": {
+      "repo": "mandiant/capa",
+      "ref": "ee14b11fcdc2d89397f2fbf24586c7a63ad6334a",
+      "commit": "ee14b11fcdc2d89397f2fbf24586c7a63ad6334a"
+    },
+    "package": "bump-my-version",
+    "from": "1.4.1",
+    "to": "1.5.0",
+    "expected": [],
+    "evidence": [
+      "https://github.com/mandiant/capa/pull/3137",
+      "https://github.com/mandiant/capa/commit/8fdcd440a4cdcfa483e59d3aa535f06363a64f96/checks",
+      "statusCheckRollup=SUCCESS (41 checks/statuses: 1 neutral, 6 skipped, 34 success) at head 8fdcd440a4cdcfa483e59d3aa535f06363a64f96"
+    ],
+    "notes": "Mechanically sampled (minor bump). Merged 2026-08-05T11:48:49Z into master; merge commit fa2be14e76b621cbc3e7620df720326524e6e0c2. Files: pyproject.toml, requirements.txt. Stars at sampling: 6352. Query: is:pr is:merged author:app/dependabot language:Python head:dependabot/pip merged:2026-08-05 sort:created-asc"
+  },
+  {
+    "id": "harmless-fkie-cad-fact_core-1524",
+    "label": "harmless",
+    "consumer": {
+      "repo": "fkie-cad/FACT_core",
+      "ref": "2c3bdaef822e0cf011e3a56183337806cdb06a98",
+      "commit": "2c3bdaef822e0cf011e3a56183337806cdb06a98"
+    },
+    "package": "aiohttp",
+    "from": "3.14.1",
+    "to": "3.14.3",
+    "expected": [],
+    "evidence": [
+      "https://github.com/fkie-cad/FACT_core/pull/1524",
+      "https://github.com/fkie-cad/FACT_core/commit/457f49e448333e4943e2391ce3b4dfddf157ab90/checks",
+      "statusCheckRollup=SUCCESS (9 checks/statuses: 9 success) at head 457f49e448333e4943e2391ce3b4dfddf157ab90"
+    ],
+    "notes": "Mechanically sampled (patch bump). Merged 2026-08-05T11:08:08Z into master; merge commit 8e7de16392bfd8fd8f79fd349369888e48fc2c15. Files: src/install/requirements_common.txt. Stars at sampling: 1476. Query: is:pr is:merged author:app/dependabot language:Python head:dependabot/pip merged:2026-08-05 sort:created-asc"
+  },
+  {
+    "id": "harmless-jacebrowning-memegen-1050",
+    "label": "harmless",
+    "consumer": {
+      "repo": "jacebrowning/memegen",
+      "ref": "c8709f0720f17150b330c0af058665bb55969a6a",
+      "commit": "c8709f0720f17150b330c0af058665bb55969a6a"
+    },
+    "package": "markdown",
+    "from": "3.10.2",
+    "to": "3.10.3",
+    "expected": [],
+    "evidence": [
+      "https://github.com/jacebrowning/memegen/pull/1050",
+      "https://github.com/jacebrowning/memegen/commit/583d61d1dc98df64b5b416f726b23cadd42ed72d/checks",
+      "statusCheckRollup=SUCCESS (3 checks/statuses: 3 success) at head 583d61d1dc98df64b5b416f726b23cadd42ed72d"
+    ],
+    "notes": "Mechanically sampled (patch bump). Merged 2026-08-05T00:41:14Z into main; merge commit 7560b45127bec33ff41baea5157c75b924e0cff6. Files: poetry.lock. Stars at sampling: 1763. Query: is:pr is:merged author:app/dependabot language:Python head:dependabot/pip merged:2026-08-05 sort:created-asc"
+  },
+  {
+    "id": "harmless-leyckers-moondownloader-137",
+    "label": "harmless",
+    "consumer": {
+      "repo": "LeyckerS/moondownloader",
+      "ref": "56d735d6cdf86a4e41cc66e364b8724f388fa974",
+      "commit": "56d735d6cdf86a4e41cc66e364b8724f388fa974"
+    },
+    "package": "playwright",
+    "from": "1.61.0",
+    "to": "1.62.0",
+    "expected": [],
+    "evidence": [
+      "https://github.com/LeyckerS/moondownloader/pull/137",
+      "https://github.com/LeyckerS/moondownloader/commit/831bbe41f25e69f5749096d3669c621f37ecafcd/checks",
+      "statusCheckRollup=SUCCESS (7 checks/statuses: 7 success) at head 831bbe41f25e69f5749096d3669c621f37ecafcd"
+    ],
+    "notes": "Mechanically sampled (minor bump). Merged 2026-08-05T01:08:10Z into main; merge commit 05018fb1b0a55f69439dd3c0bb5da1aacadfa469. Files: constraints.txt. Stars at sampling: 1604. Query: is:pr is:merged author:app/dependabot language:Python head:dependabot/pip merged:2026-08-05 sort:created-asc"
+  },
+  {
+    "id": "harmless-leyckers-moondownloader-138",
+    "label": "harmless",
+    "consumer": {
+      "repo": "LeyckerS/moondownloader",
+      "ref": "56d735d6cdf86a4e41cc66e364b8724f388fa974",
+      "commit": "56d735d6cdf86a4e41cc66e364b8724f388fa974"
+    },
+    "package": "greenlet",
+    "from": "3.5.3",
+    "to": "3.5.4",
+    "expected": [],
+    "evidence": [
+      "https://github.com/LeyckerS/moondownloader/pull/138",
+      "https://github.com/LeyckerS/moondownloader/commit/15cc0e6afb6fb372dd4673d54a3b299cc3fedf3f/checks",
+      "statusCheckRollup=SUCCESS (7 checks/statuses: 7 success) at head 15cc0e6afb6fb372dd4673d54a3b299cc3fedf3f"
+    ],
+    "notes": "Mechanically sampled (patch bump). Merged 2026-08-05T01:08:13Z into main; merge commit 4188ed592eb09c2f1dc88a3874c16d83e01a4b06. Files: constraints.txt. Stars at sampling: 1604. Query: is:pr is:merged author:app/dependabot language:Python head:dependabot/pip merged:2026-08-05 sort:created-asc"
+  },
+  {
+    "id": "harmless-mozilla-fx-private-relay-6774",
+    "label": "harmless",
+    "consumer": {
+      "repo": "mozilla/fx-private-relay",
+      "ref": "d82ef7ef26b431a00bb3f8d2e6f60591b5005897",
+      "commit": "d82ef7ef26b431a00bb3f8d2e6f60591b5005897"
+    },
+    "package": "sentry-sdk",
+    "from": "2.65.0",
+    "to": "2.66.1",
+    "expected": [],
+    "evidence": [
+      "https://github.com/mozilla/fx-private-relay/pull/6774",
+      "https://github.com/mozilla/fx-private-relay/commit/aad7fc1f60e3e61bc05e74dc631a6a9e7caf8d76/checks",
+      "statusCheckRollup=SUCCESS (26 checks/statuses: 3 neutral, 2 skipped, 21 success) at head aad7fc1f60e3e61bc05e74dc631a6a9e7caf8d76"
+    ],
+    "notes": "Mechanically sampled (minor bump). Merged 2026-08-05T01:58:27Z into main; merge commit c9d2605dd5b25e865feebbec9aa3712cac29549c. Files: requirements.txt. Stars at sampling: 1819. Query: is:pr is:merged author:app/dependabot language:Python head:dependabot/pip merged:2026-08-05 sort:created-asc"
+  },
+  {
+    "id": "harmless-mozilla-fx-private-relay-6776",
+    "label": "harmless",
+    "consumer": {
+      "repo": "mozilla/fx-private-relay",
+      "ref": "d82ef7ef26b431a00bb3f8d2e6f60591b5005897",
+      "commit": "d82ef7ef26b431a00bb3f8d2e6f60591b5005897"
+    },
+    "package": "phonenumbers",
+    "from": "9.0.34",
+    "to": "9.0.35",
+    "expected": [],
+    "evidence": [
+      "https://github.com/mozilla/fx-private-relay/pull/6776",
+      "https://github.com/mozilla/fx-private-relay/commit/c05158e54042572e0f66e3f18e4a1283bc6189c4/checks",
+      "statusCheckRollup=SUCCESS (26 checks/statuses: 3 neutral, 2 skipped, 21 success) at head c05158e54042572e0f66e3f18e4a1283bc6189c4"
+    ],
+    "notes": "Mechanically sampled (patch bump). Merged 2026-08-05T01:58:26Z into main; merge commit c9d2605dd5b25e865feebbec9aa3712cac29549c. Files: requirements.txt. Stars at sampling: 1819. Query: is:pr is:merged author:app/dependabot language:Python head:dependabot/pip merged:2026-08-05 sort:created-asc"
+  },
+  {
+    "id": "harmless-wemake-services-django-test-migrations-677",
+    "label": "harmless",
+    "consumer": {
+      "repo": "wemake-services/django-test-migrations",
+      "ref": "12050c575c6d914b8e4ae0650d7de41dfc3ca9e1",
+      "commit": "12050c575c6d914b8e4ae0650d7de41dfc3ca9e1"
+    },
+    "package": "django",
+    "from": "5.2.16",
+    "to": "5.2.17",
+    "expected": [],
+    "evidence": [
+      "https://github.com/wemake-services/django-test-migrations/pull/677",
+      "https://github.com/wemake-services/django-test-migrations/commit/e2c87764593046f70ed9b9e89ac45b656a3005bc/checks",
+      "statusCheckRollup=SUCCESS (16 checks/statuses: 16 success) at head e2c87764593046f70ed9b9e89ac45b656a3005bc"
+    ],
+    "notes": "Mechanically sampled (patch bump). Merged 2026-08-05T07:08:46Z into master; merge commit 9663781b858ebe7a20e0ef1f1160b6a0ff631f4b. Files: poetry.lock, pyproject.toml. Stars at sampling: 580. Query: is:pr is:merged author:app/dependabot language:Python head:dependabot/pip merged:2026-08-05 sort:created-asc"
+  },
+  {
+    "id": "harmless-rasbt-mlxtend-1181",
+    "label": "harmless",
+    "consumer": {
+      "repo": "rasbt/mlxtend",
+      "ref": "c4bc11ed714d2478079f07666d3b3ed594c4e420",
+      "commit": "c4bc11ed714d2478079f07666d3b3ed594c4e420"
+    },
+    "package": "tornado",
+    "from": "6.5.5",
+    "to": "6.5.7",
+    "expected": [],
+    "evidence": [
+      "https://github.com/rasbt/mlxtend/pull/1181",
+      "https://github.com/rasbt/mlxtend/commit/b8d4e2772ebd1aef44da6f48c7ed408e61b83824/checks",
+      "statusCheckRollup=SUCCESS (2 checks/statuses: 2 success) at head b8d4e2772ebd1aef44da6f48c7ed408e61b83824"
+    ],
+    "notes": "Mechanically sampled (patch bump). Merged 2026-08-05T14:13:36Z into master; merge commit 790802564d341d76fc543934097be5b6c00b1144. Files: uv.lock. Stars at sampling: 5194. Query: is:pr is:merged author:app/dependabot language:Python head:dependabot/uv merged:2026-08-05 sort:created-asc"
+  },
+  {
+    "id": "harmless-rasbt-mlxtend-1183",
+    "label": "harmless",
+    "consumer": {
+      "repo": "rasbt/mlxtend",
+      "ref": "c4bc11ed714d2478079f07666d3b3ed594c4e420",
+      "commit": "c4bc11ed714d2478079f07666d3b3ed594c4e420"
+    },
+    "package": "bleach",
+    "from": "6.3.0",
+    "to": "6.4.0",
+    "expected": [],
+    "evidence": [
+      "https://github.com/rasbt/mlxtend/pull/1183",
+      "https://github.com/rasbt/mlxtend/commit/b9e7aa7e4084c117f7751f73b0e297d96e2a9f70/checks",
+      "statusCheckRollup=SUCCESS (2 checks/statuses: 2 success) at head b9e7aa7e4084c117f7751f73b0e297d96e2a9f70"
+    ],
+    "notes": "Mechanically sampled (minor bump). Merged 2026-08-05T14:25:37Z into master; merge commit b3c7837758fb8129e5656de99c5bef884a191460. Files: uv.lock. Stars at sampling: 5194. Query: is:pr is:merged author:app/dependabot language:Python head:dependabot/uv merged:2026-08-05 sort:created-asc"
+  },
+  {
+    "id": "harmless-linkml-linkml-3789",
+    "label": "harmless",
+    "consumer": {
+      "repo": "linkml/linkml",
+      "ref": "a3472491e25b9ba2b30f47546b4e23e4110793c1",
+      "commit": "a3472491e25b9ba2b30f47546b4e23e4110793c1"
+    },
+    "package": "pyasn1",
+    "from": "0.6.3",
+    "to": "0.6.4",
+    "expected": [],
+    "evidence": [
+      "https://github.com/linkml/linkml/pull/3789",
+      "https://github.com/linkml/linkml/commit/6128e2155bc7c030861318267db16e6d3b1271a5/checks",
+      "statusCheckRollup=SUCCESS (20 checks/statuses: 20 success) at head 6128e2155bc7c030861318267db16e6d3b1271a5"
+    ],
+    "notes": "Mechanically sampled (patch bump). Merged 2026-08-05T15:14:07Z into main; merge commit 2219ae6904e13a7da4a4e0970371bbea5443a0f6. Files: uv.lock. Stars at sampling: 707. Query: is:pr is:merged author:app/dependabot language:Python head:dependabot/uv merged:2026-08-05 sort:created-asc"
+  },
+  {
+    "id": "harmless-sysid-sse-starlette-203",
+    "label": "harmless",
+    "consumer": {
+      "repo": "sysid/sse-starlette",
+      "ref": "c956ba394eb811a716772520a5020166d475eb2b",
+      "commit": "c956ba394eb811a716772520a5020166d475eb2b"
+    },
+    "package": "pyasn1",
+    "from": "0.6.3",
+    "to": "0.6.4",
+    "expected": [],
+    "evidence": [
+      "https://github.com/sysid/sse-starlette/pull/203",
+      "https://github.com/sysid/sse-starlette/commit/1c41d17cada0e78d889363b6436b5a0ee6eab6b2/checks",
+      "statusCheckRollup=SUCCESS (4 checks/statuses: 4 success) at head 1c41d17cada0e78d889363b6436b5a0ee6eab6b2"
+    ],
+    "notes": "Mechanically sampled (patch bump). Merged 2026-08-05T08:28:49Z into main; merge commit ae7c799806afa0d30e717c1e385991fef0dadf09. Files: uv.lock. Stars at sampling: 860. Query: is:pr is:merged author:app/dependabot language:Python head:dependabot/uv merged:2026-08-05 sort:created-asc"
+  },
+  {
+    "id": "harmless-kiln-ai-kiln-1624",
+    "label": "harmless",
+    "consumer": {
+      "repo": "Kiln-AI/Kiln",
+      "ref": "bc9edc94276e742ccb16781f65e124fd81faf667",
+      "commit": "bc9edc94276e742ccb16781f65e124fd81faf667"
+    },
+    "package": "pypdf",
+    "from": "6.13.0",
+    "to": "6.14.2",
+    "expected": [],
+    "evidence": [
+      "https://github.com/Kiln-AI/Kiln/pull/1624",
+      "https://github.com/Kiln-AI/Kiln/commit/1cf7a77aeda70180f5aaa49e1f1f9aa760426841/checks",
+      "statusCheckRollup=SUCCESS (20 checks/statuses: 20 success) at head 1cf7a77aeda70180f5aaa49e1f1f9aa760426841"
+    ],
+    "notes": "Mechanically sampled (minor bump). Merged 2026-08-05T09:23:57Z into main; merge commit ca4693afe384d28831ed9e1c1bdb9cbf9b5759f5. Files: libs/core/pyproject.toml, uv.lock. Stars at sampling: 5286. Query: is:pr is:merged author:app/dependabot language:Python head:dependabot/uv merged:2026-08-05 sort:created-asc"
+  },
+  {
+    "id": "harmless-aisecuritylab-hackagent-545",
+    "label": "harmless",
+    "consumer": {
+      "repo": "AISecurityLab/hackagent",
+      "ref": "fa71d5bc62fb24445863763eee45804c96b02ce5",
+      "commit": "fa71d5bc62fb24445863763eee45804c96b02ce5"
+    },
+    "package": "commitizen",
+    "from": "4.16.5",
+    "to": "4.17.0",
+    "expected": [],
+    "evidence": [
+      "https://github.com/AISecurityLab/hackagent/pull/545",
+      "https://github.com/AISecurityLab/hackagent/commit/c355e77845c0acb2d7fda4700a60f44214e4f131/checks",
+      "statusCheckRollup=SUCCESS (21 checks/statuses: 1 skipped, 20 success) at head c355e77845c0acb2d7fda4700a60f44214e4f131"
+    ],
+    "notes": "Mechanically sampled (minor bump). Merged 2026-08-05T11:02:56Z into main; merge commit 85be022501db8237cb6115b8470b6f5ca8d5d6f0. Files: uv.lock. Stars at sampling: 540. Query: is:pr is:merged author:app/dependabot language:Python head:dependabot/uv merged:2026-08-05 sort:created-asc"
+  },
+  {
+    "id": "harmless-kiln-ai-kiln-1639",
+    "label": "harmless",
+    "consumer": {
+      "repo": "Kiln-AI/Kiln",
+      "ref": "04a5e39aa9e681409c44c4e95fc6b807a0236b3d",
+      "commit": "04a5e39aa9e681409c44c4e95fc6b807a0236b3d"
+    },
+    "package": "nltk",
+    "from": "3.9.4",
+    "to": "3.10.0",
+    "expected": [],
+    "evidence": [
+      "https://github.com/Kiln-AI/Kiln/pull/1639",
+      "https://github.com/Kiln-AI/Kiln/commit/128e3e762cafbc118af5ec7ec1010622c39ea419/checks",
+      "statusCheckRollup=SUCCESS (19 checks/statuses: 19 success) at head 128e3e762cafbc118af5ec7ec1010622c39ea419"
+    ],
+    "notes": "Mechanically sampled (minor bump). Merged 2026-08-05T09:23:53Z into main; merge commit 2c1abd3cc67e8cf4d8ed7055b9491742f0ce04b2. Files: uv.lock. Stars at sampling: 5286. Query: is:pr is:merged author:app/dependabot language:Python head:dependabot/uv merged:2026-08-05 sort:created-asc"
+  },
+  {
+    "id": "harmless-langchain-ai-langgraph-8502",
+    "label": "harmless",
+    "consumer": {
+      "repo": "langchain-ai/langgraph",
+      "ref": "b2926a0ff9589c28c7e01fe7cdbb337b86d5a4b4",
+      "commit": "b2926a0ff9589c28c7e01fe7cdbb337b86d5a4b4"
+    },
+    "package": "types-requests",
+    "from": "2.33.0.20260518",
+    "to": "2.33.0.20260712",
+    "expected": [],
+    "evidence": [
+      "https://github.com/langchain-ai/langgraph/pull/8502",
+      "https://github.com/langchain-ai/langgraph/commit/fd228c3c4980e56b2179310458b4dca67aeea65b/checks",
+      "statusCheckRollup=SUCCESS (72 checks/statuses: 1 neutral, 4 skipped, 67 success) at head fd228c3c4980e56b2179310458b4dca67aeea65b"
+    ],
+    "notes": "Mechanically sampled (patch bump). Merged 2026-08-05T08:29:23Z into main; merge commit fa36da7e8886d501d046cb7fccf8af2619c430cb. Files: libs/langgraph/uv.lock. Stars at sampling: 45226. Query: is:pr is:merged author:app/dependabot language:Python head:dependabot/uv merged:2026-08-05 sort:created-asc"
+  },
+  {
+    "id": "harmless-blacklanternsecurity-bbot-3360",
+    "label": "harmless",
+    "consumer": {
+      "repo": "blacklanternsecurity/bbot",
+      "ref": "00a3cc14606a596879f840b0f2dfc62298a1aae2",
+      "commit": "00a3cc14606a596879f840b0f2dfc62298a1aae2"
+    },
+    "package": "pip",
+    "from": "26.1.2",
+    "to": "26.2",
+    "expected": [],
+    "evidence": [
+      "https://github.com/blacklanternsecurity/bbot/pull/3360",
+      "https://github.com/blacklanternsecurity/bbot/commit/3e60b9300c05075f1599c06dcee0f4aaf39bf7a1/checks",
+      "statusCheckRollup=SUCCESS (19 checks/statuses: 3 skipped, 16 success) at head 3e60b9300c05075f1599c06dcee0f4aaf39bf7a1"
+    ],
+    "notes": "Mechanically sampled (minor bump). Merged 2026-08-05T01:57:06Z into dev; merge commit e6829e882f098cce254b78cce4beda8f76b1f83e. Files: uv.lock. Stars at sampling: 11171. Query: is:pr is:merged author:app/dependabot language:Python head:dependabot/uv merged:2026-08-05 sort:created-asc"
+  },
+  {
+    "id": "harmless-blacklanternsecurity-bbot-3362",
+    "label": "harmless",
+    "consumer": {
+      "repo": "blacklanternsecurity/bbot",
+      "ref": "00a3cc14606a596879f840b0f2dfc62298a1aae2",
+      "commit": "00a3cc14606a596879f840b0f2dfc62298a1aae2"
+    },
+    "package": "lxml",
+    "from": "6.1.0",
+    "to": "6.1.1",
+    "expected": [],
+    "evidence": [
+      "https://github.com/blacklanternsecurity/bbot/pull/3362",
+      "https://github.com/blacklanternsecurity/bbot/commit/6b779d4d733562aec283cc7d9205f0fc458b410c/checks",
+      "statusCheckRollup=SUCCESS (19 checks/statuses: 3 skipped, 16 success) at head 6b779d4d733562aec283cc7d9205f0fc458b410c"
+    ],
+    "notes": "Mechanically sampled (patch bump). Merged 2026-08-05T01:56:14Z into dev; merge commit c278cc774bcedbf010558e9324a8c8a62108a679. Files: uv.lock. Stars at sampling: 11171. Query: is:pr is:merged author:app/dependabot language:Python head:dependabot/uv merged:2026-08-05 sort:created-asc"
+  },
+  {
+    "id": "harmless-rimsort-rimsort-2350",
+    "label": "harmless",
+    "consumer": {
+      "repo": "RimSort/RimSort",
+      "ref": "f8e1a43781f8459e8b25b836755a354481e10255",
+      "commit": "f8e1a43781f8459e8b25b836755a354481e10255"
+    },
+    "package": "ruff",
+    "from": "0.16.0",
+    "to": "0.16.1",
+    "expected": [],
+    "evidence": [
+      "https://github.com/RimSort/RimSort/pull/2350",
+      "https://github.com/RimSort/RimSort/commit/67bbe141e97eb5f070c809c52b3ba53b09630cc8/checks",
+      "statusCheckRollup=SUCCESS (11 checks/statuses: 11 success) at head 67bbe141e97eb5f070c809c52b3ba53b09630cc8"
+    ],
+    "notes": "Mechanically sampled (patch bump). Merged 2026-08-05T17:27:31Z into main; merge commit a509b7cc84846aaaf5965c6169cee167397dae01. Files: pyproject.toml, uv.lock. Stars at sampling: 1352. Query: is:pr is:merged author:app/dependabot language:Python head:dependabot/uv merged:2026-08-05 sort:created-asc"
+  }
+]
