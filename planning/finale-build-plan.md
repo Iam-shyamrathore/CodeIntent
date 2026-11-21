@@ -1,6 +1,6 @@
 # CodeIntent: Finale Build Plan (v3)
 
-hackFront India Grand Finale · 21–22 November 2026 · status verified against `main` (`2543af4`) and `codex/deployable-v1` (`18bb4aa`) at 18:50 IST, 21 Nov
+hackFront India Grand Finale · 21–22 November 2026 · status verified against `codex/deployable-v1` (`c085bef`), deployed as Heroku v11 and Vercel production
 
 > **One line.** A GitHub App that comments on every PR that changes a dependency: whether the new version breaks the code you actually have, at which lines, why upstream changed it, what to use instead, and whether that version has known vulnerabilities.
 >
@@ -34,22 +34,27 @@ Full diagram: `docs/architecture.md`.
 
 | Capability | Status | Evidence in the repository |
 | --- | --- | --- |
-| Live public app | Live | Web on Vercel (`code-intent-tawny.vercel.app`, HTTP 200) and API on Heroku v6 (`/ready` 200); Neo4j Aura kept awake by a six-hourly job (`57860d9`). |
-| Public GitHub import with progress, cancel, retry, checkpoint recovery | Built | `codeintent/github.py`, `codeintent/tasks.py` (Procrastinate on PostgreSQL, orphan recovery). |
-| Immutable hashed source snapshots; Neo4j evidence graph with scoped vector/full-text retrieval | Built | `store.py`, `graph.py`; real PostgreSQL/Neo4j integration tests (`docs/validation.md`). |
-| Decision extraction (introduce / deprecate / remove / restore / replace) with reversal detection; cited answers with quote/offset checks and second-model review | Built | `temporal.py`, `investigate.py`; 30/30 regression cases, 7/7 unsupported prompts refused (regression evidence, not a held-out study). |
-| Web workbench: evidence drawer, timeline, graph, real investigation stages, withheld-claim counts, shareable reports with OG previews | Built | `18e8cef`. |
-| Next.js security advisory | Fixed | 16.4.3 → 16.4.6 (`9d5ba9a`); `npm audit` 0 vulnerabilities. |
-| Manifest and lockfile parser: `pyproject.toml`, `requirements*.txt`, `uv.lock`, `poetry.lock`, `setup.cfg`, `setup.py`, with source lines and pin classification | Built | `codeintent/upgrades/manifests/` (`b70c938`); osv-scalibr fixtures plus the real consumers at their broken tags. |
-| Consumer usage extractor (LibCST: aliases, keyword args, local subclasses, `**kwargs` forwarding, import fallbacks; dynamic access recorded as unknown) | Built, verified on real repos | `codeintent/upgrades/usage/` (`d46dbcb`, `11ccc49`). Exact lines confirmed on openai-python, Flask, Jinja and botocore; 12/12 sampled usages true. Fallback fix: names rebound in `except ImportError` mark later uses as guarded. |
-| Release locator (PyPI → repository → tags/commits) and verified artifact download | Built, verified on real releases | `releases.py`, `artifacts.py` (`9e65454`). 12 real upgrades located; commits match GitHub (httpx `80960fa3`, numpy `1d49c7f7`); renamed, missing and yanked cases handled. |
-| Library API compare (griffe, static only) | Built, verified on real releases | `codeintent/upgrades/surface.py` (`09fe0ac`, `18bb4aa`). 4/4 outages at the issue lines; 5 further real breaks found; 0 removal/parameter findings on 6 harmless upgrades. Detail in §5. |
-| Blind-spot reduction (T29) | In progress | (a) `try/except ImportError` definitions done: botocore "Not checked" 21–23 → 3. (b) return types, (c) library `**kwargs`, (d) renames, (e) caching/parallel scans remain. |
-| Verdict engine and CLI, backtest harness | Not built | T8, T9. |
-| Known-vulnerability check (OSV.dev), upcoming breakage | Not built | T30, T31; added in v3. |
-| Upstream range index, workspaces data model, pin explainer, GitHub App, Telegram, MCP, new web pages | Not built | No code yet. |
-| ArgosX scan | Planned | One Pro scan once the dashboard and webhook are live; not a hard requirement. `docs/security/remediation-log.md` records it. |
-| Accounts | Single operator token | No user accounts; public repositories only. |
+| Live public app | Live | Web on Vercel (`code-intent-tawny.vercel.app`) and API plus worker on Heroku (v11); Neo4j Aura kept awake by a six-hourly job (`57860d9`). |
+| GitHub App `codeintent-dependency-check` | Live | Registered with Metadata and Contents read, Pull requests and Checks write, `pull_request` events. Signed webhooks, installations and repositories recorded (`7930346`); installed on a real account. |
+| Manifest and lockfile parser | Built, verified on real repos | `codeintent/upgrades/manifests/` (`b70c938`, `f26f84f`): `pyproject.toml`, `*requirements*.txt`, `uv.lock`, `poetry.lock`, `setup.cfg`, `setup.py`, with source lines and pin kinds. |
+| Consumer usage extractor | Built, verified on real repos | `codeintent/upgrades/usage/` (LibCST): aliases, keyword args, local subclasses, `**kwargs` forwarding, import fallbacks; cached per file and parsed in parallel (`b8554be`). |
+| Release locator and verified artifacts | Built, verified on real releases | `releases.py`, `artifacts.py`: PyPI → repository → tags and commits; SHA-256-checked downloads, never installed or imported. |
+| Library API compare | Built, verified on real releases | `surface.py` (griffe, static only): removals, keyword and positional changes, new required parameters, literal default changes, deprecations tied to the arguments that trigger them, replacements, `try/except` fallbacks, return types, `**kwargs` forwarding, namedtuples, shims. |
+| Verdict engine and CLI | Built | `verdict.py`, `scripts/verdict.py` (`c80fb32`): Breaks you / Needs a change / No known impact / Not checked by fixed rules; replacement hints found in the release before the target (`08e7c50`). |
+| Upstream decision for each change | Built, verified on real repos | `upstream.py` (`1eebc0d`): the PR that made each change, the PR that deprecated it, later restorations, quotes checked word for word; 19 of 19 real changes mapped correctly. |
+| PR check run and comment | Built, deployed | `report.py`, `tasks.py` (`7d2fcf9`, `8cfde6c`): one check run and one comment edited in place, with the "why" line; any failure turns the check neutral with the reason. |
+| Known-vulnerability check | Built | `advisories.py` (`afb4dcf`): OSV.dev per exact version, lowest fixed version, "Not checked" when the lookup fails. |
+| Upcoming breakage | Built (engine) | `upcoming.py` (`5399fc9`): locked → latest for every direct dependency; this repository's 22 dependencies in 17 s. |
+| MCP server for AI agents | Built | `mcp_server.py` (`c6e927c`): `upgrade_brief`, `why_pinned`, `list_dependencies`, `advisories` over streamable HTTP with a bearer token; `docs/mcp.md`. |
+| Telegram bot `@codeintent_alerts_bot` | Built, deployed | `telegram.py` (`c085bef`): one-time link codes, alerts per reported PR, `/status`, `/why`, `/unlink`; webhook registered. |
+| Web setup, dashboard and verdict report | Built, deployed | `/setup` with the install link, `/dashboard`, `/dashboard/[owner]/[name]`, `/pulls/[id]` (`3a330d1`). |
+| Sign in with GitHub | In progress | GitHub App user authorization, dashboard scoped to the user's installations. |
+| Product landing page | In progress | Replaces the investigation-workbench landing page. |
+| Labelled backtest set | Built | `evals/upgrades.json` (`c6cc913`): 101 cases, 19 breaks, 2 guarded controls, 80 harmless sampled from merged Dependabot PRs with passing checks. |
+| Backtest harness and published numbers | Not built | T9: runs every labelled case and writes `artifacts/backtest/latest.json`. |
+| Pin explainer | Partial | Every pin with file, line and kind (`why_pinned`); the introducing commit is not looked up yet. |
+| Investigation workbench (previous product) | Built, kept | Evidence graph, decision extraction with reversal detection and cited answers (`temporal.py`, `investigate.py`); reachable from the footer. |
+| ArgosX scan | Planned | One Pro scan of the dashboard with two test workspaces; `docs/security/remediation-log.md` records it. |
 
 **Testing approach.** Verification runs on real repositories, real PyPI artifacts and real GitHub data, not mocks. T9 records these runs as fixtures so CI replays them offline, and the deployed API is tested against real repositories.
 
@@ -58,13 +63,13 @@ Full diagram: `docs/architecture.md`.
 - Usage extractor and release locator are verified on real data rather than "untested"; their recorded backtests land with T9.
 - Verdicts run on every PR that changes a dependency, not only Dependabot/Renovate PRs.
 
-## 3. What ships by 12 PM, 22 November
+## 3. What ships
 
-Python ecosystem, direct dependencies. About 17 working hours remain, so scope is tiered. **Must** items make the demo and the production bar; **Should** items ship if their checkpoint is met; **Could** items are cut first.
+Python ecosystem, direct dependencies. **Must** items make the demo and the production bar; **Should** items ship when their acceptance test passes; **Could** items come after.
 
 | Tier | Feature | What it does | Acceptance test |
 | --- | --- | --- | --- |
-| Must | 1. Verdict engine and CLI | Loads both library versions statically (griffe, no install, no import, SHA-256 checked artifacts), resolves every symbol and argument the consumer uses, and returns a verdict with affected lines, the replacement, and reasons for anything unchecked. | `python -m scripts.verdict --repo owner/name@ref --package P --from A --to B` prints JSON; 4/4 outages and the botocore 1.29.130 control in §5. |
+| Must | 1. Verdict engine and CLI | Loads both library versions statically (griffe, no install, no import, SHA-256 checked artifacts), resolves every symbol and argument the consumer uses, and returns a verdict with affected lines, the replacement, and reasons for anything unchecked. | `python -m scripts.verdict --repo owner/name@ref --package P --from A --to B` prints JSON; 4/4 outages and the botocore 1.29.130 control in §4. |
 | Must | 2. Upstream decision for each change | Between the two release tags: compare → commits → PRs. Each API change is linked to the PR that touched the symbol; the existing decision extraction and citation checks give the reason, replacement and any later reversal. Each library range is indexed once and shared. | Each of the 4 outages shows a cited upstream PR whose quotes pass validation. |
 | Must | 3. Verdict on every PR that changes a dependency | A GitHub App receives `pull_request`, diffs the manifests and lock files, and posts one check run plus one comment, updated in place. A newly added dependency gets the pin and advisory checks (there is no old version to compare). | On the public demo repo, a real Dependabot PR gets the check and comment with no manual step. |
 | Must | 4. Web app: setup and dashboard | Install flow and Telegram linking; repository overview (dependencies, locked version, verdict, pins, advisories, upcoming breakage); verdict report reusing the evidence drawer and timeline. | Links from the PR comment open on the live URL; usable at 360 / 768 / 1280 px. |
@@ -87,38 +92,22 @@ Python ecosystem, direct dependencies. About 17 working hours remain, so scope i
 
 Advisories are reported next to the verdict, never folded into it: "Known advisories: GHSA-… (fixed in X)", "No known advisories", or "Advisory lookup failed".
 
-## 4. Schedule and cut rules (IST)
-
-| Window | Work | Checkpoint / cut rule |
-| --- | --- | --- |
-| 18:50–21:00 | T29 blind spots, time-boxed about 30 min each: (b) return types, (c) library `**kwargs`, (d) renames, (e) scan cache, parallel scan, PyPI metadata cache. Parallel agents: scan speed, OSV advisories, labelled backtest cases, GitHub App webhook. | Anything unfinished at 21:00 moves after the GitHub App. True findings unchanged on every real case. |
-| 21:00–22:30 | T8 verdict engine and CLI. | 4/4 outages "Breaks you" with the right line; botocore 1.29.130 "Needs a change". If not, the demo uses only the cases caught and §5 reports the miss. |
-| 22:30–00:00 | T9 backtest harness over the labelled cases and ≥50 harmless bumps. | Numbers published in `artifacts/backtest/latest.json`. |
-| 00:00–03:30 | Data model and shared range index; upstream PR linking; GitHub App webhook, check run and comment; demo repo with a Dependabot PR. | Real PR gets a check by 03:30. If the App is blocked, fall back to a GitHub Action that runs the CLI and posts the same comment. |
-| 03:30–06:00 | MCP server; Telegram alerts; OSV advisories. | Claude Code fix from the brief; Telegram alert for the demo PR. |
-| 06:00–08:30 | Web setup flow, repository overview, verdict report. | PR comment links open on the live URL. |
-| 08:30–10:00 | Pin explainer; upcoming breakage; failure states; structured logs. | Pins cut to "introduced by" if over time. |
-| 10:00–11:00 | ArgosX Pro scan of the dashboard with two test workspaces; fix findings; remediation log; evaluator guide. | Report and fixes logged by 11:00. |
-| 11:00–12:00 | Code freeze, rehearse the demo twice, submit. | No merges after 11:15. |
-
-**Cut order if time runs short:** upcoming breakage → pin "can be lifted" (keep "introduced by") → Telegram commands (keep alerts) → sign-in and private repositories → T29 (b)/(c).
-
-The market track (3 interviews with security/platform leads, Market Fit Canvas, persona matrix, pitch) runs in parallel and does not block code.
-
-## 5. Production bar (verified before submission)
+## 4. Production bar (verified before submission)
 
 ### Backtest on real outages
 
-| Upgrade | Consumer at old tag | What broke | Expected | Result now (T7, `18bb4aa`) |
+| Upgrade | Consumer at old tag | What broke | Expected | Result |
 | --- | --- | --- | --- | --- |
-| httpx 0.27.2 → 0.28.0 | openai-python v1.54.4 | `Client(proxies=)` removed, reached through a subclass and `**kwargs` forwarding | Breaks you, correct line | `proxies=` removed at `_base_client.py:857`, `:1438`, `cli/_cli.py:179`; hint "Use 'proxy' or 'mounts' instead" |
-| itsdangerous 2.0.1 → 2.1.0 | Flask 1.1.2 | `itsdangerous.json` removed (non-public alias) | Breaks you, correct line | removed at `json/__init__.py:15` |
-| MarkupSafe 2.0.1 → 2.1.0 | Jinja2 2.11.3 | `soft_unicode` removed (re-export under try/except) | Breaks you, correct line | removed at `filters.py:13`, `runtime.py:9` |
-| urllib3 1.26.15 → 2.0.0 | botocore 1.29.121 | `util.ssl_.DEFAULT_CIPHERS` removed, unguarded import | Breaks you, correct line | removed at `httpsession.py:23` |
+| httpx 0.27.2 → 0.28.0 | openai-python v1.54.4 | `Client(proxies=)` removed, reached through a subclass and `**kwargs` forwarding | Breaks you, correct line | **Breaks you** at `_base_client.py:857`, `:1438`, `cli/_cli.py:179`; use `proxy=` or `mounts=`; why: encode/httpx#3319, deprecated in #2879 |
+| itsdangerous 2.0.1 → 2.1.0 | Flask 1.1.2 | `itsdangerous.json` removed (non-public alias) | Breaks you, correct line | **Breaks you** at `json/__init__.py:15`; use `json`; why: pallets/itsdangerous#273 |
+| MarkupSafe 2.0.1 → 2.1.0 | Jinja2 2.11.3 | `soft_unicode` removed (re-export under try/except) | Breaks you, correct line | **Breaks you** at `filters.py:13`, `runtime.py:9`; use `markupsafe.soft_str`; why: pallets/markupsafe#261 |
+| urllib3 1.26.15 → 2.0.0 | botocore 1.29.121 | `util.ssl_.DEFAULT_CIPHERS` removed, unguarded import | Breaks you, correct line | **Breaks you** at `httpsession.py:23`; why: urllib3/urllib3#2705 |
 | urllib3 1.26.15 → 2.0.0 | botocore 1.29.130 (control) | Import guarded with a `None` fallback since #2922; but it still passes `strict=True` through `**kwargs` to `PoolManager`, which urllib3 2.0 deprecates and 2.1 rejects (fixed in boto/botocore#3036) | **Not** Breaks you | Not checked: the `**kwargs` into `PoolManager` can't be followed and `PoolManager` changed in 2.0; `DEFAULT_CIPHERS` removal shown as guarded |
 
-- **Extra breaks found so far** (real releases, Flask 1.1.2): jinja2 3.1 `Markup`/`escape` (`__init__.py:14–15`), werkzeug 2.1 `BaseResponse` (`app.py:32`), werkzeug 3.0 `url_quote` (`helpers.py:30`) and `url_parse` (`testing.py:18`), each with the library's own "will be removed in…" message. The remaining research cases (urllib3 2.0 `method_whitelist`, numpy 2.0 `NaN`, pandas 2.0 `append`, pydantic 2 `BaseSettings`, SQLAlchemy 2.0 `MetaData.bind`, …) are added in T9; any case we cannot verify is dropped and listed.
-- **Harmless set:** ≥50 patch/minor bumps that mature repositories merged with green CI, sampled mechanically. So far 6 real harmless upgrades give 0 removal or parameter findings. Target 0 false "Breaks you"; with 0/50 the 95% Wilson upper bound is about 7%, and we publish that bound, not "0%".
+- **Further real breaks caught** (Flask 1.1.2): jinja2 3.1 `Markup`/`escape` (`__init__.py:14–15`), werkzeug 2.1 `BaseResponse` (`app.py:32`) and test-client `as_tuple=`, werkzeug 3.0 `url_quote` → `urllib.parse.quote`. Every one of the 7 breaking upgrades run so far returns Breaks you.
+- **Early warning:** on the release before each break, the verdict is already Needs a change for the deprecation that later broke the project (httpx 0.26 `proxies`, itsdangerous 2.0 `json`, MarkupSafe 2.0 `soft_unicode`).
+- **Full labelled set:** `evals/upgrades.json` adds urllib3 2.0 `method_whitelist`, click 8.1, importlib-metadata 5, numpy 2.0, pandas 2.0, pydantic 2, SQLAlchemy 2.0 and setuptools 72 consumers at their breaking tags; cases that could not be verified are listed as dropped in `evals/README.md`.
+- **Harmless set:** 80 patch and minor bumps merged with passing checks in repositories with 500+ stars, sampled mechanically (`scripts/sample_harmless.py`). Every harmless upgrade run so far returns something other than Breaks you. Target 0 false "Breaks you"; with 0 of 80 the 95% Wilson upper bound is about 4.6%, and we publish that bound, not "0%".
 - **Reported:** recall on breaks, line-localisation accuracy, false-alarm rate with its interval, coverage, and the distribution of "Not checked" reasons. "Not checked" is never counted as correct. Results go to `artifacts/backtest/latest.json` and CI replays them offline.
 
 ### Reliability
@@ -137,7 +126,7 @@ Live HTTPS URL (exists), a public demo repository with the App installed and an 
 
 **Deliberately out of scope** (the architecture extends to them later): other ecosystems such as npm, vulnerability reachability (whether the vulnerable function is actually called), library health scores, audit export, fleet dashboard, Slack and Linear.
 
-## 6. Partner technology: Neo4j
+## 5. Partner technology: Neo4j
 
 One graph answers every verdict, pin and advisory question with a bounded traversal:
 
@@ -147,9 +136,9 @@ One graph answers every verdict, pin and advisory question with a bounded traver
 
 The upstream part (`LibrarySymbol`, `APIChange`, `Decision`, `Source`, `Advisory`) is public and shared across workspaces; the consumer part carries `workspace_id`. PostgreSQL stays the ledger: jobs, webhook deliveries, verdict records, snapshots. The existing scoped retrieval and evidence graph are reused, not rebuilt.
 
-## 7. User segments
+## 6. User segments
 
-| Segment | Their problem | Use case | Feature | At 12 PM |
+| Segment | Their problem | Use case | Feature | Tier |
 | --- | --- | --- | --- | --- |
 | **Security / platform lead, 20–200 developer SaaS or fintech** (primary, payer) | Outdated and vulnerable dependencies pile up because engineering won't take upgrades it can't assess | See which upgrades break which repos and which versions carry advisories; know when a pin can go | Dashboard, PR verdicts, advisories, Telegram alerts | Must + Should |
 | **Developers on those teams** | Upgrades break things; nobody remembers why a pin exists | Decide whether to merge; fix fast | PR verdict, pin explainer, MCP brief | Must + Should |
@@ -158,23 +147,22 @@ The upstream part (`LibrarySymbol`, `APIChange`, `Decision`, `Source`, `Advisory
 
 **Validation question for interviews:** "Last time an upgrade broke something while tests passed, how did you find out, how long did it take, and was the cause in the changelog?"
 
-## 8. Risks and dependencies
+## 7. Risks and dependencies
 
 | Risk | Impact | Mitigation |
 | --- | --- | --- |
 | Static diff misses behaviour-only changes | High | Diff literal defaults; surface upstream decisions on touched symbols as "Needs a change"; measure on the harmless set. |
 | Dynamic Python hides usage | High | "Not checked" with the reason; never "No known impact" when an unchecked usage touches a changed symbol. |
-| Renames reported only as removals | Med | T29(d): replacement from the old alias target, quoted names in the deprecation message that exist in the new release, then "likely renamed" from a matching signature. |
-| Untyped return values and library `**kwargs` | Med | T29(b)/(c): follow declared return types and `**kwargs` forwarding; otherwise "Not checked". |
+| Renames reported only as removals | Low | Replacement named from the library's own deprecation message (checked to exist in the new release), or a same-signature object marked "likely renamed". |
+| Untyped return values and library `**kwargs` | Med | Declared and inferred return types and `**kwargs` forwarding are followed; anything else is "Not checked" with the reason. |
 | Environment-dependent definitions (optional third-party imports) | Low | Reported as "environment-dependent"; later resolved against the consumer's lock file. |
-| Scope added in v3 (T29–T31) squeezes the schedule | High | Time-boxed; cut order in §4; advisories are small and reuse the dependency map. |
-| GitHub App registration or approval delays the primary journey | High | Register in the first hour; GitHub Action fallback posts the same comment. |
+| GitHub App outage or permission change | Med | The same verdict runs from the CLI and MCP; a GitHub Action can post the same comment. |
 | GitHub rate limits | Med | Installation tokens, ETag caching, the shared range index, existing backoff. |
 | OSV.dev unavailable | Low | Cached per version with expiry; failure is shown as "Not checked", never as "No known advisories". |
 | Aura Free pauses or limits indexes | Med | Keep-alive job exists; check vector/full-text support on the tier before the demo. |
 | Cross-workspace leak | High | `workspace_id` everywhere; isolation test; ArgosX Pro scan with two test accounts. |
 | Exposed credentials (Aura password pasted in chat) | Med | Rotate after the finale; secrets only in Heroku/Vercel environments. |
 
-## 9. Definition of done
+## 8. Definition of done
 
 A team installs the CodeIntent GitHub App. From then on, every PR that changes a dependency on a Python repository gets a verdict tied to the exact lines it affects and the upstream decision behind it, with known advisories alongside. Pins are explained, upcoming breakage is listed before upgrade PRs arrive, alerts arrive in Telegram, and the fix brief goes to the team's AI agent. All four real historical breakages are caught, the botocore control is not flagged as breaking, and the known-harmless set shows no false "Breaks you".
