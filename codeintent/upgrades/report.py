@@ -108,7 +108,8 @@ def section(verdict: UpgradeVerdict) -> str:
         lines.append("")
         quoted = {
             (
-                verdict.end if f.change.kind == "deprecated" else verdict.start,
+                f.change.message_version
+                or (verdict.end if f.change.kind == "deprecated" else verdict.start),
                 f.change.message.strip(),
             )
             for f in verdict.findings

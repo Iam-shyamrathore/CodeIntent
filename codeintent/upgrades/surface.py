@@ -1207,3 +1207,51 @@ def _arguments(old, new, usage, before, after, changes, problems):
                     **where,
                 )
             )
+
+
+def hint_from(middle: Surface, new: Surface, change: APIChange) -> APIChange:
+    """Fill in the deprecation message and replacement for a removal from a release between the two
+    compared ones, which is usually where the warning was added (httpx 0.26 for ``proxies=``)."""
+    if change.message or change.kind not in ("removed", "parameter-removed"):
+        return change
+    found = middle.lookup(change.symbol)
+    if isinstance(found, Shimmed):
+        warned, origin = [Warning_(found.message)], None
+    elif isinstance(found, Found) and found.obj is not None:
+        warned, origin = _deprecations(middle, found.obj), found.obj
+    else:
+        return change
+    if change.kind == "parameter-removed":
+        message = next(
+            (
+                w.message
+                for w in warned
+                if change.parameter in w.parameters
+                or _mentions(w.message, change.parameter)
+            ),
+            None,
+        )
+        if message is None:
+            return change
+        updated = change.model_copy(
+            update={"message": message, "message_version": middle.version}
+        )
+        after = new.lookup(change.symbol)
+        accepted = (
+            signature(after.obj)
+            if isinstance(after, Found) and after.obj is not None
+            else None
+        )
+        return _parameter_replacement(updated, accepted)
+    message = next((w.message for w in warned), None)
+    if message is None:
+        return change
+    found = _replacement(middle, new, change.symbol, origin, message)
+    return change.model_copy(
+        update={
+            "message": message,
+            "message_version": middle.version,
+            "replacement": found[0] if found else change.replacement,
+            "replacement_source": found[1] if found else change.replacement_source,
+        }
+    )

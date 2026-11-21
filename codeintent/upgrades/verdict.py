@@ -16,6 +16,7 @@ from typing import Literal
 import griffe
 import httpx
 from packaging.utils import canonicalize_name
+from packaging.version import InvalidVersion, Version
 
 from codeintent.upgrades import advisories as osv
 from codeintent.upgrades import artifacts, manifests
@@ -29,7 +30,7 @@ from codeintent.upgrades.models import (
     UsageCheck,
 )
 from codeintent.upgrades.releases import locate
-from codeintent.upgrades.surface import Found, Surface, check
+from codeintent.upgrades.surface import Found, Surface, check, hint_from
 from codeintent.upgrades.usage import scan
 
 Verdict = Literal["breaks", "needs-change", "not-checked", "no-known-impact"]
@@ -247,6 +248,54 @@ def decide(
     )
 
 
+def _between(package: str, start: str, end: str, client: httpx.Client) -> str | None:
+    """The newest final release after ``start`` and before ``end``."""
+    response = client.get(f"https://pypi.org/pypi/{canonicalize_name(package)}/json")
+    if response.status_code != 200:
+        return None
+    low, high, found = Version(start), Version(end), []
+    for text, files in response.json().get("releases", {}).items():
+        try:
+            version = Version(text)
+        except InvalidVersion:
+            continue
+        if (
+            low < version < high
+            and not version.is_prerelease
+            and any(not f.get("yanked") for f in files)
+        ):
+            found.append(version)
+    return str(max(found)) if found else None
+
+
+def _hinted(
+    result: UpgradeVerdict,
+    package: str,
+    start: str,
+    end: str,
+    new: Surface,
+    client: httpx.Client,
+) -> UpgradeVerdict:
+    """Look for missing deprecation messages in the last release before ``end``."""
+    if not any(
+        f.change.kind in ("removed", "parameter-removed") and not f.change.message
+        for f in result.findings
+    ):
+        return result
+    middle = _between(package, start, end, client)
+    if middle is None:
+        return result
+    try:
+        surface = Surface.fetch(package, middle, client)
+    except artifacts.ArtifactError:
+        return result
+    findings = tuple(
+        f.model_copy(update={"change": hint_from(surface, new, f.change)})
+        for f in result.findings
+    )
+    return result.model_copy(update={"findings": findings})
+
+
 def evaluate(
     package: str,
     start: str,
@@ -274,6 +323,7 @@ def evaluate(
         )
     else:
         result = decide(package, start, end, root, old, new)
+        result = _hinted(result, package, start, end, new, client)
     extra: dict = {}
     if release:
         try:

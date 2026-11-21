@@ -164,6 +164,8 @@ class APIChange(Record):
     parameter: str | None = None
     detail: str
     message: str | None = None
+    message_version: str | None = None
+    """The release whose source contains ``message``, when not the obvious one."""
     replacement: str | None = None
     replacement_source: ReplacementSource | None = None
     before: Location | None = None

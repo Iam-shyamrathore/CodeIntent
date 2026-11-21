@@ -20,6 +20,7 @@ from packaging.version import InvalidVersion, Version
 from codeintent.github import GitHub
 from codeintent.upgrades import artifacts
 from codeintent.upgrades.models import ReleasePoint, ReleaseRange
+from codeintent.upgrades.repository import token
 
 DEPS_DEV = "https://api.deps.dev/v3/systems/pypi/packages"
 INTEGRITY = "https://pypi.org/integrity"
@@ -90,6 +91,10 @@ class Locator:
 class Repository:
     def __init__(self, full_name: str):
         self.api = GitHub(full_name).client
+        if "Authorization" not in self.api.headers:
+            secret = token()
+            if secret:
+                self.api.headers["Authorization"] = f"Bearer {secret}"
         response = self.api.get(f"/repos/{full_name}")
         if response.status_code in (301, 307):
             response = self.api.get(response.headers["location"])
