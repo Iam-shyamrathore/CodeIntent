@@ -23,5 +23,11 @@
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts"
   ],
-  "exclude": ["node_modules", ".external", ".venv", ".indexer-venv", "artifacts"]
+  "exclude": [
+    "node_modules",
+    ".external",
+    ".venv",
+    ".indexer-venv",
+    "artifacts"
+  ]
 }
