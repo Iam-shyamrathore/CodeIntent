@@ -1,7 +1,13 @@
 import { ConsoleHeader } from "@/components/console-header";
 import { SectionNav, type NavGroup } from "@/components/dashboard/section-nav";
 import { SiteFooter } from "@/components/site/footer";
-import { loadContext, loadRecent, thisWeek } from "@/lib/workspaces";
+import {
+  loadBreaks,
+  loadContext,
+  loadRecent,
+  loadRuns,
+  thisWeek,
+} from "@/lib/workspaces";
 
 /** Every dashboard section shares the header, the section menu and the footer. */
 export default async function DashboardLayout({
@@ -13,8 +19,16 @@ export default async function DashboardLayout({
   const session = context.state === "signed-out" ? null : context.session;
   let groups: NavGroup[] | null = null;
   if (context.state === "ok") {
-    const breaking = thisWeek(await loadRecent()).filter(
+    const [recent, open, problems] = await Promise.all([
+      loadRecent(),
+      loadBreaks("open"),
+      loadRuns("problems"),
+    ]);
+    const breaking = thisWeek(recent).filter(
       (p) => p.verdict === "breaks",
+    ).length;
+    const openBreaks = (open || []).filter(
+      (b) => b.severity === "breaks",
     ).length;
     const upcoming = context.repos.reduce(
       (n, r) => n + (r.upcoming?.breaks || 0),
@@ -37,9 +51,27 @@ export default async function DashboardLayout({
             alarm: true,
           },
           {
+            href: "/dashboard/breaks",
+            label: "Breaks",
+            count: openBreaks,
+            alarm: true,
+          },
+          {
             href: "/dashboard/repositories",
             label: "Repositories",
             count: context.repos.length,
+          },
+        ],
+      },
+      {
+        label: "Graph",
+        items: [
+          { href: "/dashboard/impact", label: "Impact" },
+          {
+            href: "/dashboard/runs",
+            label: "Runs",
+            count: problems?.length || 0,
+            alarm: true,
           },
         ],
       },

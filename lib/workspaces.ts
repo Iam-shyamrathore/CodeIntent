@@ -2,7 +2,10 @@ import "server-only";
 import { cache } from "react";
 import {
   read,
+  type Break,
   type Installation,
+  type RunKind,
+  type RunSummary,
   type InstalledRepository,
   type PullSummary,
   type RepositoryPulls,
@@ -159,3 +162,40 @@ export function pageNumber(
   const parsed = Number(Array.isArray(value) ? value[0] : value);
   return Number.isInteger(parsed) && parsed >= 1 ? Math.min(parsed, pages) : 1;
 }
+
+/** The `installations=` scope of this session, as a query string fragment ("" for the operator). */
+async function scope(): Promise<string> {
+  const session = await getSession();
+  return session?.kind === "github" ? installationQuery(session) : "";
+}
+
+export const loadBreaks = cache(
+  async (
+    status: "open" | "resolved" | "all" = "open",
+  ): Promise<Break[] | null> => {
+    const q = await scope();
+    const result = await read<{ breaks: Break[] }>(
+      `/app/breaks?status=${status}${q ? `&${q}` : ""}`,
+    );
+    return result.state === "ok" ? result.data.breaks : null;
+  },
+);
+
+export const loadRuns = cache(
+  async (
+    filter: "problems" | "all" | RunKind = "all",
+    limit = 30,
+  ): Promise<RunSummary[] | null> => {
+    const q = await scope();
+    const which =
+      filter === "problems"
+        ? "&problems=true"
+        : filter === "all"
+          ? ""
+          : `&kind=${filter}`;
+    const result = await read<{ runs: RunSummary[] }>(
+      `/app/runs?limit=${limit}${which}${q ? `&${q}` : ""}`,
+    );
+    return result.state === "ok" ? result.data.runs : null;
+  },
+);

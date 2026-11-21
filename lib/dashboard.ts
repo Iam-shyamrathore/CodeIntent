@@ -285,6 +285,99 @@ export type Ops = {
   mcp: { active: number; used_24h: number };
 };
 
+export type RunKind = "pull" | "scan" | "mcp";
+export type RunStatus =
+  "running" | "succeeded" | "partial" | "failed" | "skipped";
+export type RunSummary = {
+  id: string;
+  installation_id: number | null;
+  kind: RunKind;
+  repository: string | null;
+  ref: string | null;
+  subject: string;
+  status: RunStatus;
+  failed_step: string | null;
+  error: string | null;
+  attempt: number;
+  final: boolean;
+  analysis_id: string | null;
+  summary: Record<string, unknown> | null;
+  started_at: string;
+  finished_at: string | null;
+  duration_ms: number;
+};
+export type RunStep = {
+  seq: number;
+  name: string;
+  status: "ok" | "failed" | "skipped";
+  started_at: string;
+  duration_ms: number;
+  detail: string | null;
+};
+export type Place = { file: string; line: number | null; code: string | null };
+export type Break = {
+  installation_id?: number;
+  repository: string;
+  source: "pull" | "scan";
+  pull_number: number;
+  key: string;
+  severity: "breaks" | "needs-change";
+  package: string;
+  start_version: string;
+  end_version: string;
+  change: Change & { guarded?: boolean };
+  decision: UpstreamDecision | null;
+  places: Place[];
+  status: "open" | "fixed" | "merged" | "closed";
+  analysis_id?: string | null;
+  first_run?: string | null;
+  last_run?: string | null;
+  first_seen: string;
+  last_seen: string;
+  resolved_at: string | null;
+  pull_title?: string | null;
+};
+export type RunDetail = RunSummary & {
+  input: Record<string, unknown> | null;
+  result: Record<string, unknown> | null;
+  steps: RunStep[];
+  attempts: RunSummary[];
+  breaks: Break[];
+};
+export type GraphNode = {
+  id: string;
+  label: string;
+  name: string;
+  props: Record<string, string | number | boolean>;
+};
+export type GraphEdge = { source: string; target: string; type: string };
+export type RunGraph = {
+  projected: boolean;
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+};
+export type ImpactLine = {
+  installation_id: number;
+  repository: string;
+  file: string;
+  line: number | null;
+  code: string | null;
+  symbol: string;
+  kind: string;
+  parameter: string | null;
+  version: string;
+  replacement: string | null;
+  change: string;
+  locked: string | null;
+  confirmed: boolean;
+};
+export type Impact = {
+  package: string;
+  version: string | null;
+  repositories: string[];
+  lines: ImpactLine[];
+};
+
 export type Loaded<T> =
   { state: "ok"; data: T } | { state: "missing" } | { state: "unavailable" };
 

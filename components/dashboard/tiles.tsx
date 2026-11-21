@@ -117,7 +117,13 @@ export function SeeAll({ href, label }: { href: string; label: string }) {
   );
 }
 
-export function BreaksTile({ breaking }: { breaking: number }) {
+export function BreaksTile({
+  breaking,
+  open = 0,
+}: {
+  breaking: number;
+  open?: number;
+}) {
   return (
     <section
       className="ci-tile ci-tile-breaks"
@@ -133,6 +139,14 @@ export function BreaksTile({ breaking }: { breaking: number }) {
           <Link href="/dashboard/pulls?verdict=breaks">
             See the pull requests <ArrowRight size={12} />
           </Link>
+        )}
+        {open > 0 && (
+          <>
+            {" "}
+            <Link href="/dashboard/breaks">
+              {open} open break{open === 1 ? "" : "s"} <ArrowRight size={12} />
+            </Link>
+          </>
         )}
       </p>
     </section>

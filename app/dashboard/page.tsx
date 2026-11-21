@@ -7,9 +7,12 @@ import {
   UnavailableNotice,
   UpcomingTile,
 } from "@/components/dashboard/tiles";
+import { AttentionTile } from "@/components/dashboard/run-list";
 import {
+  loadBreaks,
   loadContext,
   loadRecent,
+  loadRuns,
   loadUpcoming,
   thisWeek,
 } from "@/lib/workspaces";
@@ -29,7 +32,14 @@ export default async function Dashboard({
   if (context.state !== "ok")
     return <DashboardGate gate={context} next="/dashboard" auth={query.auth} />;
   const { session, workspaces, repos } = context;
-  const [recent, upcoming] = await Promise.all([loadRecent(), loadUpcoming()]);
+  const [recent, upcoming, open, problems, latest] = await Promise.all([
+    loadRecent(),
+    loadUpcoming(),
+    loadBreaks("open"),
+    loadRuns("problems"),
+    loadRuns("all", 1),
+  ]);
+  const openBreaks = (open || []).filter((b) => b.severity === "breaks").length;
   const week = thisWeek(recent);
   const breaking = week.filter((p) => p.verdict === "breaks").length;
   return (
@@ -48,12 +58,13 @@ export default async function Dashboard({
         repos={workspaces.some((w) => w.repos.state === "unavailable")}
       />
       <div className="ci-bento">
-        <BreaksTile breaking={breaking} />
+        <BreaksTile breaking={breaking} open={openBreaks} />
         <LatestTile
           pulls={recent.slice(0, LATEST_SHOWN)}
           seeAll="/dashboard/pulls"
         />
         <SetupTile workspaces={workspaces} repos={repos.length} />
+        <AttentionTile problems={problems} latest={latest} />
         {repos.length > 0 && (
           <UpcomingTile
             summary={upcoming}

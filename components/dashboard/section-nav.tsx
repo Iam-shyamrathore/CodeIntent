@@ -15,6 +15,9 @@ export type NavGroup = { label?: string; items: NavItem[] };
 const SECTIONS = new Set([
   "pulls",
   "upcoming",
+  "breaks",
+  "impact",
+  "runs",
   "repositories",
   "alerts",
   "agents",
