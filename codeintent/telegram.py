@@ -394,9 +394,16 @@ def link_chat(chat: dict, code: str) -> str:
             ON CONFLICT(chat_id,installation_id) DO UPDATE SET title=EXCLUDED.title""",
             (chat["id"], row["installation_id"], _title(chat)),
         )
+        from codeintent.tasks import notify_upcoming
+
+        # Upcoming breakage already found before this chat was linked arrives right after the reply.
+        notify_upcoming.configure(connection=conn, schedule_in={"seconds": 5}).defer(
+            installation_id=row["installation_id"]
+        )
     return (
         f"Linked to <b>{esc(row['account_login'], 100)}</b>. This chat will get an alert when a dependency "
-        "pull request breaks your code, needs a change, or moves to a version with known advisories.\n\n"
+        "pull request breaks your code, needs a change, or moves to a version with known advisories, "
+        "and when a new release of something you use would break you.\n\n"
         "Try /status or /why <i>package</i>."
     )
 
@@ -666,6 +673,132 @@ def notify(analysis_id: str) -> int:
                 if exc.migrate_to:
                     _migrate(conn, chat_id, exc.migrate_to)
             failed = exc
+    if failed:
+        raise failed
+    return sent
+
+
+# --- upcoming breakage -------------------------------------------------------------------------
+
+
+def upcoming_block(item: dict, kinds: set[str]) -> str:
+    """One dependency from a repository scan: the breaking next release and/or advisories on what runs now."""
+    lines = []
+    verdict = item.get("verdict") or {}
+    if "breaks" in kinds and verdict:
+        lines.append(package_block(verdict))
+    if "advisory" in kinds:
+        check = item.get("advisories") or {}
+        active = [
+            a
+            for a in check.get("advisories") or []
+            if isinstance(a, dict) and not a.get("withdrawn")
+        ]
+        shown = ", ".join(
+            link(a.get("url"), esc(a.get("id"), 60))
+            + (f" (fixed in {esc(a['fixed'], 40)})" if a.get("fixed") else "")
+            for a in active[:3]
+        )
+        more = f" and {len(active) - 3} more" if len(active) > 3 else ""
+        lines.append(
+            f"<b>Known advisories</b>: <code>{esc(item.get('package'), 100)}</code> "
+            f"{esc(item.get('current'), 40)}, the version you run now: {shown}{more}"
+        )
+    return "\n".join(lines)
+
+
+def upcoming_text(repository: str, entries: list[tuple[dict, set[str]]]) -> str:
+    owner_name = repository.split("/", 1)
+    page = (
+        public_url(f"/dashboard/{owner_name[0]}/{owner_name[1]}")
+        if len(owner_name) == 2
+        else None
+    )
+    blocks = [
+        f"<b>{esc(repository, 200)}</b>\n"
+        "Checked against the latest releases on PyPI, before any pull request:"
+    ]
+    blocks += [upcoming_block(item, kinds) for item, kinds in entries]
+    if page:
+        blocks.append(link(page, "Open the repository"))
+    return fit(blocks, page)
+
+
+def notify_upcoming(installation_id: int) -> int:
+    """Tell each linked chat about upcoming findings it has not been told about. Returns messages sent.
+
+    Same claim-then-send discipline as ``notify``: a failed send releases its claims for the retry.
+    """
+    from codeintent.scans import alert_keys
+
+    with store.connection() as conn:
+        chats = [
+            r["chat_id"]
+            for r in conn.execute(
+                """SELECT c.chat_id FROM ci_telegram_chats c
+                JOIN ci_installations i ON i.id=c.installation_id AND i.deleted_at IS NULL
+                WHERE c.installation_id=%s ORDER BY c.linked_at""",
+                (installation_id,),
+            ).fetchall()
+        ]
+        scans = conn.execute(
+            """SELECT s.repository,s.items FROM ci_repository_scans s
+            JOIN ci_installation_repositories r
+              ON r.installation_id=s.installation_id AND r.full_name=s.repository
+            WHERE s.installation_id=%s AND s.status='done' AND s.items IS NOT NULL
+            ORDER BY lower(s.repository)""",
+            (installation_id,),
+        ).fetchall()
+    if not chats or not scans:
+        return 0
+    sent, failed = 0, None
+    for chat_id in chats:
+        for scan in scans:
+            items = [i for i in scan["items"] or [] if isinstance(i, dict)]
+            wanted = [
+                (item, key, kind) for item in items for key, kind in alert_keys(item)
+            ]
+            if not wanted:
+                continue
+            with store.connection() as conn:
+                claimed = {
+                    r["key"]
+                    for r in conn.execute(
+                        """INSERT INTO ci_upcoming_alerts(installation_id,repository,key,chat_id)
+                        SELECT %s,%s,k,%s FROM unnest(%s::text[]) k ON CONFLICT DO NOTHING RETURNING key""",
+                        (
+                            installation_id,
+                            scan["repository"],
+                            chat_id,
+                            [key for _, key, _ in wanted],
+                        ),
+                    ).fetchall()
+                }
+            if not claimed:
+                continue
+            entries: dict[str, tuple[dict, set[str]]] = {}
+            for item, key, kind in wanted:
+                if key in claimed:
+                    entries.setdefault(item["package"], (item, set()))[1].add(kind)
+            try:
+                send(chat_id, upcoming_text(scan["repository"], list(entries.values())))
+                sent += 1
+            except TelegramError as exc:
+                with store.connection() as conn:
+                    conn.execute(
+                        """DELETE FROM ci_upcoming_alerts
+                        WHERE installation_id=%s AND repository=%s AND chat_id=%s AND key=ANY(%s)""",
+                        (installation_id, scan["repository"], chat_id, list(claimed)),
+                    )
+                    if exc.code == 403:
+                        conn.execute(
+                            "DELETE FROM ci_telegram_chats WHERE chat_id=%s", (chat_id,)
+                        )
+                        logger.warning("Telegram chat removed the bot; unlinked it")
+                        break
+                    if exc.migrate_to:
+                        _migrate(conn, chat_id, exc.migrate_to)
+                failed = exc
     if failed:
         raise failed
     return sent

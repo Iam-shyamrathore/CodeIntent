@@ -194,7 +194,10 @@ def analyze_pull_request(context, analysis_id: str):
             )
         pairs, added = gh.upgrades(diff)
         verdicts, new_packages = [], []
-        with httpx.Client(timeout=60, follow_redirects=True) as pypi:
+        with (
+            httpx.Client(timeout=60, follow_redirects=True) as pypi,
+            repository.using(client.token),
+        ):
             if pairs:
                 with repository.temporary() as folder:
                     root = repository.download(repo, head, Path(folder), client.token())
@@ -300,6 +303,66 @@ def notify_telegram(analysis_id: str):
         raise RuntimeError(type(exc).__name__) from None
 
 
+@app.task(
+    name="scan_repository",
+    queue="scans",
+    retry=procrastinate.RetryStrategy(max_attempts=2, wait=300),
+)
+def scan_repository(installation_id: int, repository: str):
+    """Upcoming breakage for one repository's default branch, then alert linked chats about anything new."""
+    import httpx
+
+    from codeintent import github_app as gh
+    from codeintent import scans
+    from codeintent.upgrades import repository as source
+
+    client = gh.Client.for_installation(installation_id)
+    try:
+        with (
+            httpx.Client(timeout=60, follow_redirects=True) as pypi,
+            source.using(client.token),
+        ):
+            status = scans.run(installation_id, repository, client, pypi)
+    except Exception as exc:
+        # Exception text may echo upstream responses; store and log only the category.
+        logger.warning("Repository scan failed (%s)", type(exc).__name__)
+        scans.fail(installation_id, repository, type(exc).__name__)
+        raise RuntimeError(type(exc).__name__) from None
+    finally:
+        client.close()
+    if status == "done":
+        try:
+            notify_upcoming.defer(installation_id=installation_id)
+        except Exception as exc:
+            logger.warning("Could not queue upcoming alert (%s)", type(exc).__name__)
+
+
+@app.periodic(cron="23 3 * * *")
+@app.task(name="scan_all_repositories", queue="maintenance")
+def scan_all_repositories(timestamp: int):
+    """Daily: new releases appear without any change to the repository, so every watched one is rescanned."""
+    from codeintent import scans
+
+    with store.connection() as conn:
+        queued = scans.defer_all(conn)
+    logger.info("Queued %s repository scans", queued)
+
+
+@app.task(
+    name="notify_upcoming",
+    queue="pulls",
+    retry=procrastinate.RetryStrategy(max_attempts=3, wait=60),
+)
+def notify_upcoming(installation_id: int):
+    from codeintent import telegram
+
+    try:
+        telegram.notify_upcoming(installation_id)
+    except Exception as exc:
+        logger.warning("Upcoming alert failed (%s)", type(exc).__name__)
+        raise RuntimeError(type(exc).__name__) from None
+
+
 @app.periodic(cron="17 */6 * * *")
 @app.task(name="graph_keepalive", queue="maintenance")
 def graph_keepalive(timestamp: int):
@@ -318,7 +381,7 @@ def heartbeat(timestamp: int):
         )
         # Use Procrastinate worker liveness metadata for orphan recovery, rather than guessing from task duration.
         rows = conn.execute("""SELECT j.id FROM procrastinate_jobs j LEFT JOIN procrastinate_workers w ON w.id=j.worker_id
-            WHERE j.status='doing' AND j.task_name IN ('import_repository','investigate_question','analyze_pull_request') AND (j.worker_id IS NULL OR w.last_heartbeat < now()-interval '3 minutes')""").fetchall()
+            WHERE j.status='doing' AND j.task_name IN ('import_repository','investigate_question','analyze_pull_request','scan_repository') AND (j.worker_id IS NULL OR w.last_heartbeat < now()-interval '3 minutes')""").fetchall()
         for row in rows:
             conn.execute(
                 "UPDATE procrastinate_jobs SET status='todo',worker_id=NULL,abort_requested=false,scheduled_at=now() WHERE id=%s AND status='doing'",

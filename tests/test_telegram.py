@@ -608,3 +608,93 @@ def test_notify_alerts_each_chat_once_and_only_when_it_matters(
     assert (
         claimed == 5
     )  # 3 for the breaking PR (one to the chat that then got unlinked), 2 for the advisory
+
+
+# --- upcoming breakage ---------------------------------------------------------------------------
+
+
+def upcoming_items(latest: str = "0.28.0") -> list[dict]:
+    """A repository scan: httpx's latest release breaks the code; jinja2 3.1.4 in use has an advisory."""
+    from codeintent.upgrades.upcoming import Upcoming
+
+    breaking = HTTPX | {"end": latest}
+    return [
+        Upcoming.model_validate(item).model_dump(mode="json")
+        for item in (
+            {
+                "package": "httpx",
+                "current": "0.27.2",
+                "latest": latest,
+                "status": "compared",
+                "location": {"file": "requirements.txt", "line": 3},
+                "verdict": breaking,
+            },
+            {
+                "package": "jinja2",
+                "current": "3.1.4",
+                "latest": "3.1.4",
+                "status": "current",
+                "location": {"file": "requirements.txt", "line": 4},
+                "advisories": JINJA["advisories"][0],
+            },
+            {
+                "package": "idna",
+                "current": "3.6",
+                "latest": "3.7",
+                "status": "compared",
+                "location": {"file": "requirements.txt", "line": 5},
+                "verdict": CLEAN,
+            },
+        )
+    ]
+
+
+def store_scan(installation: int, repository: str, items: list[dict]) -> None:
+    with store.connection() as conn:
+        conn.execute(
+            """INSERT INTO ci_repository_scans(installation_id,repository,status,items,scanned_at)
+            VALUES (%s,%s,'done',%s,now()) ON CONFLICT(installation_id,repository)
+            DO UPDATE SET items=EXCLUDED.items,status='done',scanned_at=now()""",
+            (installation, repository, Jsonb(items)),
+        )
+
+
+@integration
+def test_upcoming_alerts_once_per_finding_and_again_for_a_newer_release(
+    client, seeded, recorder
+):
+    store_scan(11, "acme/app", upcoming_items())
+    store_scan(12, "other/secret", upcoming_items())
+    assert telegram.notify_upcoming(11) == 0  # no chat linked yet
+
+    post(client, update(GROUP, f"/link {code_for(client)['code']}"))
+    before = len(recorder.sent())
+    assert telegram.notify_upcoming(11) == 1
+    visible = check_html(recorder.sent()[before]["text"])
+    assert "acme/app\nChecked against the latest releases on PyPI" in visible
+    assert "Breaks you: httpx 0.27.2 → 0.28.0" in visible
+    assert (
+        "Known advisories: jinja2 3.1.4, the version you run now: GHSA-q2x7-8rv6-6q7h (fixed in 3.1.5)"
+        in visible
+    )
+    assert "idna" not in visible and "other/secret" not in visible
+    assert (
+        "https://codeintent.example/dashboard/acme/app"
+        in recorder.sent()[before]["text"]
+    )
+
+    assert telegram.notify_upcoming(11) == 0  # nothing new
+    store_scan(11, "acme/app", upcoming_items(latest="0.28.1"))
+    assert telegram.notify_upcoming(11) == 1
+    again = check_html(recorder.sent()[-1]["text"])
+    assert "0.27.2 → 0.28.1" in again and "jinja2" not in again
+
+
+@integration
+def test_linking_a_chat_queues_the_upcoming_digest(client, seeded, recorder):
+    post(client, update(PRIVATE, f"/link {code_for(client)['code']}"))
+    with store.connection() as conn:
+        jobs = conn.execute(
+            "SELECT task_name,args FROM procrastinate_jobs WHERE task_name='notify_upcoming'"
+        ).fetchall()
+    assert [j["args"] for j in jobs] == [{"installation_id": 11}]

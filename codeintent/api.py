@@ -475,6 +475,29 @@ def _installation_scope(installations: list[int] | None) -> list[int] | None:
     return installations
 
 
+def _upcoming_summary(row: dict) -> dict | None:
+    if not row.get("scan_status"):
+        return None
+    items = [i for i in row.get("scan_items") or [] if isinstance(i, dict)]
+    verdicts = [(i.get("verdict") or {}).get("verdict") for i in items]
+    return {
+        "status": row["scan_status"],
+        "scanned_at": row["scan_at"],
+        "breaks": verdicts.count("breaks"),
+        "needs_change": verdicts.count("needs-change"),
+        "advisories": sum(
+            1
+            for i in items
+            if (i.get("advisories") or {}).get("status") == "advisories"
+            and any(
+                not a.get("withdrawn")
+                for a in (i.get("advisories") or {}).get("advisories") or []
+                if isinstance(a, dict)
+            )
+        ),
+    }
+
+
 @app.get("/app/installations", dependencies=[Depends(authenticated)])
 def app_installations(installations: list[int] | None = Query(default=None)):
     scope = _installation_scope(installations)
@@ -517,8 +540,11 @@ def app_installation_repositories(installation_id: int):
               last.id AS last_id,last.number AS last_number,last.title AS last_title,
               last.status AS last_status,last.verdict AS last_verdict,last.created_at AS last_created_at,
               decided.id AS decided_id,decided.number AS decided_number,decided.title AS decided_title,
-              decided.verdict AS decided_verdict,decided.created_at AS decided_created_at
+              decided.verdict AS decided_verdict,decided.created_at AS decided_created_at,
+              s.status AS scan_status,s.scanned_at AS scan_at,s.items AS scan_items
             FROM ci_installation_repositories r
+            LEFT JOIN ci_repository_scans s
+              ON s.installation_id=r.installation_id AND s.repository=r.full_name
             LEFT JOIN LATERAL (
               SELECT a.id,a.number,a.title,a.status,a.verdict,a.created_at FROM ci_pull_analyses a
               WHERE a.installation_id=r.installation_id AND a.repository=r.full_name
@@ -563,9 +589,29 @@ def app_installation_repositories(installation_id: int):
                 },
                 "last_analysis": last,
                 "last_verdict": decided,
+                "upcoming": _upcoming_summary(row),
             }
         )
     return {"installation": installation, "repositories": repositories}
+
+
+def _homes(conn, owner: str, name: str, installation: int | None, scope) -> list[dict]:
+    """The live installations watching ``owner/name`` within the caller's scope, or 404.
+
+    Resolving through live installations only means removed or uninstalled repositories and other
+    installations' data never surface.
+    """
+    homes = conn.execute(
+        """SELECT r.installation_id,r.full_name,r.private,i.account_login FROM ci_installation_repositories r
+        JOIN ci_installations i ON i.id=r.installation_id AND i.deleted_at IS NULL
+        WHERE lower(r.full_name)=lower(%s) AND (%s::bigint IS NULL OR r.installation_id=%s)
+          AND (%s::bigint[] IS NULL OR r.installation_id=ANY(%s::bigint[]))
+        ORDER BY r.installation_id""",
+        (f"{owner}/{name}", installation, installation, scope, scope),
+    ).fetchall()
+    if not homes:
+        raise HTTPException(404, "Repository not found")
+    return homes
 
 
 @app.get(
@@ -582,18 +628,7 @@ def app_repository_pulls(
     scope = _installation_scope(installations)
     after = _decode_cursor(cursor) if cursor else None
     with store.connection() as conn:
-        # Resolve the repository through live installations only, so removed or uninstalled
-        # repositories and other installations' data never surface here.
-        homes = conn.execute(
-            """SELECT r.installation_id,r.full_name,r.private,i.account_login FROM ci_installation_repositories r
-            JOIN ci_installations i ON i.id=r.installation_id AND i.deleted_at IS NULL
-            WHERE lower(r.full_name)=lower(%s) AND (%s::bigint IS NULL OR r.installation_id=%s)
-              AND (%s::bigint[] IS NULL OR r.installation_id=ANY(%s::bigint[]))
-            ORDER BY r.installation_id""",
-            (f"{owner}/{name}", installation, installation, scope, scope),
-        ).fetchall()
-        if not homes:
-            raise HTTPException(404, "Repository not found")
+        homes = _homes(conn, owner, name, installation, scope)
         ids = [h["installation_id"] for h in homes]
         full_name = homes[0]["full_name"]
         rows = conn.execute(
@@ -652,6 +687,124 @@ def app_pull(analysis_id: UUID, installation: int | None = Query(default=None, g
         "diff": row["diff"],
         "verdicts": row["verdicts"] if isinstance(row["verdicts"], list) else [],
     }
+
+
+def _scan_row(row: dict | None) -> dict | None:
+    if not row:
+        return None
+    return {
+        "installation_id": row["installation_id"],
+        "repository": row["repository"],
+        "status": row["status"],
+        "ref": row["ref"],
+        "head_sha": row["head_sha"],
+        "error": row["error"],
+        "scanned_at": row["scanned_at"],
+        "updated_at": row["updated_at"],
+        "items": row["items"] if isinstance(row.get("items"), list) else [],
+    }
+
+
+@app.get(
+    "/app/repositories/{owner}/{name}/upcoming", dependencies=[Depends(authenticated)]
+)
+def app_repository_upcoming(
+    owner: str = Path(pattern=GITHUB_NAME, max_length=100),
+    name: str = Path(pattern=GITHUB_NAME, max_length=100),
+    installations: list[int] | None = Query(default=None),
+):
+    """The latest upcoming-breakage scan: every direct dependency against its latest release."""
+    scope = _installation_scope(installations)
+    with store.connection() as conn:
+        homes = _homes(conn, owner, name, None, scope)
+        row = conn.execute(
+            """SELECT * FROM ci_repository_scans WHERE installation_id=ANY(%s) AND repository=%s
+            ORDER BY scanned_at DESC NULLS LAST,updated_at DESC LIMIT 1""",
+            ([h["installation_id"] for h in homes], homes[0]["full_name"]),
+        ).fetchone()
+    return {"repository": homes[0]["full_name"], "scan": _scan_row(row)}
+
+
+@app.post(
+    "/app/repositories/{owner}/{name}/scan",
+    status_code=202,
+    dependencies=[Depends(authenticated)],
+)
+def app_repository_scan(
+    owner: str = Path(pattern=GITHUB_NAME, max_length=100),
+    name: str = Path(pattern=GITHUB_NAME, max_length=100),
+    installations: list[int] | None = Query(default=None),
+):
+    from codeintent import scans
+
+    scope = _installation_scope(installations)
+    with store.connection() as conn:
+        home = _homes(conn, owner, name, None, scope)[0]
+        queued = scans.defer(conn, home["installation_id"], home["full_name"])
+    return {"status": "queued" if queued else "already-queued"}
+
+
+@app.get("/app/upcoming", dependencies=[Depends(authenticated)])
+def app_upcoming(installations: list[int] | None = Query(default=None)):
+    """Across watched repositories: dependencies whose latest release breaks or needs a change, and
+    known advisories on the versions in use now. Worst first."""
+    scope = _installation_scope(installations)
+    with store.connection() as conn:
+        rows = conn.execute(
+            """SELECT s.installation_id,s.repository,s.status,s.scanned_at,s.items
+            FROM ci_repository_scans s
+            JOIN ci_installations i ON i.id=s.installation_id AND i.deleted_at IS NULL
+            JOIN ci_installation_repositories r ON r.installation_id=s.installation_id AND r.full_name=s.repository
+            WHERE (%s::bigint[] IS NULL OR s.installation_id=ANY(%s::bigint[]))""",
+            (scope, scope),
+        ).fetchall()
+    findings, totals = [], {"repositories": 0, "scanned": 0, "pending": 0}
+    for row in rows:
+        totals["repositories"] += 1
+        if row["status"] in ("queued", "running"):
+            totals["pending"] += 1
+        if row["scanned_at"]:
+            totals["scanned"] += 1
+        for item in row["items"] or []:
+            if not isinstance(item, dict):
+                continue
+            verdict = item.get("verdict") or {}
+            check = item.get("advisories") or {}
+            active = [
+                a.get("id")
+                for a in check.get("advisories") or []
+                if isinstance(a, dict) and not a.get("withdrawn")
+            ]
+            if verdict.get("verdict") not in ("breaks", "needs-change") and not active:
+                continue
+            findings.append(
+                {
+                    "repository": row["repository"],
+                    "package": item.get("package"),
+                    "current": item.get("current"),
+                    "latest": item.get("latest"),
+                    "verdict": verdict.get("verdict"),
+                    "label": verdict.get("label"),
+                    "reason": verdict.get("reason"),
+                    "places": sum(
+                        len(f.get("locations") or [])
+                        for f in verdict.get("findings") or []
+                        if isinstance(f, dict)
+                    ),
+                    "advisories": active,
+                    "scanned_at": row["scanned_at"],
+                }
+            )
+    rank = {"breaks": 0, "needs-change": 1}
+    findings.sort(
+        key=lambda f: (
+            rank.get(f["verdict"], 2),
+            -len(f["advisories"]),
+            f["repository"].lower(),
+            str(f["package"]),
+        )
+    )
+    return {"totals": totals, "findings": findings[:200]}
 
 
 # --- Telegram bot -------------------------------------------------------------------------------

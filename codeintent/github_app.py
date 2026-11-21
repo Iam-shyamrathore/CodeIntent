@@ -401,6 +401,14 @@ def _remove_repositories(conn, installation_id: int, repositories: list[dict]):
         )
 
 
+def _scan(conn, installation_id: int, repositories: list[dict] | None):
+    from codeintent import scans
+
+    for repo in repositories or []:
+        if repo.get("full_name"):
+            scans.defer(conn, installation_id, repo["full_name"])
+
+
 def handle_webhook(event: str, delivery: str, payload: dict) -> tuple[int, dict]:
     """Record a verified delivery and enqueue work in one transaction. Returns (status, body)."""
     from codeintent import store
@@ -440,6 +448,8 @@ def handle_webhook(event: str, delivery: str, payload: dict) -> tuple[int, dict]
                 _remove_repositories(conn, installation_id, payload.get("repositories"))
             else:
                 _add_repositories(conn, installation_id, payload.get("repositories"))
+                if action == "created":
+                    _scan(conn, installation_id, payload.get("repositories"))
             return finish("processed", 202, {"status": "recorded", "action": action})
         if event == "installation_repositories" and installation_id:
             _upsert_installation(conn, installation, None, suspended=False)
@@ -447,8 +457,24 @@ def handle_webhook(event: str, delivery: str, payload: dict) -> tuple[int, dict]
             _remove_repositories(
                 conn, installation_id, payload.get("repositories_removed")
             )
+            _scan(conn, installation_id, payload.get("repositories_added"))
             return finish("processed", 202, {"status": "recorded", "action": action})
         if event == "pull_request":
+            pull, repo = (
+                payload.get("pull_request") or {},
+                payload.get("repository") or {},
+            )
+            if (
+                action == "closed"
+                and pull.get("merged")
+                and installation_id
+                and repo.get("full_name")
+                and (pull.get("base") or {}).get("ref") == repo.get("default_branch")
+            ):
+                # A merge into the default branch can change what is locked: rescan for upcoming breakage.
+                _upsert_installation(conn, installation, repo.get("owner"))
+                _scan(conn, installation_id, [repo])
+                return finish("queued", 202, {"status": "rescan"})
             if action not in PULL_ACTIONS:
                 return finish(
                     "ignored", 202, {"status": "ignored", "reason": f"action {action}"}
@@ -457,10 +483,6 @@ def handle_webhook(event: str, delivery: str, payload: dict) -> tuple[int, dict]
                 return finish(
                     "ignored", 202, {"status": "ignored", "reason": "no installation"}
                 )
-            pull, repo = (
-                payload.get("pull_request") or {},
-                payload.get("repository") or {},
-            )
             number = int(payload.get("number") or pull.get("number") or 0)
             head = (pull.get("head") or {}).get("sha")
             base = (pull.get("base") or {}).get("sha")

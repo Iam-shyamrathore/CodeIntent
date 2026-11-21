@@ -6,15 +6,32 @@ import os
 import subprocess
 import tarfile
 import tempfile
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
 from pathlib import Path
 
 import httpx
 
 MAX_TARBALL_BYTES = 300_000_000
+_scoped: ContextVar[Callable[[], str] | None] = ContextVar("github_token", default=None)
+
+
+@contextmanager
+def using(source: Callable[[], str]) -> Iterator[None]:
+    """Make ``token()`` return ``source()`` (e.g. a GitHub App installation token) inside the block."""
+    reset = _scoped.set(source)
+    try:
+        yield
+    finally:
+        _scoped.reset(reset)
 
 
 def token() -> str | None:
-    """GITHUB_TOKEN, else the token of an authenticated ``gh`` CLI, else None (public, rate-limited)."""
+    """The scoped token from ``using``, else GITHUB_TOKEN, else an authenticated ``gh`` CLI's token,
+    else None (public, rate-limited)."""
+    if (source := _scoped.get()) is not None:
+        return source()
     if os.getenv("GITHUB_TOKEN"):
         return os.environ["GITHUB_TOKEN"]
     try:

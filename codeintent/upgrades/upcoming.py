@@ -14,7 +14,9 @@ import httpx
 from packaging.utils import canonicalize_name
 from packaging.version import InvalidVersion, Version
 
+from codeintent.upgrades import advisories as osv
 from codeintent.upgrades import manifests
+from codeintent.upgrades.advisories import AdvisoryCheck
 from codeintent.upgrades.models import Location, Record
 from codeintent.upgrades.verdict import UpgradeVerdict, evaluate
 
@@ -32,6 +34,8 @@ class Upcoming(Record):
     location: Location
     verdict: UpgradeVerdict | None = None
     detail: str | None = None
+    advisories: AdvisoryCheck | None = None
+    """Known advisories for the version in use now, whether or not a newer release exists."""
 
 
 def latest(name: str, client: httpx.Client) -> str | None:
@@ -59,8 +63,18 @@ def _exact(dependency) -> str | None:
     return None
 
 
-def scan(root: Path, client: httpx.Client, limit: int = MAX_PACKAGES) -> list[Upcoming]:
-    """One entry per direct registry dependency; verdicts for those with a newer release."""
+def scan(
+    root: Path,
+    client: httpx.Client,
+    limit: int = MAX_PACKAGES,
+    *,
+    explain: bool = False,
+) -> list[Upcoming]:
+    """One entry per direct registry dependency; verdicts for those with a newer release.
+
+    ``explain`` looks up the release range and the upstream pull request behind each finding, only for
+    upgrades that have findings, since that costs GitHub API calls.
+    """
     dependencies = [
         d
         for d in manifests.scan(root).dependencies
@@ -106,6 +120,9 @@ def scan(root: Path, client: httpx.Client, limit: int = MAX_PACKAGES) -> list[Up
         else:
             status = "compared"
         seen[name] = item.model_copy(update={"latest": newest, "status": status})
+    in_use = [(name, seen[name].current) for name in pending]
+    for (name, _), check in zip(in_use, osv.check(in_use, client)):
+        seen[name] = seen[name].model_copy(update={"advisories": check})
     results = []
     compared = 0
     for item in seen.values():
@@ -114,6 +131,10 @@ def scan(root: Path, client: httpx.Client, limit: int = MAX_PACKAGES) -> list[Up
             verdict = evaluate(
                 item.package, item.current, item.latest, root, client, release=False
             )
+            if explain and verdict.findings:
+                verdict = evaluate(
+                    item.package, item.current, item.latest, root, client
+                )
             unreadable = verdict.verdict == "not-checked" and verdict.coverage is None
             item = item.model_copy(
                 update={
