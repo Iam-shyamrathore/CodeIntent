@@ -23,6 +23,7 @@ import {
   read,
   type Installation,
   type InstalledRepository,
+  type Ops,
   type PullSummary,
   type RepositoryPulls,
   type UpcomingSummary,
@@ -225,6 +226,69 @@ function UpcomingTile({ summary }: { summary: UpcomingSummary | null }) {
   );
 }
 
+const total = (counts: Record<string, number>) =>
+  Object.values(counts).reduce((a, b) => a + b, 0);
+const listed = (counts: Record<string, number>) =>
+  Object.entries(counts)
+    .sort((a, b) => b[1] - a[1])
+    .map(([k, n]) => `${n} ${k.replaceAll("_", " ")}`)
+    .join(", ") || "none";
+
+/** Operator only: is the worker alive, is anything stuck or failing, is anything being used. */
+function OpsTile({ ops }: { ops: Ops | null }) {
+  if (ops === null)
+    return (
+      <section className="ci-tile ci-tile-ops" aria-labelledby="ops">
+        <h2 id="ops">Operations</h2>
+        <p className="ci-note" role="status">
+          The operations view could not be loaded.
+        </p>
+      </section>
+    );
+  const failed = total(ops.queue.failed_24h);
+  const rows: [string, string, boolean?][] = [
+    [
+      "Worker",
+      ops.worker.stalled
+        ? `stalled · last heartbeat ${ops.worker.last_heartbeat ? formatDate(ops.worker.last_heartbeat) : "never"}`
+        : `${ops.worker.live} live`,
+      ops.worker.stalled,
+    ],
+    [
+      "Queue",
+      `${total(ops.queue.running)} running, ${total(ops.queue.waiting)} waiting`,
+    ],
+    ["Failed, 24 h", listed(ops.queue.failed_24h), failed > 0],
+    ["Webhooks, 24 h", listed(ops.webhooks_24h)],
+    ["Pull requests, 24 h", listed(ops.analyses_24h)],
+    ["Repository scans", listed(ops.scans)],
+    [
+      "Telegram",
+      `${ops.telegram.chats} chat${ops.telegram.chats === 1 ? "" : "s"}, ${ops.telegram.alerts_24h} alerts in 24 h`,
+    ],
+    [
+      "Agent tokens",
+      `${ops.mcp.active} active, ${ops.mcp.used_24h} used in 24 h`,
+    ],
+  ];
+  return (
+    <section className="ci-tile ci-tile-ops" aria-labelledby="ops">
+      <div className="ci-tile-head">
+        <h2 id="ops">Operations</h2>
+        <span className="ci-row-meta">Only you see this</span>
+      </div>
+      <dl className="ci-ops">
+        {rows.map(([label, value, bad]) => (
+          <div key={label} data-bad={bad ? "" : undefined}>
+            <dt>{label}</dt>
+            <dd>{value}</dd>
+          </div>
+        ))}
+      </dl>
+    </section>
+  );
+}
+
 function AgentsTile({ workspaces }: { workspaces: Workspace[] }) {
   return (
     <section className="ci-tile ci-tile-agents" aria-labelledby="agents">
@@ -365,13 +429,20 @@ export default async function Dashboard({
   const shown = [...repos]
     .sort(byActivity)
     .slice((page - 1) * REPOS_PER_PAGE, page * REPOS_PER_PAGE);
-  const [recent, upcoming] = await Promise.all([
+  const [recent, upcoming, ops] = await Promise.all([
     loadRecent(session, repos),
     read<UpcomingSummary>(
       session.kind === "github"
         ? `/app/upcoming?${installationQuery(session)}`
         : "/app/upcoming",
     ),
+    session.kind === "operator"
+      ? read<Ops>("/app/ops", {
+          headers: {
+            "X-Operator-Key": process.env.CODEINTENT_OPERATOR_TOKEN || "",
+          },
+        })
+      : null,
   ]);
   const latest = recent.slice(0, LATEST_SHOWN);
   const since = Date.now() - WEEK;
@@ -554,6 +625,8 @@ export default async function Dashboard({
         </section>
 
         <AgentsTile workspaces={workspaces} />
+
+        {ops && <OpsTile ops={ops.state === "ok" ? ops.data : null} />}
       </div>
     </Shell>
   );

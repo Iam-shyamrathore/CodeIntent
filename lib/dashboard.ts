@@ -268,13 +268,33 @@ export type RepositoryPulls = {
   next_cursor: string | null;
 };
 
+/** Operator view of the deployment (codeintent/ops.py). */
+export type Ops = {
+  at: string;
+  worker: { live: number; last_heartbeat: string | null; stalled: boolean };
+  queue: {
+    waiting: Record<string, number>;
+    running: Record<string, number>;
+    oldest_waiting: string | null;
+    failed_24h: Record<string, number>;
+  };
+  webhooks_24h: Record<string, number>;
+  analyses_24h: Record<string, number>;
+  scans: Record<string, number>;
+  telegram: { chats: number; alerts_24h: number };
+  mcp: { active: number; used_24h: number };
+};
+
 export type Loaded<T> =
   { state: "ok"; data: T } | { state: "missing" } | { state: "unavailable" };
 
 /** Server-side read from the service API; network and 5xx failures become "unavailable". */
-export async function read<T>(path: string): Promise<Loaded<T>> {
+export async function read<T>(
+  path: string,
+  init?: RequestInit,
+): Promise<Loaded<T>> {
   try {
-    const response = await service(path);
+    const response = await service(path, init);
     if (response.status === 404) return { state: "missing" };
     if (!response.ok) return { state: "unavailable" };
     return { state: "ok", data: (await response.json()) as T };
