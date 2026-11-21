@@ -910,13 +910,43 @@ a.ci-row:hover {
   color: var(--ink);
   margin-left: 8px;
 }
+.ci-tile-install {
+  background: var(--carbon-2);
+  box-shadow:
+    inset 0 0 0 1px var(--edge-strong),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+.ci-tile-install::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(
+    circle,
+    rgba(237, 235, 228, 0.12) 1.1px,
+    transparent 1.4px
+  );
+  background-size: 9px 9px;
+  mask-image: linear-gradient(200deg, #000 0%, transparent 55%);
+  -webkit-mask-image: linear-gradient(200deg, #000 0%, transparent 55%);
+  pointer-events: none;
+}
+.ci-tile-install > * {
+  position: relative;
+  z-index: 1;
+}
+.ci-tile-install h2 {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--ink);
+  letter-spacing: -0.01em;
+}
 .ci-tile-install p {
   color: var(--ash);
   font-size: 14px;
 }
-.ci-tile-install .ci-btn-quiet {
+.ci-tile-install .ci-btn {
   margin-top: auto;
-  align-self: flex-start;
+  align-self: stretch;
 }
 .ci-tg-account + .ci-tg-account {
   border-top: 1px solid var(--edge);

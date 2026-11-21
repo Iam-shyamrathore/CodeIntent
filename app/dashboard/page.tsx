@@ -402,7 +402,7 @@ export default async function Dashboard({
             Add or remove repositories on GitHub at any time. New ones are
             checked from their next dependency pull request.
           </p>
-          <a className="ci-btn-quiet" href={install}>
+          <a className="ci-btn" href={install}>
             <GitHubMark />
             Choose repositories <ArrowOut />
           </a>
