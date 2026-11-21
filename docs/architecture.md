@@ -1,5 +1,62 @@
 # Architecture and evidence contract
 
+## Upgrade verdicts, end to end
+
+The GitHub App is the product. Telegram pushes its findings, the MCP server lets AI agents pull them, and the web app handles setup and the dashboard.
+
+```
+                 ┌──────────────────────────────────────────────┐
+                 │  GitHub                                      │
+                 │  Dependabot, Renovate or a developer opens   │
+                 │  a PR that changes a dependency              │
+                 └───────────────┬──────────────────────────────┘
+                                 │ webhook (signed)
+                                 ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│  CodeIntent API  (FastAPI on Heroku)                        [planned]  │
+│  verify signature → ignore duplicates → queue a job                    │
+└───────────────┬────────────────────────────────────────────────────────┘
+                │ job queue (PostgreSQL)
+                ▼
+┌────────────────────────────────────────────────────────────────────────┐
+│  Worker  (Heroku)                                                      │
+│                                                                        │
+│  1. Read the PR's dependency files ......... manifests/       [built]  │
+│  2. Find where your code uses it ........... usage/           [built]  │
+│  3. Download both releases from PyPI ....... releases.py,     [built]  │
+│     (SHA-256 checked, never installed)       artifacts.py              │
+│  4. Compare what you use, old vs new ....... surface.py       [built]  │
+│  5. Look up known vulnerabilities .......... OSV.dev        [planned]  │
+│  6. Find the upstream PR behind the change . decision index [planned]  │
+│  7. Decide the verdict ..................... verdict.py     [planned]  │
+│     Breaks you | Needs a change | No known impact | Not checked        │
+└───────────────┬────────────────────────────────────────────────────────┘
+                │ saves results
+                ▼
+       ┌───────────────────┐        ┌──────────────────────────────┐
+       │  PostgreSQL       │        │  Neo4j                       │
+       │  repos, verdicts, │        │  your file → symbol →        │
+       │  advisories, jobs │        │  release → upstream PR       │
+       └─────────┬─────────┘        └──────────────┬───────────────┘
+                 └──────────────┬──────────────────┘
+                                ▼
+   ┌───────────────┬────────────┴─────┬───────────────────┐
+   ▼               ▼                  ▼                   ▼
+┌──────────────┐ ┌──────────────┐ ┌────────────────┐ ┌──────────────────┐
+│ GitHub PR    │ │ Telegram     │ │ MCP server     │ │ Web app (Vercel) │
+│ check +      │ │ alert to the │ │ AI agent asks  │ │ install, link    │
+│ comment      │ │ team (push)  │ │ for the brief  │ │ Telegram,        │
+│ THE PRODUCT  │ │              │ │ (pull)         │ │ dashboard        │
+└──────────────┘ └──────────────┘ └────────────────┘ └──────────────────┘
+
+Daily, for every existing dependency (no PR needed): locked version → latest
+release gives "breaks on next upgrade", plus advisories.        [planned]
+```
+
+Steps 1 to 4 live in `codeintent/upgrades/`. Library code is only downloaded, hash-checked and parsed; it is never installed, imported or executed. The verdict comes from these static checks, not from a model; models only write explanations.
+
+## Investigation workspace (deployed)
+
 ```mermaid
 flowchart LR
   Browser --> Web[Next.js]
