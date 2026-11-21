@@ -281,6 +281,16 @@ def run(
                     trace.outcome = "answered"
                     break
                 trace.rejected += problems
+                trace.calls.append(
+                    {
+                        "tool": "submit",
+                        "args": {
+                            k: str(v)[:300]
+                            for k, v in dict(calls[submitted].args or {}).items()
+                        },
+                        "error": "rejected",
+                    }
+                )
                 if last:
                     trace.outcome = "rejected"
                     break

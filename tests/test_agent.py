@@ -125,7 +125,8 @@ def test_tools_run_then_a_checked_answer_ends_the_turn(model, repo):
     assert answer == Answer(line=7, quote="proxies=proxy,")
     assert (trace.outcome, trace.turns, trace.tokens) == ("answered", 3, 300)
     assert trace.rejected == ["quote not in the file"]
-    assert [c["tool"] for c in trace.calls] == ["read_file"]
+    assert [c["tool"] for c in trace.calls] == ["read_file", "submit"]
+    assert trace.calls[1]["args"]["quote"] == "proxies=nobody"
     seen = results(fake.sent[1][0])
     assert "    7          proxies=proxy," in seen[0]
     assert "Not accepted" in results(fake.sent[2][0])[-1]
@@ -221,6 +222,33 @@ def test_a_patch_applies_only_where_its_before_text_is(repo):
     assert "is not in the file near that line" in problems[0]
     assert "does not parse" in problems[1]
     assert "not one of the places" in problems[2]
+
+
+def test_a_patch_copied_with_other_indentation_or_line_numbers_still_applies():
+    shifted = PATCH.model_copy(
+        update={"before": "proxies=proxy,", "after": "proxy=proxy,"}
+    )
+    assert "        proxy=proxy,\n" in review.apply(CLIENT, shifted)
+    numbered = PATCH.model_copy(update={"before": "    7          proxies=proxy,"})
+    assert "        proxy=proxy,\n" in review.apply(CLIENT, numbered)
+    block = PATCH.model_copy(
+        update={
+            "line": 5,
+            "before": "return httpx.Client(\n    timeout=10,\n    proxies=proxy,\n)",
+            "after": "return httpx.Client(\n    timeout=10,\n    proxy=proxy,\n)",
+        }
+    )
+    assert (
+        "    return httpx.Client(\n        timeout=10,\n        proxy=proxy,\n    )\n"
+        in review.apply(CLIENT, block)
+    )
+
+
+def test_a_rejected_patch_is_shown_the_real_lines(repo):
+    check = review.check_patches(repo, {("weather/client.py", 7)})
+    invented = PATCH.model_copy(update={"before": "        proxies = proxy"})
+    [problem] = check(review.Patches(patches=[invented]))
+    assert "    7          proxies=proxy," in problem
 
 
 def test_assessments_need_quotes_from_the_file(repo):

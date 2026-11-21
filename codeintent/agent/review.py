@@ -112,27 +112,64 @@ def _near(text: str, quote: str, line: int, window: int) -> bool:
     return verified(quote, "\n".join(lines[low:high]))
 
 
+NUMBERED = re.compile(r"^\s*\d+  ")
+
+
+def _lines(text: str) -> list[str]:
+    """Lines of an agent's snippet, without the read_file line numbers if it copied them."""
+    lines = text.strip("\n").splitlines()
+    if lines and all(NUMBERED.match(ln) or not ln.strip() for ln in lines):
+        lines = [NUMBERED.sub("", ln, count=1) for ln in lines]
+    return lines
+
+
+def _indent(line: str) -> int:
+    return len(line) - len(line.lstrip())
+
+
 def apply(text: str, patch: Patch) -> str | None:
-    """``text`` with ``patch.before`` replaced near its line, or None if it is not there."""
+    """``text`` with ``patch.before`` replaced near its line, or None if it is not there.
+
+    Lines must match exactly or, failing that, apart from indentation; then ``after`` is shifted by the
+    same amount, so a snippet copied without its leading spaces still lands correctly.
+    """
     lines = text.splitlines(keepends=True)
-    want = patch.before.strip("\n").splitlines()
+    want, after = _lines(patch.before), _lines(patch.after)
     if not want:
         return None
-    for start in sorted(range(len(lines)), key=lambda i: abs(i + 1 - patch.line)):
-        if abs(start + 1 - patch.line) > 15:
-            break
-        chunk = [
-            ln.rstrip("\n").rstrip("\r") for ln in lines[start : start + len(want)]
-        ]
-        if chunk == want:
+    order = sorted(range(len(lines)), key=lambda i: abs(i + 1 - patch.line))
+    for exact in (True, False):
+        for start in order:
+            if abs(start + 1 - patch.line) > 15:
+                break
+            chunk = [ln.rstrip("\r\n") for ln in lines[start : start + len(want)]]
+            if len(chunk) < len(want):
+                continue
+            if exact:
+                same = chunk == want
+            else:
+                same = [c.strip() for c in chunk] == [w.strip() for w in want]
+            if not same:
+                continue
+            shift = _indent(chunk[0]) - _indent(want[0]) if not exact else 0
+            if shift > 0:
+                after = [(" " * shift + a) if a.strip() else a for a in after]
+            elif shift < 0:
+                after = [a[min(-shift, _indent(a)) :] for a in after]
             ending = "\n" if lines[start + len(want) - 1].endswith("\n") else ""
-            replacement = patch.after.strip("\n") + ending
             return (
                 "".join(lines[:start])
-                + replacement
+                + "\n".join(after)
+                + ending
                 + "".join(lines[start + len(want) :])
             )
     return None
+
+
+def _around(text: str, line: int) -> str:
+    rows = text.splitlines()
+    low, high = max(1, line - 3), min(len(rows), line + 4)
+    return "\n".join(f"{n:>5}  {rows[n - 1]}" for n in range(low, high + 1))
 
 
 def check_patches(root: Path, places: set[tuple[str, int]]):
@@ -148,8 +185,13 @@ def check_patches(root: Path, places: set[tuple[str, int]]):
             patched = apply(text, p) if text is not None else None
             if patched is None:
                 problems.append(
-                    f"`before` for {p.file}:{p.line} is not in the file near that line; read the file "
-                    "and copy whole lines exactly"
+                    f"`before` for {p.file}:{p.line} is not in the file near that line. Copy whole "
+                    "lines (without the line numbers) from what is there:\n"
+                    + (
+                        _around(text, p.line)
+                        if text is not None
+                        else "(file not found)"
+                    )
                 )
                 continue
             if p.before.strip() == p.after.strip():
