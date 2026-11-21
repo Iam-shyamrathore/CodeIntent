@@ -18,7 +18,8 @@ import threading
 import time
 from collections.abc import AsyncIterator, Iterator
 from concurrent.futures import ThreadPoolExecutor
-from contextlib import asynccontextmanager, contextmanager
+from contextlib import asynccontextmanager, contextmanager, nullcontext
+from contextvars import ContextVar
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
@@ -39,11 +40,15 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 
 from codeintent.upgrades import advisories as osv
 from codeintent.upgrades import artifacts, manifests, repository
+from codeintent.upgrades import pins as pin_history
 from codeintent.upgrades.advisories import AdvisoryCheck
 from codeintent.upgrades.models import Dependency, ManifestScan
+from codeintent.upgrades.pins import PinOrigin
 from codeintent.upgrades.verdict import Finding, UpgradeVerdict, evaluate
 
 logger = logging.getLogger("codeintent.mcp")
+_installation: ContextVar[int | None] = ContextVar("mcp_installation", default=None)
+"""The GitHub App installation whose workspace token authenticated this request, if any."""
 
 PYPI = "https://pypi.org/pypi"
 MAX_DEPENDENCIES = 300
@@ -230,6 +235,16 @@ class Pinning(BaseModel):
     pins: list[dict[str, str]] = Field(
         description="Restrictive clauses with their kind: exact, upper_bound, exclusion, compatible, caret, tilde, wildcard."
     )
+    introduced_by: PinOrigin | None = Field(
+        None,
+        description=(
+            "The commit (and pull request, when found) that added the first restricting clause, from git "
+            "blame walked back past edits that kept it. Its message and PR text are the author's reason."
+        ),
+    )
+    origin_detail: str | None = Field(
+        None, description="Why introduced_by is null for a deliberate pin."
+    )
 
 
 class WhyPinned(BaseModel):
@@ -241,9 +256,6 @@ class WhyPinned(BaseModel):
         description="True when at least one declaration restricts versions (pins non-empty)."
     )
     declarations: list[Pinning]
-    introducing_commit: None = Field(
-        None, description="Not looked up yet; always null in this version."
-    )
     note: str
     manifest_issues: list[str] = []
 
@@ -357,7 +369,18 @@ def _slot() -> Iterator[None]:
 @contextmanager
 def _source(repo: str, ref: str) -> Iterator[Path]:
     """The repository unpacked in a temporary folder; tool errors for the failures an agent can act on."""
-    with _slot(), repository.temporary() as folder:
+    installation = _installation.get()
+    scoped = nullcontext()
+    if installation is not None:
+        from codeintent import github_app, mcp_tokens
+
+        # The installation token reads this workspace's private repositories; any other repository
+        # is fetched as the public would see it, so a token never reaches another workspace's code.
+        if mcp_tokens.watches(installation, repo):
+            scoped = repository.using(
+                lambda: github_app.installation_token(installation)
+            )
+    with _slot(), repository.temporary() as folder, scoped:
         try:
             yield repository.download(repo, ref, Path(folder), repository.token())
         except httpx.HTTPStatusError as error:
@@ -365,7 +388,7 @@ def _source(repo: str, ref: str) -> Iterator[Path]:
             if status == 404:
                 raise ToolError(
                     f"{repo}@{ref} was not found on GitHub; check the owner/name and ref "
-                    "(only public repositories are supported)"
+                    "(private repositories need the CodeIntent GitHub App installed on them)"
                 ) from None
             if status in (403, 429):
                 raise ToolError(
@@ -803,9 +826,9 @@ def why_pinned(repo: RepoArg, package: PackageArg) -> WhyPinned:
 
     Returns each declaration in requirements files, pyproject.toml, setup.py/setup.cfg, uv.lock and
     poetry.lock with file:line, the specifier, the restrictive clauses (pins) and their kind (exact,
-    upper_bound, exclusion, compatible, ...), dependency group and locked version. Use it before
-    relaxing a pin that blocks an upgrade. The commit that introduced a pin is NOT looked up yet
-    (introducing_commit is always null).
+    upper_bound, exclusion, compatible, ...), dependency group and locked version, and for each deliberate
+    pin the commit and pull request that added it, so its reason can be read before relaxing it.
+    ``==`` lines in requirements files are version locks and are not traced.
     """
     name, ref = _parse_repo(repo)
     package = _package(package)
@@ -814,6 +837,7 @@ def why_pinned(repo: RepoArg, package: PackageArg) -> WhyPinned:
         found = _matching(scan, package)
         declarations = [
             Pinning(
+                **_introduced(name, ref, d),
                 file=d.location.file,
                 line=d.location.line,
                 format=d.format,
@@ -828,8 +852,9 @@ def why_pinned(repo: RepoArg, package: PackageArg) -> WhyPinned:
             for d in found
         ]
         note = (
-            "Pins come from the manifests and lock files only. The commit that introduced each pin "
-            "is not looked up yet; check `git log -S` / `git blame` on the listed lines for the reason."
+            "Pins come from the manifests and lock files. introduced_by quotes the commit and pull request "
+            "that added each deliberate pin; whether it can be lifted depends on the upgrade it blocks, "
+            "so run upgrade_brief to that version."
         )
         if not found:
             note = (
@@ -846,6 +871,31 @@ def why_pinned(repo: RepoArg, package: PackageArg) -> WhyPinned:
             note=note,
             manifest_issues=_issues(scan),
         )
+
+
+def _introduced(name: str, ref: str, d: Dependency) -> dict:
+    """``introduced_by`` / ``origin_detail`` for one declaration's first deliberate pin."""
+    from codeintent.upgrades.upstream import GitHubCache, RateLimited, Repo
+
+    chosen = pin_history.deliberate(d.pins, d.format)
+    if not chosen or not d.location.line:
+        return {}
+    with _client() as http:
+        try:
+            found, detail = pin_history.origin(
+                Repo(GitHubCache(http, repository.token()), name),
+                ref,
+                d.location.file,
+                d.location.line,
+                d.name,
+                chosen[0].clause,
+            )
+        except (httpx.HTTPError, RateLimited, KeyError, LookupError) as error:
+            found, detail = (
+                None,
+                f"git history could not be read: {type(error).__name__}",
+            )
+    return {"introduced_by": found, "origin_detail": detail}
 
 
 def _direct(scan: ManifestScan) -> dict[str, list[Dependency]]:
@@ -974,11 +1024,16 @@ def advisories(repo: RepoArg) -> AdvisoryReport:
 
 
 class BearerAuth:
-    """Reject HTTP requests whose ``Authorization: Bearer`` token is not ``token`` (constant-time)."""
+    """Reject HTTP requests without a valid ``Authorization: Bearer`` token (constant-time compares).
 
-    def __init__(self, app: ASGIApp, token: str):
+    ``token`` is the deployment's own token (public repositories only). With ``workspaces``, a CodeIntent
+    workspace token (``ci_mcp_…``) also works and scopes the request to its installation.
+    """
+
+    def __init__(self, app: ASGIApp, token: str | None, workspaces: bool = False):
         self.app = app
-        self.expected = token.encode()
+        self.expected = token.encode() if token else None
+        self.workspaces = workspaces
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":
@@ -990,15 +1045,30 @@ class BearerAuth:
                 header = value
                 break
         scheme, _, supplied = header.partition(b" ")
-        if scheme.lower() == b"bearer" and hmac.compare_digest(
-            supplied.strip(), self.expected
-        ):
-            await self.app(scope, receive, send)
-            return
+        supplied = supplied.strip()
+        if scheme.lower() == b"bearer" and supplied:
+            if self.expected and hmac.compare_digest(supplied, self.expected):
+                await self.app(scope, receive, send)
+                return
+            if self.workspaces:
+                from starlette.concurrency import run_in_threadpool
+
+                from codeintent import mcp_tokens
+
+                installation = await run_in_threadpool(
+                    mcp_tokens.resolve, supplied.decode("utf-8", "replace")
+                )
+                if installation is not None:
+                    reset = _installation.set(installation)
+                    try:
+                        await self.app(scope, receive, send)
+                    finally:
+                        _installation.reset(reset)
+                    return
         response = JSONResponse(
             {
                 "error": "invalid_token",
-                "error_description": "send Authorization: Bearer <CODEINTENT_MCP_TOKEN>",
+                "error_description": "send Authorization: Bearer <your CodeIntent MCP token>",
             },
             status_code=401,
             headers={"WWW-Authenticate": 'Bearer realm="codeintent-mcp"'},
@@ -1043,17 +1113,20 @@ def _transport_security(token: str | None) -> TransportSecuritySettings | None:
     return None  # SDK default: localhost-only Host/Origin allowlist
 
 
-def mcp_app(token: str | None, path: str = "/mcp") -> ASGIApp:
+def mcp_app(token: str | None, path: str = "/mcp", workspaces: bool = False) -> ASGIApp:
     """The streamable HTTP endpoint at ``path`` behind bearer auth.
 
     A host app that mounts this must run ``server.session_manager.run()`` in its own lifespan.
+    ``workspaces`` accepts per-installation tokens (see ``codeintent.mcp_tokens``).
     """
     app = server.streamable_http_app(
         streamable_http_path=path,
         stateless_http=True,
-        transport_security=_transport_security(token),
+        transport_security=_transport_security(
+            token or ("workspaces" if workspaces else None)
+        ),
     )
-    return BearerAuth(app, token) if token else app
+    return BearerAuth(app, token, workspaces) if token or workspaces else app
 
 
 def create_app() -> Starlette:

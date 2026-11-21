@@ -10,8 +10,19 @@ no model writes the brief.
   request).
 - Auth: every request needs `Authorization: Bearer $CODEINTENT_MCP_TOKEN`. A missing or wrong
   token gets `401`. The token is compared in constant time.
-- Scope: public GitHub repositories only. Each call downloads the repository tarball for the
-  requested ref (300 MB cap) into a temporary folder and deletes it afterwards.
+- Hosted endpoint: `https://codeintent-api-ded80aad7f4b.herokuapp.com/mcp`. Create a token on the
+  dashboard (**AI agents** tile). It belongs to one GitHub App installation, is shown once, is
+  stored only as a SHA-256 digest and can be revoked there.
+- Scope: with a workspace token, the installation's own repositories (private ones included) are read
+  with its installation token; any other repository is fetched as the public sees it. The
+  deployment's own `CODEINTENT_MCP_TOKEN`, if set, reads public repositories only. Each call
+  downloads the repository tarball for the requested ref (300 MB cap) into a temporary folder and
+  deletes it afterwards.
+
+```bash
+claude mcp add --transport http codeintent https://codeintent-api-ded80aad7f4b.herokuapp.com/mcp \
+  --header "Authorization: Bearer ci_mcp_…"
+```
 
 ## Tools
 
@@ -22,7 +33,7 @@ agent can act on, never a stack trace.
 | Tool | Arguments | Returns |
 | --- | --- | --- |
 | `upgrade_brief` | `repo` (`owner/name` or `owner/name@ref`), `package`, `to_version` (exact or `latest`), optional `from_version` | `verdict` (`breaks` / `needs-change` / `not-checked` / `no-known-impact`), `reason`, ordered `steps`, `findings` (consumer `file:line` locations, what changed, the replacement and the library's own deprecation message), `unchecked` uses with reasons, OSV `advisories` for both versions, `declarations`, `release`, `coverage` |
-| `why_pinned` | `repo`, `package` | Every declaration of the package with `file:line`, specifier, pins (`exact`, `upper_bound`, `exclusion`, ...), group, and locked version. `introducing_commit` is always `null` because the commit that introduced a pin is not looked up yet. |
+| `why_pinned` | `repo`, `package` | Every declaration of the package with `file:line`, specifier, pins (`exact`, `upper_bound`, `exclusion`, ...), group, and locked version. For each deliberate pin, `introduced_by`: the commit and pull request that added it (git blame walked back past edits that kept the clause), so the author's reason can be read before relaxing it. `==` lines in requirements files are locks and are not traced. |
 | `list_dependencies` | `repo` | Direct dependencies: current (locked or `==`) version, declarations, latest non-yanked PyPI release, `newer_available`, and `blocked_by` (declarations whose specifier excludes the latest). Capped at 300. |
 | `advisories` | `repo` | OSV.dev advisories for every locked or exactly pinned package (direct and transitive, up to 300), split into `affected`, `not_checked` (with reason), `none_known`, and `unpinned` |
 

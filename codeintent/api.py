@@ -33,10 +33,38 @@ logger = logging.getLogger(__name__)
 gate = threading.BoundedSemaphore(2)
 
 
+_mcp: dict = {}
+
+
 @asynccontextmanager
 async def lifespan(app):
     production_check()
-    yield
+    if os.getenv("CODEINTENT_MCP", "1") == "0":
+        yield
+        return
+    from codeintent import mcp_server
+
+    # A fresh endpoint per lifespan: its session manager can run only once.
+    _mcp["app"] = mcp_server.mcp_app(
+        os.getenv("CODEINTENT_MCP_TOKEN", "").strip() or None, workspaces=True
+    )
+    async with mcp_server.server.session_manager.run():
+        yield
+    _mcp.clear()
+
+
+class MCPRoute:
+    """Sends ``/mcp`` to the MCP endpoint (bearer-authenticated); everything else to the API."""
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        endpoint = _mcp.get("app")
+        if scope["type"] == "http" and scope["path"] == "/mcp" and endpoint:
+            await endpoint(scope, receive, send)
+            return
+        await self.app(scope, receive, send)
 
 
 app = FastAPI(
@@ -46,6 +74,7 @@ app = FastAPI(
     docs_url=None,
     redoc_url=None,
 )
+app.add_middleware(MCPRoute)
 
 
 def authenticated(x_api_key: str = Header(default="")):
@@ -899,6 +928,53 @@ def app_telegram_chats(installation_id: int):
         "bot_username": telegram.bot_username() or None,
         "chats": telegram.linked_chats(installation_id),
     }
+
+
+# --- MCP tokens for AI agents --------------------------------------------------------------------
+
+
+@app.get(
+    "/app/installations/{installation_id}/mcp-tokens",
+    dependencies=[Depends(authenticated)],
+)
+def app_mcp_tokens(installation_id: int):
+    from codeintent import mcp_tokens
+
+    _live_installation(installation_id)
+    return {"tokens": mcp_tokens.listing(installation_id)}
+
+
+@app.post(
+    "/app/installations/{installation_id}/mcp-tokens",
+    status_code=201,
+    dependencies=[Depends(authenticated)],
+)
+def app_mcp_token_create(installation_id: int):
+    """A new token, returned once. Only its SHA-256 digest is kept."""
+    from codeintent import mcp_tokens
+
+    _live_installation(installation_id)
+    try:
+        return mcp_tokens.issue(installation_id)
+    except LookupError:
+        raise HTTPException(404, "Installation not found") from None
+    except OverflowError:
+        raise HTTPException(
+            409, f"At most {mcp_tokens.MAX_ACTIVE} active tokens; revoke one first"
+        ) from None
+
+
+@app.delete(
+    "/app/installations/{installation_id}/mcp-tokens/{token_id}",
+    status_code=204,
+    dependencies=[Depends(authenticated)],
+)
+def app_mcp_token_revoke(installation_id: int, token_id: UUID):
+    from codeintent import mcp_tokens
+
+    _live_installation(installation_id)
+    if not mcp_tokens.revoke(installation_id, str(token_id)):
+        raise HTTPException(404, "Token not found")
 
 
 @app.exception_handler(store.QuotaExceeded)

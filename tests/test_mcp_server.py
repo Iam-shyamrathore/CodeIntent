@@ -118,4 +118,9 @@ async def test_why_pinned_on_flask():
     (declaration,) = result.structured_content["declarations"]
     assert (declaration["file"], declaration["line"]) == ("setup.py", 58)
     assert declaration["pins"] == [{"kind": "upper_bound", "clause": "<2.0"}]
-    assert result.structured_content["introducing_commit"] is None
+    origin = declaration["introduced_by"]
+    assert origin["commit"] == "6d8b4ce9d037937ef8694067ab5754666240d097"
+    assert (origin["pr_number"], origin["pr_title"]) == (
+        4047,
+        "set maximum versions for 1.1.x to avoid new major versions",
+    )
