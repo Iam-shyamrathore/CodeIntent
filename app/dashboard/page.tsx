@@ -24,6 +24,7 @@ import {
   type InstalledRepository,
   type PullSummary,
   type RepositoryPulls,
+  type UpcomingSummary,
 } from "@/lib/dashboard";
 import type { TelegramLinks } from "@/lib/telegram";
 
@@ -34,6 +35,7 @@ const WEEK = 7 * 24 * 60 * 60 * 1000;
 const RECENT_REPOSITORIES = 12;
 const RECENT_PER_REPOSITORY = 10;
 const LATEST_SHOWN = 6;
+const UPCOMING_SHOWN = 5;
 
 type Workspace = Installation & {
   repos:
@@ -142,6 +144,71 @@ function Shell({
       </main>
       <SiteFooter />
     </div>
+  );
+}
+
+function UpcomingTile({ summary }: { summary: UpcomingSummary | null }) {
+  const findings = summary?.findings || [];
+  const breaking = findings.filter((f) => f.verdict === "breaks").length;
+  return (
+    <section className="ci-tile ci-tile-upcoming" aria-labelledby="upcoming">
+      <div className="ci-tile-head">
+        <h2 id="upcoming">
+          Before you upgrade
+          {breaking > 0 && <span className="ci-count">{breaking}</span>}
+        </h2>
+        <span className="ci-row-meta">Latest releases, checked daily</span>
+      </div>
+      {summary === null ? (
+        <p className="ci-note" role="status">
+          Upcoming breakage could not be loaded.
+        </p>
+      ) : findings.length === 0 ? (
+        <p className="ci-note">
+          {summary.totals.pending > 0
+            ? `Comparing the dependencies of ${summary.totals.pending} repositor${summary.totals.pending === 1 ? "y" : "ies"} with their latest releases…`
+            : summary.totals.scanned > 0
+              ? "No latest release changes anything your code uses, and no known advisories affect the versions you run."
+              : "Each repository is compared with the latest releases of its dependencies after install, then daily."}
+        </p>
+      ) : (
+        <ul className="ci-rows">
+          {findings.slice(0, UPCOMING_SHOWN).map((f) => (
+            <li key={`${f.repository}-${f.package}`}>
+              <Link className="ci-row" href={repoHref(f.repository)}>
+                {f.verdict === "breaks" || f.verdict === "needs-change" ? (
+                  <VerdictLabel verdict={f.verdict} />
+                ) : (
+                  <span className="ci-verdict">Known advisory</span>
+                )}
+                <span className="ci-row-title">
+                  <strong>
+                    <code translate="no">{f.package}</code>{" "}
+                    {f.verdict === "breaks" || f.verdict === "needs-change"
+                      ? `${f.current} → ${f.latest}`
+                      : `${f.current}: ${f.advisories.slice(0, 2).join(", ")}${f.advisories.length > 2 ? ` and ${f.advisories.length - 2} more` : ""}`}
+                  </strong>
+                  <span>{f.repository}</span>
+                </span>
+                <span className="ci-row-meta">
+                  {f.places > 0
+                    ? `${f.places} place${f.places === 1 ? "" : "s"} in your code`
+                    : f.advisories.length > 0
+                      ? `${f.advisories.length} advisor${f.advisories.length === 1 ? "y" : "ies"}`
+                      : ""}
+                </span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+      {findings.length > UPCOMING_SHOWN && (
+        <p className="ci-tile-note">
+          and {findings.length - UPCOMING_SHOWN} more; open a repository to see
+          them all.
+        </p>
+      )}
+    </section>
   );
 }
 
@@ -254,7 +321,14 @@ export default async function Dashboard({
   const shown = [...repos]
     .sort(byActivity)
     .slice((page - 1) * REPOS_PER_PAGE, page * REPOS_PER_PAGE);
-  const recent = await loadRecent(session, repos);
+  const [recent, upcoming] = await Promise.all([
+    loadRecent(session, repos),
+    read<UpcomingSummary>(
+      session.kind === "github"
+        ? `/app/upcoming?${installationQuery(session)}`
+        : "/app/upcoming",
+    ),
+  ]);
   const latest = recent.slice(0, LATEST_SHOWN);
   const since = Date.now() - WEEK;
   const thisWeek = recent.filter(
@@ -340,6 +414,12 @@ export default async function Dashboard({
 
         <TelegramTile workspaces={workspaces} />
 
+        {repos.length > 0 && (
+          <UpcomingTile
+            summary={upcoming.state === "ok" ? upcoming.data : null}
+          />
+        )}
+
         <section className="ci-tile ci-tile-repos" aria-labelledby="repos">
           <div className="ci-tile-head">
             <h2 id="repos">
@@ -366,6 +446,9 @@ export default async function Dashboard({
                       )}
                       <span>
                         {repo.analyses} PR{repo.analyses === 1 ? "" : "s"}
+                        {repo.upcoming?.breaks
+                          ? ` · ${repo.upcoming.breaks} upcoming break${repo.upcoming.breaks === 1 ? "" : "s"}`
+                          : ""}
                         {repo.private ? " · private" : ""}
                       </span>
                     </span>

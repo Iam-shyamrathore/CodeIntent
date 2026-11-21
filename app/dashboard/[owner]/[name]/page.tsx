@@ -4,6 +4,7 @@ import { ConsoleHeader } from "@/components/console-header";
 import { SignInPanel } from "@/components/auth-panel";
 import { SiteFooter } from "@/components/site/footer";
 import { ArrowOut, ArrowRight } from "@/components/site/icons";
+import { Upcoming } from "@/components/upcoming";
 import { PackageChanges, VerdictLabel } from "@/components/verdict";
 import {
   canAccessInstallation,
@@ -17,6 +18,7 @@ import {
   pullUrl,
   read,
   type RepositoryPulls,
+  type RepositoryScan,
 } from "@/lib/dashboard";
 
 type Props = {
@@ -92,9 +94,17 @@ export default async function RepositoryDashboard({
     notFound();
   const scope =
     session.kind === "github" ? `&${installationQuery(session)}` : "";
-  const result = await read<RepositoryPulls>(
-    `/app/repositories/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/pulls?limit=25${cursor ? `&cursor=${cursor}` : ""}${scope}`,
-  );
+  const path = `/app/repositories/${encodeURIComponent(owner)}/${encodeURIComponent(name)}`;
+  const [result, upcoming] = await Promise.all([
+    read<RepositoryPulls>(
+      `${path}/pulls?limit=25${cursor ? `&cursor=${cursor}` : ""}${scope}`,
+    ),
+    cursor
+      ? null
+      : read<RepositoryScan>(
+          `${path}/upcoming${scope ? `?${scope.slice(1)}` : ""}`,
+        ),
+  ]);
   if (
     result.state === "missing" ||
     (result.state === "ok" &&
@@ -183,6 +193,12 @@ export default async function RepositoryDashboard({
             </Link>
           )}
         </nav>
+      )}
+      {result.state === "ok" && upcoming && (
+        <Upcoming
+          repository={fullName}
+          result={upcoming.state === "ok" ? upcoming.data.scan : "unavailable"}
+        />
       )}
     </Shell>
   );

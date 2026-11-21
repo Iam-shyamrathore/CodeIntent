@@ -47,6 +47,8 @@ const REPLACEMENT_SOURCE = {
   signature: "from the new release’s signature",
 };
 const VISIBLE_LOCATIONS = 3;
+/** Where code links point: the repository at the commit that was checked. */
+type Source = Pick<PullDetail, "repository" | "head_sha">;
 
 const sentence = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 const plural = (n: number, one: string, many = `${one}s`) =>
@@ -56,13 +58,7 @@ const where = (l: Location) =>
 const target = (change: Change) =>
   `${publicSymbol(change.symbol)}${change.parameter ? `(${change.parameter}=)` : ""}`;
 
-function CodeLink({
-  pull,
-  location,
-}: {
-  pull: PullDetail;
-  location: Location;
-}) {
+function CodeLink({ pull, location }: { pull: Source; location: Location }) {
   const href = `https://github.com/${pull.repository}/blob/${pull.head_sha}/${location.file
     .split("/")
     .map(encodeURIComponent)
@@ -77,7 +73,7 @@ function CodeLink({
   );
 }
 
-function Locations({ pull, items }: { pull: PullDetail; items: Location[] }) {
+function Locations({ pull, items }: { pull: Source; items: Location[] }) {
   const shown = items.slice(0, VISIBLE_LOCATIONS),
     rest = items.slice(VISIBLE_LOCATIONS);
   return (
@@ -109,7 +105,7 @@ function Findings({
   pull,
   verdict,
 }: {
-  pull: PullDetail;
+  pull: Source;
   verdict: UpgradeVerdict;
 }) {
   const findings = verdict.findings || [];
@@ -284,13 +280,7 @@ function Advisories({ verdict }: { verdict: UpgradeVerdict }) {
   );
 }
 
-function UncheckedList({
-  pull,
-  items,
-}: {
-  pull: PullDetail;
-  items: Unchecked[];
-}) {
+function UncheckedList({ pull, items }: { pull: Source; items: Unchecked[] }) {
   return (
     <ul>
       {items.map((u, i) => (
@@ -312,7 +302,7 @@ function MoreDetail({
   pull,
   verdict,
 }: {
-  pull: PullDetail;
+  pull: Source;
   verdict: UpgradeVerdict;
 }) {
   const findings = verdict.findings || [],
@@ -418,28 +408,30 @@ function MoreDetail({
   );
 }
 
-function PackageVerdict({
+export function PackageVerdict({
   pull,
   verdict,
   index,
   single,
+  heading: Heading = "h2",
 }: {
-  pull: PullDetail;
+  pull: Source;
   verdict: UpgradeVerdict;
   index: number;
   single: boolean;
+  heading?: "h2" | "h3";
 }) {
   const unchecked = verdict.unchecked || [];
   const id = `package-${index}`;
   return (
     <section className="ci-package" aria-labelledby={`${id}-title`} id={id}>
       <div className="ci-package-head">
-        <h2 id={`${id}-title`}>
+        <Heading id={`${id}-title`}>
           <code translate="no">{verdict.package}</code> {verdict.start}
           <span aria-hidden="true"> → </span>
           <span className="sr-only"> to </span>
           {verdict.end}
-        </h2>
+        </Heading>
         <VerdictLabel verdict={verdict.verdict} size="large" />
       </div>
       {!single && (

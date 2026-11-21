@@ -1225,11 +1225,13 @@ li[data-state="next"] .ci-state {
   justify-content: space-between;
   gap: 8px 16px;
 }
-.ci-package-head h2 {
+.ci-package-head h2,
+.ci-package-head h3 {
   font-size: 19px;
   font-variation-settings: "wdth" 108;
 }
-.ci-package-head h2 code {
+.ci-package-head h2 code,
+.ci-package-head h3 code {
   font-size: 0.86em;
 }
 .ci-package-reason {
@@ -1416,6 +1418,39 @@ li[data-state="next"] .ci-state {
   font-size: 13px;
 }
 
+/* ----------------------------------------------------- before you upgrade */
+.ci-upcoming {
+  margin-top: 12px;
+}
+.ci-upcoming .ci-package {
+  margin-top: 0;
+  background: var(--carbon-2);
+}
+.ci-upcoming-clear {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--ash);
+}
+.ci-scan-now {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+  color: var(--ash);
+}
+.ci-scan-now button[disabled] {
+  opacity: 0.6;
+  cursor: progress;
+}
+.ci-tile-upcoming {
+  grid-column: 1 / 7;
+}
+.ci-tile-upcoming .ci-tile-head,
+.ci-upcoming .ci-tile-head {
+  flex-wrap: wrap;
+}
+
 /* ---------------------------------------------------------- responsive */
 @media (max-width: 960px) {
   .ci-hero {
@@ -1431,7 +1466,8 @@ li[data-state="next"] .ci-state {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .ci-tile-latest,
-  .ci-tile-repos {
+  .ci-tile-repos,
+  .ci-tile-upcoming {
     grid-column: 1 / -1;
     grid-row: auto;
   }

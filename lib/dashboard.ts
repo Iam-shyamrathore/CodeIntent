@@ -186,6 +186,54 @@ export type InstalledRepository = {
     verdict: Verdict;
     created_at: string;
   } | null;
+  /** Latest upcoming-breakage scan of the default branch, if any. */
+  upcoming: {
+    status: ScanStatus;
+    scanned_at: string | null;
+    breaks: number;
+    needs_change: number;
+    advisories: number;
+  } | null;
+};
+export type ScanStatus = "queued" | "running" | "done" | "skipped" | "failed";
+/** One direct dependency against its latest release (codeintent/upgrades/upcoming.py). */
+export type UpcomingItem = {
+  package: string;
+  current: string | null;
+  latest: string | null;
+  status: "compared" | "current" | "not-locked" | "not-on-pypi" | "unreadable";
+  location: Location;
+  verdict: UpgradeVerdict | null;
+  detail: string | null;
+  advisories: AdvisoryCheck | null;
+};
+export type RepositoryScan = {
+  repository: string;
+  scan: {
+    status: ScanStatus;
+    ref: string | null;
+    head_sha: string | null;
+    error: string | null;
+    scanned_at: string | null;
+    updated_at: string;
+    items: UpcomingItem[];
+  } | null;
+};
+export type UpcomingFinding = {
+  repository: string;
+  package: string;
+  current: string | null;
+  latest: string | null;
+  verdict: Verdict | null;
+  label: string | null;
+  reason: string | null;
+  places: number;
+  advisories: string[];
+  scanned_at: string | null;
+};
+export type UpcomingSummary = {
+  totals: { repositories: number; scanned: number; pending: number };
+  findings: UpcomingFinding[];
 };
 export type RepositoryPulls = {
   repository: {
