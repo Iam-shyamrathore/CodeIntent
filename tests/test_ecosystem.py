@@ -176,3 +176,44 @@ def test_scans_record_every_locked_release(tmp_path):
         ("h11", "0.16.0"),
         ("httpx", "0.28.1"),
     ]
+
+
+@pytest.fixture
+def ledger(monkeypatch):
+    original = os.environ.get("DATABASE_URL") or pytest.skip("DATABASE_URL is not set")
+    name = "ci_test_" + uuid.uuid4().hex
+    with psycopg.connect(original, autocommit=True) as conn:
+        conn.execute(sql.SQL("CREATE SCHEMA {}").format(sql.Identifier(name)))
+    monkeypatch.setenv(
+        "DATABASE_URL",
+        psycopg.conninfo.make_conninfo(original, options=f"-c search_path={name}"),
+    )
+    store.migrate()
+    yield
+    with psycopg.connect(original, autocommit=True) as conn:
+        conn.execute(sql.SQL("DROP SCHEMA {} CASCADE").format(sql.Identifier(name)))
+
+
+def jobs() -> list[str]:
+    with store.connection() as conn:
+        return sorted(
+            r["queueing_lock"]
+            for r in conn.execute(
+                "SELECT queueing_lock FROM procrastinate_jobs WHERE task_name='index_release' AND status='todo'"
+            ).fetchall()
+        )
+
+
+@integration
+def test_every_queued_release_gets_exactly_one_job_even_after_a_lost_one(ledger):
+    assert ecosystem.queue([("httpx", "0.28.1"), ("h11", "0.16.0")]) == 2
+    assert ecosystem.queue([("httpx", "0.28.1")]) == 0  # already waiting
+    assert jobs() == ["eco:h11@0.16.0", "eco:httpx@0.28.1"]
+    # A row marked queued whose job was lost: asking again, or the sweep, queues it.
+    with store.connection() as conn:
+        conn.execute(
+            "INSERT INTO ci_ecosystem_releases(package,version) VALUES ('idna','3.20.0')"
+        )
+    assert ecosystem.sweep() == 1
+    assert ecosystem.queue([("idna", "3.20.0")]) == 0
+    assert jobs() == ["eco:h11@0.16.0", "eco:httpx@0.28.1", "eco:idna@3.20.0"]

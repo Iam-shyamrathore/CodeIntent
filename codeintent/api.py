@@ -1127,6 +1127,25 @@ def app_graph_usages(
     return {"usages": rows}
 
 
+_answers: dict[tuple, tuple[float, object]] = {}
+ANSWER_SECONDS = 60
+
+
+def _remembered(key: tuple, work):
+    """Answers from the public graph change slowly: reuse one for a minute (per caller scope)."""
+    import time
+
+    now = time.monotonic()
+    hit = _answers.get(key)
+    if hit and now - hit[0] < ANSWER_SECONDS:
+        return hit[1]
+    value = work()
+    if len(_answers) > 500:
+        _answers.clear()
+    _answers[key] = (now, value)
+    return value
+
+
 def _ecosystem_call(work):
     try:
         with _graph() as db:
@@ -1203,7 +1222,9 @@ def app_graph_package(
                     seen.add((d["kind"], d["name"]))
         return first
 
-    return _ecosystem_call(work)
+    return _remembered(
+        ("package", package.lower(), tuple(spaces)), lambda: _ecosystem_call(work)
+    )
 
 
 @app.get("/app/graph/ecosystem", dependencies=[Depends(authenticated)])
@@ -1232,7 +1253,7 @@ def app_graph_ecosystem():
         ).records[0]["n"]
         return {"nodes": counts, "dependency_edges": edges}
 
-    found = _ecosystem_call(work)
+    found = dict(_remembered(("ecosystem",), lambda: _ecosystem_call(work)))
     with store.connection() as conn:
         found["releases"] = {
             r["status"]: r["n"]

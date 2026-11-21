@@ -549,6 +549,16 @@ def seed_project(full_name: str):
         client.close()
 
 
+@app.periodic(cron="*/10 * * * *")
+@app.task(name="ecosystem_sweep", queue="maintenance")
+def ecosystem_sweep(timestamp: int):
+    from codeintent import ecosystem
+
+    queued = ecosystem.sweep()
+    if queued:
+        logger.info("Re-queued %s ecosystem releases", queued)
+
+
 @app.periodic(cron="*/5 * * * *")
 @app.task(name="project_pending_runs", queue="maintenance")
 def project_pending_runs(timestamp: int):

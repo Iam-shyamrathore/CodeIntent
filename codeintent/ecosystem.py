@@ -208,26 +208,40 @@ def _mark(
 
 
 def queue(pairs: list[tuple[str, str]]) -> int:
-    """Queue releases not indexed in the last week (or ever). Returns how many were queued."""
-    from codeintent.tasks import index_release as task
-
+    """Queue releases not indexed in the last week (or ever). Returns how many jobs were created."""
     pairs = sorted({(canonicalize_name(n), v) for n, v in pairs if n and v})
     if not pairs:
         return 0
-    queued = 0
+    names, versions = [n for n, _ in pairs], [v for _, v in pairs]
     with store.connection() as conn:
-        stale = conn.execute(
+        conn.execute(
             """INSERT INTO ci_ecosystem_releases(package,version)
             SELECT * FROM unnest(%s::text[],%s::text[]) ORDER BY 1,2
-            ON CONFLICT(package,version) DO UPDATE SET requested_at=now()
+            ON CONFLICT(package,version) DO UPDATE SET status='queued',requested_at=now()
               WHERE ci_ecosystem_releases.status='failed'
-                 OR (ci_ecosystem_releases.status='indexed' AND ci_ecosystem_releases.indexed_at < now()-%s::interval)
-            RETURNING package,version""",
-            ([n for n, _ in pairs], [v for _, v in pairs], f"{FRESH.days} days"),
-        ).fetchall()
+                 OR (ci_ecosystem_releases.status='indexed' AND ci_ecosystem_releases.indexed_at < now()-%s::interval)""",
+            (names, versions, f"{FRESH.days} days"),
+        )
         # Release the rows at once; concurrent seeds otherwise wait on each other's long transaction.
         conn.commit()
-        for row in stale:
+        wanted = conn.execute(
+            """SELECT r.package,r.version FROM ci_ecosystem_releases r
+            JOIN unnest(%s::text[],%s::text[]) AS w(package,version) USING (package,version)
+            WHERE r.status='queued'""",
+            (names, versions),
+        ).fetchall()
+    return _defer(wanted)
+
+
+def _defer(rows) -> int:
+    """Queue one job per release; a job already waiting for the same release absorbs the request."""
+    from procrastinate.exceptions import AlreadyEnqueued
+
+    from codeintent.tasks import index_release as task
+
+    queued = 0
+    with store.connection() as conn:
+        for row in rows:
             try:
                 task.configure(
                     connection=conn,
@@ -236,10 +250,28 @@ def queue(pairs: list[tuple[str, str]]) -> int:
                 ).defer(package=row["package"], version=row["version"])
                 conn.commit()
                 queued += 1
-            except Exception as exc:  # AlreadyEnqueued, or the queue being unavailable
+            except AlreadyEnqueued:
                 conn.rollback()
-                logger.debug("Not queued (%s)", type(exc).__name__)
+            except Exception as exc:
+                conn.rollback()
+                logger.warning(
+                    "Could not queue an ecosystem release (%s)", type(exc).__name__
+                )
     return queued
+
+
+def sweep(limit: int = 500) -> int:
+    """Queue jobs for releases marked queued that have none (a crash between the two writes)."""
+    with store.connection() as conn:
+        rows = conn.execute(
+            """SELECT r.package,r.version FROM ci_ecosystem_releases r
+            WHERE r.status='queued' AND NOT EXISTS (
+              SELECT 1 FROM procrastinate_jobs j WHERE j.queueing_lock='eco:'||r.package||'@'||r.version
+                AND j.status IN ('todo','doing'))
+            ORDER BY r.requested_at LIMIT %s""",
+            (limit,),
+        ).fetchall()
+    return _defer(rows)
 
 
 # --- Seeded open-source projects -------------------------------------------------------------------
