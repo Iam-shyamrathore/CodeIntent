@@ -310,26 +310,20 @@ def notify_telegram(analysis_id: str):
 )
 def scan_repository(installation_id: int, repository: str):
     """Upcoming breakage for one repository's default branch, then alert linked chats about anything new."""
-    import httpx
-
-    from codeintent import github_app as gh
     from codeintent import scans
-    from codeintent.upgrades import repository as source
 
-    client = gh.Client.for_installation(installation_id)
     try:
-        with (
-            httpx.Client(timeout=60, follow_redirects=True) as pypi,
-            source.using(client.token),
-        ):
-            status = scans.run(installation_id, repository, client, pypi)
+        status = scans.run_isolated(installation_id, repository)
     except Exception as exc:
         # Exception text may echo upstream responses; store and log only the category.
-        logger.warning("Repository scan failed (%s)", type(exc).__name__)
-        scans.fail(installation_id, repository, type(exc).__name__)
-        raise RuntimeError(type(exc).__name__) from None
-    finally:
-        client.close()
+        category = (
+            exc.args[0]
+            if isinstance(exc, scans.ScanError) and exc.args
+            else type(exc).__name__
+        )
+        logger.warning("Repository scan failed (%s)", category)
+        scans.fail(installation_id, repository, category)
+        raise RuntimeError(category) from None
     if status == "done":
         try:
             notify_upcoming.defer(installation_id=installation_id)

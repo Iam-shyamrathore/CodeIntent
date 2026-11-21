@@ -38,6 +38,8 @@ def defer(conn, installation_id: int, repository: str) -> bool:
         with conn.transaction():
             scan_repository.configure(
                 connection=conn,
+                # One scan at a time across the worker: each loads many library releases.
+                lock="repository-scans",
                 queueing_lock=f"scan:{installation_id}:{repository}",
                 priority=-10,
             ).defer(installation_id=installation_id, repository=repository)
@@ -195,6 +197,45 @@ def run(installation_id: int, repository: str, client, pypi) -> str:
         scanned_at=datetime.now(UTC),
     )
     return "done"
+
+
+class ScanError(Exception):
+    """A scan failed; ``args[0]`` is only the failure's category (its class name), safe to store."""
+
+
+def run_installation(installation_id: int, repository: str) -> str:
+    """``run`` with the installation's own GitHub client and token, for a child process."""
+    import httpx
+
+    from codeintent import github_app as gh
+    from codeintent.upgrades import repository as source
+
+    client = gh.Client.for_installation(installation_id)
+    try:
+        with (
+            httpx.Client(timeout=60, follow_redirects=True) as pypi,
+            source.using(client.token),
+        ):
+            return run(installation_id, repository, client, pypi)
+    except Exception as exc:
+        # Exception text may echo upstream responses, and not every exception survives pickling.
+        raise ScanError(type(exc).__name__) from None
+    finally:
+        client.close()
+
+
+def run_isolated(installation_id: int, repository: str) -> str:
+    """``run_installation`` in a fresh process, so every library it loaded is freed when it ends.
+
+    A scan reads dozens of releases; in a long-lived worker that memory stays allocated.
+    """
+    import multiprocessing
+    from concurrent.futures import ProcessPoolExecutor
+
+    with ProcessPoolExecutor(
+        max_workers=1, mp_context=multiprocessing.get_context("spawn")
+    ) as pool:
+        return pool.submit(run_installation, installation_id, repository).result()
 
 
 def fail(installation_id: int, repository: str, error: str) -> None:
