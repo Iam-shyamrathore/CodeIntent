@@ -3076,3 +3076,42 @@ li[data-state="next"] .ci-state {
 .ci-exposure {
   margin-top: 12px;
 }
+
+/* ---------------------------------------------------- loading skeleton */
+.ci-skel,
+.ci-skel-tile {
+  background: linear-gradient(
+    100deg,
+    var(--carbon) 30%,
+    var(--carbon-2) 50%,
+    var(--carbon) 70%
+  );
+  background-size: 300% 100%;
+  animation: ci-shimmer 1.4s var(--ease) infinite;
+}
+.ci-skel-title {
+  height: 40px;
+  width: min(420px, 70%);
+  border-radius: 12px;
+  margin: 8px 0 24px;
+}
+.ci-skel-tile {
+  min-height: 160px;
+}
+.ci-skel-wide {
+  grid-column: span 3;
+}
+@keyframes ci-shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: 0 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ci-skel,
+  .ci-skel-tile {
+    animation: none;
+  }
+}

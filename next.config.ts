@@ -20,6 +20,11 @@ const config: NextConfig = {
     ];
   },
   turbopack: { root: process.cwd() },
+  experimental: {
+    // Client cache: moving between dashboard sections, or back, reuses what was rendered in the last
+    // 30 s instead of asking the API again. Actions (Scan now, tokens, Telegram) refresh explicitly.
+    staleTimes: { dynamic: 30, static: 180 },
+  },
 };
 /** Docs pages are MDX under app/docs; plugins are named as strings so Turbopack can load them. */
 const withMDX = createMDX({
