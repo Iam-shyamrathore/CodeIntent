@@ -74,6 +74,24 @@ async function loadWorkspaces(session: Session): Promise<Workspace[] | null> {
 
 type Watched = InstalledRepository & { installation: number };
 
+const REPOS_PER_PAGE = 6;
+
+/** Active repositories first (newest pull request), then the rest by name. */
+function byActivity(a: Watched, b: Watched): number {
+  const left = a.last_analysis?.created_at || "";
+  const right = b.last_analysis?.created_at || "";
+  if (left !== right) return right.localeCompare(left);
+  return a.full_name.localeCompare(b.full_name);
+}
+
+function pageNumber(
+  value: string | string[] | undefined,
+  pages: number,
+): number {
+  const parsed = Number(Array.isArray(value) ? value[0] : value);
+  return Number.isInteger(parsed) && parsed >= 1 ? Math.min(parsed, pages) : 1;
+}
+
 /** The newest dependency pull requests across the repositories with any analysis. */
 async function loadRecent(
   session: Session,
@@ -231,6 +249,11 @@ export default async function Dashboard({
       ? w.repos.list.map((r) => ({ ...r, installation: w.id }))
       : [],
   );
+  const pages = Math.max(1, Math.ceil(repos.length / REPOS_PER_PAGE));
+  const page = pageNumber(query.repos, pages);
+  const shown = [...repos]
+    .sort(byActivity)
+    .slice((page - 1) * REPOS_PER_PAGE, page * REPOS_PER_PAGE);
   const recent = await loadRecent(session, repos);
   const latest = recent.slice(0, LATEST_SHOWN);
   const since = Date.now() - WEEK;
@@ -330,7 +353,7 @@ export default async function Dashboard({
             </p>
           ) : (
             <ul className="ci-repo-list">
-              {repos.map((repo) => (
+              {shown.map((repo) => (
                 <li key={`${repo.installation}-${repo.repository_id}`}>
                   <Link className="ci-repo" href={repoHref(repo.full_name)}>
                     <strong>{repo.full_name}</strong>
@@ -349,6 +372,27 @@ export default async function Dashboard({
                 </li>
               ))}
             </ul>
+          )}
+          {pages > 1 && (
+            <nav className="ci-pager" aria-label="Repository pages">
+              {page > 1 ? (
+                <Link href={`/dashboard?repos=${page - 1}`} scroll={false}>
+                  ← Previous
+                </Link>
+              ) : (
+                <span aria-hidden="true">← Previous</span>
+              )}
+              <span>
+                {page} of {pages}
+              </span>
+              {page < pages ? (
+                <Link href={`/dashboard?repos=${page + 1}`} scroll={false}>
+                  Next →
+                </Link>
+              ) : (
+                <span aria-hidden="true">Next →</span>
+              )}
+            </nav>
           )}
         </section>
 

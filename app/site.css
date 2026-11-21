@@ -1534,3 +1534,49 @@ li[data-state="next"] .ci-state {
 .ci-nowrap {
   white-space: nowrap;
 }
+
+/* Repository tile pagination */
+.ci-pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+  color: var(--ash);
+  font-size: 13px;
+}
+.ci-pager a {
+  color: var(--ink, #edebe4);
+  text-decoration: none;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(237, 235, 228, 0.14);
+}
+.ci-pager a:hover,
+.ci-pager a:focus-visible {
+  border-color: rgba(237, 235, 228, 0.4);
+}
+.ci-pager span[aria-hidden="true"] {
+  opacity: 0.35;
+  padding: 6px 10px;
+}
+
+/* Desktop hero: the package keeps its own column, the cards stack beside it and never cover it. */
+@media (min-width: 961px) {
+  .ci-stage-art {
+    inset: 0 calc(clamp(284px, 40%, 304px) + 16px) 0 0;
+  }
+  .ci-example-pr {
+    top: 50%;
+    right: 0;
+    transform: translateY(calc(-100% - 8px));
+    width: clamp(284px, 40%, 304px);
+  }
+  .ci-example-tg {
+    top: 50%;
+    bottom: auto;
+    right: 0;
+    transform: translateY(8px);
+    width: clamp(284px, 40%, 304px);
+  }
+}
