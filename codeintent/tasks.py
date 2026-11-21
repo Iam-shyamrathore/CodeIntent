@@ -210,7 +210,7 @@ def heartbeat(timestamp: int):
         )
         # Use Procrastinate worker liveness metadata for orphan recovery, rather than guessing from task duration.
         rows = conn.execute("""SELECT j.id FROM procrastinate_jobs j LEFT JOIN procrastinate_workers w ON w.id=j.worker_id
-            WHERE j.status='doing' AND j.task_name IN ('import_repository','investigate_question') AND (j.worker_id IS NULL OR w.last_heartbeat < now()-interval '3 minutes')""").fetchall()
+            WHERE j.status='doing' AND j.task_name IN ('import_repository','investigate_question','analyze_pull_request') AND (j.worker_id IS NULL OR w.last_heartbeat < now()-interval '3 minutes')""").fetchall()
         for row in rows:
             conn.execute(
                 "UPDATE procrastinate_jobs SET status='todo',worker_id=NULL,abort_requested=false,scheduled_at=now() WHERE id=%s AND status='doing'",
