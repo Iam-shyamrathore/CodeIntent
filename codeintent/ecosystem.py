@@ -218,23 +218,26 @@ def queue(pairs: list[tuple[str, str]]) -> int:
     with store.connection() as conn:
         stale = conn.execute(
             """INSERT INTO ci_ecosystem_releases(package,version)
-            SELECT * FROM unnest(%s::text[],%s::text[])
+            SELECT * FROM unnest(%s::text[],%s::text[]) ORDER BY 1,2
             ON CONFLICT(package,version) DO UPDATE SET requested_at=now()
               WHERE ci_ecosystem_releases.status='failed'
                  OR (ci_ecosystem_releases.status='indexed' AND ci_ecosystem_releases.indexed_at < now()-%s::interval)
             RETURNING package,version""",
             ([n for n, _ in pairs], [v for _, v in pairs], f"{FRESH.days} days"),
         ).fetchall()
+        # Release the rows at once; concurrent seeds otherwise wait on each other's long transaction.
+        conn.commit()
         for row in stale:
             try:
-                with conn.transaction():
-                    task.configure(
-                        connection=conn,
-                        queueing_lock=f"eco:{row['package']}@{row['version']}",
-                        priority=-20,
-                    ).defer(package=row["package"], version=row["version"])
+                task.configure(
+                    connection=conn,
+                    queueing_lock=f"eco:{row['package']}@{row['version']}",
+                    priority=-20,
+                ).defer(package=row["package"], version=row["version"])
+                conn.commit()
                 queued += 1
             except Exception as exc:  # AlreadyEnqueued, or the queue being unavailable
+                conn.rollback()
                 logger.debug("Not queued (%s)", type(exc).__name__)
     return queued
 
