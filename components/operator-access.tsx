@@ -1,8 +1,9 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, LoaderCircle, LockKeyhole } from "lucide-react";
+import { ArrowRight, LoaderCircle } from "lucide-react";
 
+/** The workspace-key form: the operator's admin fallback, secondary to GitHub sign-in. */
 export function OperatorSignIn({ purpose }: { purpose: string }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false),
@@ -62,21 +63,5 @@ export function OperatorSignIn({ purpose }: { purpose: string }) {
         {error}
       </p>
     </form>
-  );
-}
-
-export function OperatorSignOut() {
-  const router = useRouter();
-  return (
-    <button
-      className="quiet-button"
-      onClick={async () => {
-        await fetch("/api/session", { method: "DELETE" }).catch(() => {});
-        router.refresh();
-      }}
-    >
-      <LockKeyhole size={14} aria-hidden="true" />
-      Sign out
-    </button>
   );
 }

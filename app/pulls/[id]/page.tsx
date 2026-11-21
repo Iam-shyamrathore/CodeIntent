@@ -3,9 +3,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { ConsoleHeader } from "@/components/console-header";
-import { OperatorSignIn } from "@/components/operator-access";
+import { SignInPanel } from "@/components/auth-panel";
 import { PullReport } from "@/components/pull-report";
-import { isOperator } from "@/lib/session";
+import { canAccessInstallation, getSession } from "@/lib/session";
 import { read, UUID, type PullDetail } from "@/lib/dashboard";
 
 type Props = { params: Promise<{ id: string }> };
@@ -31,12 +31,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function PullPage({ params }: Props) {
   const { id } = await params;
   if (!UUID.test(id)) notFound();
-  const [result, operator] = await Promise.all([loadPull(id), isOperator()]);
-  if (result.state === "missing") notFound();
+  const [result, session] = await Promise.all([loadPull(id), getSession()]);
+  const next = `/pulls/${id}`;
   if (result.state === "unavailable")
     return (
       <div className="repository-page">
-        <ConsoleHeader operator={operator} />
+        <ConsoleHeader session={session} next={next} />
         <main className="collection-main" id="main">
           <h1 className="console-title">The verdict service is unavailable</h1>
           <p role="alert" className="request-error collection-error">
@@ -46,34 +46,46 @@ export default async function PullPage({ params }: Props) {
         </main>
       </div>
     );
-  const pull = result.data;
   // Public repositories: the report is readable by link, like the comment that points here.
-  // Private repositories: operator only until GitHub sign-in can check repository access.
-  if (pull.private && !operator)
+  // Private repositories: only for sessions that include the repository's installation.
+  const pull = result.state === "ok" ? result.data : null;
+  const readable =
+    pull !== null &&
+    (!pull.private || canAccessInstallation(session, pull.installation_id));
+  // Signed in without access, or no such report: "not found" either way, so nothing leaks.
+  if (!readable && session) notFound();
+  // Signed out: one prompt for private and unknown reports alike.
+  if (!readable || !pull)
     return (
       <div className="repository-page">
-        <ConsoleHeader operator={operator} />
+        <ConsoleHeader session={session} next={next} />
         <main className="collection-main" id="main">
           <div className="collection-intro">
             <div>
               <p className="collection-breadcrumb">Dependency verdict</p>
-              <h1>This report belongs to a private repository.</h1>
+              <h1>Sign in to read this report.</h1>
               <p>
-                Sign in with the workspace key to read it. The verdict and its
-                findings are also on the pull request on GitHub.
+                Reports on private repositories are shown to people with access
+                to the repository’s installation of the GitHub App. The verdict
+                and its findings are also on the pull request on GitHub.
               </p>
             </div>
           </div>
-          <OperatorSignIn purpose="Operator access is required for reports on private repositories." />
+          <SignInPanel
+            next={next}
+            title="Sign in with GitHub"
+            body="Use the GitHub account you open the pull request with."
+            operatorPurpose="For the deployment operator: the workspace key opens every report."
+          />
         </main>
       </div>
     );
   const [owner, name] = pull.repository.split("/");
   return (
     <div className="repository-page">
-      <ConsoleHeader operator={operator} />
+      <ConsoleHeader session={session} next={next} />
       <main className="collection-main report-main" id="main">
-        {operator && (
+        {canAccessInstallation(session, pull.installation_id) && (
           <p className="report-back">
             <Link
               className="text-link"

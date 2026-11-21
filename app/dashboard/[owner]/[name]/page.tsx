@@ -2,9 +2,13 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, ArrowRight, ArrowUpRight } from "lucide-react";
 import { ConsoleHeader } from "@/components/console-header";
-import { OperatorSignIn } from "@/components/operator-access";
+import { SignInPanel } from "@/components/auth-panel";
 import { PackageChanges, VerdictLabel } from "@/components/verdict";
-import { isOperator } from "@/lib/session";
+import {
+  canAccessInstallation,
+  getSession,
+  installationQuery,
+} from "@/lib/session";
 import {
   formatDate,
   GITHUB_NAME,
@@ -27,16 +31,18 @@ export default async function RepositoryDashboard({
   params,
   searchParams,
 }: Props) {
-  const [{ owner, name }, query, operator] = await Promise.all([
+  const [{ owner, name }, query, session] = await Promise.all([
     params,
     searchParams,
-    isOperator(),
+    getSession(),
   ]);
   if (!GITHUB_NAME.test(owner) || !GITHUB_NAME.test(name)) notFound();
-  if (!operator)
+  const base = `/dashboard/${encodeURIComponent(owner)}/${encodeURIComponent(name)}`;
+  // Signed out: the same prompt for every repository, so it says nothing about which exist.
+  if (!session)
     return (
       <div className="repository-page">
-        <ConsoleHeader current="dashboard" />
+        <ConsoleHeader current="dashboard" next={base} />
         <main className="collection-main" id="main">
           <div className="collection-intro">
             <div>
@@ -46,7 +52,12 @@ export default async function RepositoryDashboard({
               <h1>Dependency pull requests</h1>
             </div>
           </div>
-          <OperatorSignIn purpose="Operator access is required to see this repository’s pull requests." />
+          <SignInPanel
+            next={base}
+            title="Sign in to see this repository"
+            body="Dependency pull requests are listed for people with access to the repository’s installation of the GitHub App."
+            operatorPurpose="For the deployment operator: the workspace key shows every repository."
+          />
         </main>
       </div>
     );
@@ -55,14 +66,23 @@ export default async function RepositoryDashboard({
     /^[A-Za-z0-9_-]{1,200}$/.test(query.cursor)
       ? query.cursor
       : "";
+  // Repositories outside the user's installations are "not found", never "forbidden".
+  if (session.kind === "github" && session.installations.length === 0)
+    notFound();
+  const scope =
+    session.kind === "github" ? `&${installationQuery(session)}` : "";
   const result = await read<RepositoryPulls>(
-    `/app/repositories/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/pulls?limit=25${cursor ? `&cursor=${cursor}` : ""}`,
+    `/app/repositories/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/pulls?limit=25${cursor ? `&cursor=${cursor}` : ""}${scope}`,
   );
-  if (result.state === "missing") notFound();
-  const base = `/dashboard/${encodeURIComponent(owner)}/${encodeURIComponent(name)}`;
+  if (
+    result.state === "missing" ||
+    (result.state === "ok" &&
+      !canAccessInstallation(session, result.data.repository.installation_id))
+  )
+    notFound();
   return (
     <div className="repository-page">
-      <ConsoleHeader current="dashboard" operator />
+      <ConsoleHeader current="dashboard" session={session} next={base} />
       <main className="collection-main" id="main">
         <div className="collection-intro">
           <div>

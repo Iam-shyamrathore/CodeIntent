@@ -1,13 +1,18 @@
 import Link from "next/link";
+import "@/app/auth.css";
 import { Brand } from "./brand";
-import { OperatorSignOut } from "./operator-access";
+import { AuthUser } from "./auth-user";
+import type { Session } from "@/lib/session";
 
 export function ConsoleHeader({
   current,
-  operator,
+  session = null,
+  next,
 }: {
   current?: "setup" | "dashboard";
-  operator?: boolean;
+  session?: Session | null;
+  /** Where "Sign in" returns to; defaults to the dashboard. */
+  next?: string;
 }) {
   return (
     <header className="collection-header console-header">
@@ -25,7 +30,7 @@ export function ConsoleHeader({
         >
           Dashboard
         </Link>
-        {operator && <OperatorSignOut />}
+        <AuthUser session={session} next={next} />
       </nav>
     </header>
   );

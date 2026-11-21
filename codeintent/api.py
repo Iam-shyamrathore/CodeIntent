@@ -466,14 +466,27 @@ def _pull_row(row: dict) -> dict:
     }
 
 
+def _installation_scope(installations: list[int] | None) -> list[int] | None:
+    """Optional `installations=` filter (repeatable): the ids a signed-in user may read."""
+    if installations is None:
+        return None
+    if len(installations) > 100 or any(i < 1 for i in installations):
+        raise HTTPException(422, "Invalid installations filter")
+    return installations
+
+
 @app.get("/app/installations", dependencies=[Depends(authenticated)])
-def app_installations():
+def app_installations(installations: list[int] | None = Query(default=None)):
+    scope = _installation_scope(installations)
     with store.connection() as conn:
         rows = conn.execute(
             """SELECT i.id,i.account_login,i.account_type,i.suspended,i.created_at,i.updated_at,
               (SELECT count(*) FROM ci_installation_repositories r WHERE r.installation_id=i.id) AS repositories,
               (SELECT count(*) FROM ci_pull_analyses a WHERE a.installation_id=i.id) AS analyses
-            FROM ci_installations i WHERE i.deleted_at IS NULL ORDER BY lower(i.account_login),i.id"""
+            FROM ci_installations i WHERE i.deleted_at IS NULL
+              AND (%s::bigint[] IS NULL OR i.id=ANY(%s::bigint[]))
+            ORDER BY lower(i.account_login),i.id""",
+            (scope, scope),
         ).fetchall()
     return {"installations": rows}
 
@@ -564,7 +577,9 @@ def app_repository_pulls(
     installation: int | None = Query(default=None, ge=1),
     limit: int = Query(default=20, ge=1, le=100),
     cursor: str | None = Query(default=None, max_length=200),
+    installations: list[int] | None = Query(default=None),
 ):
+    scope = _installation_scope(installations)
     after = _decode_cursor(cursor) if cursor else None
     with store.connection() as conn:
         # Resolve the repository through live installations only, so removed or uninstalled
@@ -573,8 +588,9 @@ def app_repository_pulls(
             """SELECT r.installation_id,r.full_name,r.private,i.account_login FROM ci_installation_repositories r
             JOIN ci_installations i ON i.id=r.installation_id AND i.deleted_at IS NULL
             WHERE lower(r.full_name)=lower(%s) AND (%s::bigint IS NULL OR r.installation_id=%s)
+              AND (%s::bigint[] IS NULL OR r.installation_id=ANY(%s::bigint[]))
             ORDER BY r.installation_id""",
-            (f"{owner}/{name}", installation, installation),
+            (f"{owner}/{name}", installation, installation, scope, scope),
         ).fetchall()
         if not homes:
             raise HTTPException(404, "Repository not found")

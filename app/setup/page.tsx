@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowRight, ArrowUpRight } from "lucide-react";
 import { ConsoleHeader } from "@/components/console-header";
+import { getSession } from "@/lib/session";
 
 export const metadata = {
   title: "Set up · Code Intent",
@@ -23,12 +24,13 @@ const steps = [
   },
 ];
 
-export default function Setup() {
+export default async function Setup() {
+  const session = await getSession();
   const slug = process.env.NEXT_PUBLIC_GITHUB_APP_SLUG?.trim() || "";
   const valid = /^[a-z0-9](?:[a-z0-9-]{0,98}[a-z0-9])?$/i.test(slug);
   return (
     <div className="repository-page">
-      <ConsoleHeader current="setup" />
+      <ConsoleHeader current="setup" session={session} next="/setup" />
       <main className="collection-main" id="main">
         <div className="collection-intro">
           <div>
@@ -89,6 +91,10 @@ export default function Setup() {
               </p>
             </div>
           )}
+          <p>
+            Then sign in with GitHub on the dashboard. It lists the
+            installations GitHub says your account can access, and nothing else.
+          </p>
           <Link className="text-link" href="/dashboard">
             Open the dashboard <ArrowRight size={14} aria-hidden="true" />
           </Link>
@@ -110,10 +116,9 @@ export default function Setup() {
           </p>
           <ol className="telegram-steps">
             <li>
-              Open the <Link href="/dashboard">dashboard</Link>, signed in as
-              the workspace operator, and choose{" "}
-              <strong>Connect Telegram</strong> under the account. You get a
-              one-time code valid for 15 minutes.
+              Open the <Link href="/dashboard">dashboard</Link>, signed in with
+              GitHub, and choose <strong>Connect Telegram</strong> under the
+              account. You get a one-time code valid for 15 minutes.
             </li>
             <li>
               Open the bot from the link shown next to the code and press{" "}

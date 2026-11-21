@@ -1,10 +1,20 @@
 import Link from "next/link";
-import { ArrowRight, GitBranch, LockKeyhole } from "lucide-react";
+import { ArrowRight, ArrowUpRight, GitBranch, LockKeyhole } from "lucide-react";
+import {
+  AuthNotice,
+  NoInstallations,
+  SignInPanel,
+} from "@/components/auth-panel";
 import { ConsoleHeader } from "@/components/console-header";
-import { OperatorSignIn } from "@/components/operator-access";
 import { TelegramConnect } from "@/components/telegram-connect";
 import { VerdictLabel } from "@/components/verdict";
-import { isOperator } from "@/lib/session";
+import { installUrl } from "@/lib/auth";
+import {
+  canAccessInstallation,
+  getSession,
+  installationQuery,
+  type Session,
+} from "@/lib/session";
 import {
   formatDate,
   LABELS,
@@ -23,28 +33,34 @@ type Workspace = Installation & {
   telegram: TelegramLinks | null;
 };
 
-async function loadWorkspaces(): Promise<Workspace[] | null> {
+/** Installations this session may see: all for the operator, the user's own for GitHub sessions. */
+async function loadWorkspaces(session: Session): Promise<Workspace[] | null> {
   const installations = await read<{ installations: Installation[] }>(
-    "/app/installations",
+    session.kind === "github"
+      ? `/app/installations?${installationQuery(session)}`
+      : "/app/installations",
   );
   if (installations.state !== "ok") return null;
   return Promise.all(
-    installations.data.installations.map(async (installation) => {
-      const [repos, telegram] = await Promise.all([
-        read<{ repositories: InstalledRepository[] }>(
-          `/app/installations/${installation.id}/repositories`,
-        ),
-        read<TelegramLinks>(`/app/installations/${installation.id}/telegram`),
-      ]);
-      return {
-        telegram: telegram.state === "ok" ? telegram.data : null,
-        ...installation,
-        repos:
-          repos.state === "ok"
-            ? { state: "ok" as const, list: repos.data.repositories }
-            : { state: "unavailable" as const },
-      };
-    }),
+    installations.data.installations
+      // The backend already filters; this keeps the page safe if it ever does not.
+      .filter((installation) => canAccessInstallation(session, installation.id))
+      .map(async (installation) => {
+        const [repos, telegram] = await Promise.all([
+          read<{ repositories: InstalledRepository[] }>(
+            `/app/installations/${installation.id}/repositories`,
+          ),
+          read<TelegramLinks>(`/app/installations/${installation.id}/telegram`),
+        ]);
+        return {
+          telegram: telegram.state === "ok" ? telegram.data : null,
+          ...installation,
+          repos:
+            repos.state === "ok"
+              ? { state: "ok" as const, list: repos.data.repositories }
+              : { state: "unavailable" as const },
+        };
+      }),
   );
 }
 
@@ -115,9 +131,13 @@ function Counts({ repo }: { repo: InstalledRepository }) {
   );
 }
 
-export default async function Dashboard() {
-  const operator = await isOperator();
-  if (!operator)
+export default async function Dashboard({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
+  const [session, query] = await Promise.all([getSession(), searchParams]);
+  if (!session)
     return (
       <div className="repository-page">
         <ConsoleHeader current="dashboard" />
@@ -127,19 +147,40 @@ export default async function Dashboard() {
               <p className="collection-breadcrumb">Workspace / Dashboard</p>
               <h1>Every dependency pull request, in one place.</h1>
               <p>
-                The dashboard lists installed repositories and their verdicts.
-                It is limited to the workspace operator for now.
+                The dashboard lists the repositories where you installed the
+                GitHub App, with the latest verdict for each.
               </p>
             </div>
           </div>
-          <OperatorSignIn purpose="Operator access is required to see installations and their pull requests." />
+          <AuthNotice code={query.auth} />
+          <SignInPanel
+            next="/dashboard"
+            title="Sign in to see your repositories"
+            body="Sign in with the GitHub account that installed the App, or any account with access to an installed repository. You see only the installations GitHub says you can access."
+            operatorPurpose="For the deployment operator: the workspace key shows every installation."
+          />
         </main>
       </div>
     );
-  const workspaces = await loadWorkspaces();
+  if (session.kind === "github" && session.installations.length === 0)
+    return (
+      <div className="repository-page">
+        <ConsoleHeader current="dashboard" session={session} />
+        <main className="collection-main" id="main">
+          <div className="collection-intro">
+            <div>
+              <p className="collection-breadcrumb">Workspace / Dashboard</p>
+              <h1>Every dependency pull request, in one place.</h1>
+            </div>
+          </div>
+          <NoInstallations next="/dashboard" />
+        </main>
+      </div>
+    );
+  const workspaces = await loadWorkspaces(session);
   return (
     <div className="repository-page">
-      <ConsoleHeader current="dashboard" operator />
+      <ConsoleHeader current="dashboard" session={session} />
       <main className="collection-main" id="main">
         <div className="collection-intro">
           <div>
@@ -161,12 +202,21 @@ export default async function Dashboard() {
           <section className="console-empty" aria-labelledby="empty-heading">
             <h2 id="empty-heading">Nothing is installed yet</h2>
             <p>
-              Install the GitHub App on at least one repository. Its dependency
-              pull requests will appear here once they are analysed.
+              {session.kind === "github"
+                ? "Code Intent has not heard from your installations yet. New installations appear here within a minute; their dependency pull requests appear once they are analysed."
+                : "Install the GitHub App on at least one repository. Its dependency pull requests will appear here once they are analysed."}
             </p>
-            <Link className="text-link" href="/setup">
-              Set up the GitHub App <ArrowRight size={14} aria-hidden="true" />
-            </Link>
+            {session.kind === "github" ? (
+              <a className="text-link" href={installUrl()}>
+                Install the GitHub App{" "}
+                <ArrowUpRight size={14} aria-hidden="true" />
+              </a>
+            ) : (
+              <Link className="text-link" href="/setup">
+                Set up the GitHub App{" "}
+                <ArrowRight size={14} aria-hidden="true" />
+              </Link>
+            )}
           </section>
         )}
         {workspaces?.map((w) => (

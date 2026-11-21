@@ -111,6 +111,16 @@ def test_dashboard_validates_inputs_before_querying(client):
     assert response.status_code == 400
 
 
+@pytest.mark.parametrize(
+    "path", ["/app/installations", "/app/repositories/acme/app/pulls"]
+)
+def test_installation_scope_is_validated_before_querying(client, path):
+    assert client.get(f"{path}?installations=0").status_code == 422
+    assert client.get(f"{path}?installations=x").status_code == 422
+    many = "&".join(f"installations={i}" for i in range(1, 102))
+    assert client.get(f"{path}?{many}").status_code == 422
+
+
 @pytest.fixture
 def seeded(monkeypatch, client):
     original = os.environ.get("DATABASE_URL") or pytest.skip("DATABASE_URL is not set")
@@ -245,3 +255,20 @@ def test_pull_detail_returns_verdicts_and_never_deleted_installations(client, se
         client.get(f"/app/pulls/{seeded['breaks']}?installation=12").status_code == 404
     )
     assert client.get(f"/app/pulls/{uuid.uuid4()}").status_code == 404
+
+
+@integration
+def test_installation_scope_limits_installations_and_repository_pulls(client, seeded):
+    scoped = client.get("/app/installations?installations=12&installations=13").json()
+    assert [i["account_login"] for i in scoped["installations"]] == ["solo"]
+    both = client.get("/app/installations?installations=11&installations=12").json()
+    assert [i["id"] for i in both["installations"]] == [11, 12]
+    assert (
+        client.get("/app/repositories/acme/app/pulls?installations=12").status_code
+        == 404
+    )
+    allowed = client.get(
+        "/app/repositories/acme/app/pulls?installations=12&installations=11"
+    ).json()
+    assert allowed["repository"]["installation_id"] == 11
+    assert len(allowed["pulls"]) == 3

@@ -1,17 +1,22 @@
 import { NextResponse } from "next/server";
 import { service } from "@/lib/server-api";
-import { allowedOrigin, isOperator } from "@/lib/session";
+import {
+  allowedOrigin,
+  canAccessInstallation,
+  getSession,
+} from "@/lib/session";
 export const runtime = "nodejs";
-/** Creates a one-time Telegram link code for one installation. Operator session required. */
+/** Creates a one-time Telegram link code for one installation in the caller's session. */
 export async function POST(request: Request) {
   if (!allowedOrigin(request))
     return NextResponse.json(
       { detail: "Origin is not allowed" },
       { status: 403 },
     );
-  if (!(await isOperator()))
+  const session = await getSession();
+  if (!session)
     return NextResponse.json(
-      { detail: "Sign in as the workspace operator to connect Telegram" },
+      { detail: "Sign in with GitHub to connect Telegram" },
       { status: 403 },
     );
   let installation: unknown;
@@ -30,6 +35,12 @@ export async function POST(request: Request) {
     return NextResponse.json(
       { detail: "Invalid installation" },
       { status: 400 },
+    );
+  // Installations outside the session look exactly like ones that do not exist.
+  if (!canAccessInstallation(session, installation))
+    return NextResponse.json(
+      { detail: "This installation no longer exists" },
+      { status: 404, headers: { "Cache-Control": "no-store" } },
     );
   try {
     const response = await service(
