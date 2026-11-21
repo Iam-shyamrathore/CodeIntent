@@ -50,7 +50,7 @@ Python ecosystem only, done properly.
   - httpx 0.28 `proxies` → `openai-python`
   - itsdangerous 2.1 `json` → Flask 1.1
   - MarkupSafe 2.1 `soft_unicode` → Jinja2 2.11
-  - urllib3 2.0 `DEFAULT_CIPHERS` → botocore
+  - urllib3 2.0 `DEFAULT_CIPHERS` → botocore 1.29.121 (`httpsession.py:23`, unguarded). botocore 1.29.122+ (boto/botocore#2922) guards the import and falls back to `None`, so 1.29.130 must *not* return "Breaks you"
 
   A labelled set of upgrades known to be harmless must produce no false "Breaks you". Results are published with the numbers.
 - **Reliability.** Verified webhook signatures, idempotent delivery handling, durable jobs with retry, GitHub rate-limit backoff, and clear failure states in the PR, in Telegram and on the web.

@@ -20,6 +20,7 @@ dependencies = [
   "pip-requirements-parser==32.0.1",
   "poetry-core==2.5.0",
   "libcst==1.9.0",
+  "griffelib==2.4.1",
 ]
 
 [dependency-groups]

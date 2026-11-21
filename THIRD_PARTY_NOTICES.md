@@ -20,6 +20,7 @@ Code Intent uses upstream packages through their APIs. Their notices and licence
 | pip-requirements-parser (aboutcode-org) | `requirements.txt` parsing with line numbers, used behind our own include handling | MIT |
 | poetry-core | Converting Poetry `^`/`~` constraints to PEP 440 | MIT |
 | LibCST (Meta / Instagram) | Scope and qualified-name metadata for finding how consumer code uses a library | MIT; marked PSF portions |
+| griffe / griffelib (Timothée Mazzucotelli) | Static, import-free model of each released library version: modules, aliases, classes, signatures | ISC |
 | IBM Plex Sans / Mono | Self-hosted fonts | SIL OFL-1.1 |
 | Lucide | Interface icons | ISC |
 | PostgreSQL / Neo4j Community | Ledger and graph services | PostgreSQL Licence / GPL-3.0, separate container distributions |

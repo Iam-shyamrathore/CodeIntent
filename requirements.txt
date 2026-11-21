@@ -43,6 +43,8 @@ google-auth==2.62.0
     # via google-genai
 google-genai==2.34.0
     # via code-intent
+griffelib==2.4.1
+    # via code-intent
 h11==0.16.0
     # via
     #   httpcore

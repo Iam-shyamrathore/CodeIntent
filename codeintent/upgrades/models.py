@@ -76,12 +76,22 @@ class ManifestScan(Record):
 UsageKind = Literal["import", "reference", "annotation", "call", "subclass"]
 Guard = Literal["import-error", "broad-exception", "type-checking"]
 UncheckedReason = Literal[
+    "compiled-module",
     "dynamic-attribute",
+    "dynamic-definition",
     "dynamic-import",
+    "external-alias",
+    "external-base",
     "file-too-large",
+    "kwargs-absorbed",
     "kwargs-passthrough",
+    "load-error",
+    "not-in-distribution",
+    "not-in-old-version",
     "parse-error",
     "path-outside-repository",
+    "return-value",
+    "signature-unknown",
     "star-import",
 ]
 
@@ -129,3 +139,31 @@ class ReleaseRange(Record):
     start: ReleasePoint
     end: ReleasePoint
     not_located: str | None = None
+
+
+ChangeKind = Literal[
+    "removed",
+    "parameter-removed",
+    "parameter-required",
+    "parameter-moved",
+    "default-changed",
+    "deprecated",
+]
+
+
+class APIChange(Record):
+    """A difference between two releases that touches something the consumer uses."""
+
+    kind: ChangeKind
+    symbol: str
+    parameter: str | None = None
+    detail: str
+    message: str | None = None
+    before: Location | None = None
+    after: Location | None = None
+
+
+class UsageCheck(Record):
+    usage: Usage
+    changes: tuple[APIChange, ...] = ()
+    unchecked: tuple[Unchecked, ...] = ()

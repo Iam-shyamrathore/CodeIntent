@@ -30,14 +30,15 @@ Standard checks: `uv run pytest -q`, `uv run ruff check . && uv run ruff format 
 - [x] **T6 Release locator** (S)
   - Accept: given `package, from, to`, return the repository from PyPI `project_urls`, the release artifacts for both versions, and the matching git tags or commits. When it can't, it returns an explicit "not located" reason.
   - Files: `codeintent/upgrades/releases.py`, `codeintent/upgrades/artifacts.py`, `tests/upgrades/test_releases.py`.
-- [ ] **T7 Library API surface and consumer-driven diff** (M). Skills: `differential-review`
+- [x] **T7 Library API surface and consumer-driven diff** (M). Skills: `differential-review`
   - Accept: load each version statically with griffe (`allow_inspection=False`); resolve every used symbol (including non-public aliases) in both versions; compare parameters for used keyword arguments; add DeprecationWarning detection. Extract the API from each version's released source (modules, classes, functions, parameters, kw-only args, `**kwargs`, literal defaults, `__all__`, `warnings.warn(Deprecation…)` sites) and diff it into `APIChange{kind: removed|param_removed|renamed|default_changed|deprecated, symbol, detail}`. httpx 0.27.2 → 0.28.0 must include `Client(proxies=)` removed.
   - Files: `codeintent/upgrades/surface.py`, `tests/upgrades/test_surface.py`. Deps: T6.
+  - Done: `check(old, new, usage)` returns `removed | parameter-removed | parameter-required | parameter-moved | default-changed | deprecated` plus typed unchecked reasons. `renamed` is not detected; removals carry the old release's deprecation message, which usually names the replacement. Verified on real artifacts: 4/4 outages at the issue lines, botocore 1.29.130 guarded, jinja2 3.1 and werkzeug 2.1/3.0 variants on Flask 1.1.2, and 6 harmless upgrades with no removal or parameter findings.
 - [ ] **T8 Verdict engine and CLI** (M)
   - Accept: usage × API changes → `Breaks you | Needs a change | No known impact | Not checked`, with affected lines and the reasons anything wasn't checked. `python -m scripts.verdict --repo owner/name@ref --package P --from A --to B` prints JSON.
   - Files: `codeintent/upgrades/verdict.py`, `scripts/verdict.py`, `tests/upgrades/test_verdict.py`. Deps: T4, T5, T7.
 - [ ] **T9 Backtest harness** (M). Skills: `fp-check`, `regression-hunt`
-  - Accept: all 4 breakages return "Breaks you" with the right line: httpx 0.28 → `openai-python`, itsdangerous 2.1 → Flask 1.1.x, MarkupSafe 2.1 → Jinja2 2.11.x, urllib3 2.0 → botocore. The 14 additional verified cases from the research record are labelled too, and a mechanically sampled set of ≥50 harmless upgrades produces 0 false "Breaks you" (Wilson 95% upper bound reported). Results go to `artifacts/backtest/latest.json`; CI replays recorded fixtures offline.
+  - Accept: all 4 breakages return "Breaks you" with the right line: httpx 0.28 → `openai-python`, itsdangerous 2.1 → Flask 1.1.x, MarkupSafe 2.1 → Jinja2 2.11.x, urllib3 2.0 → botocore 1.29.121 (and botocore 1.29.130, which guards the import, must not). The 14 additional verified cases from the research record are labelled too, and a mechanically sampled set of ≥50 harmless upgrades produces 0 false "Breaks you" (Wilson 95% upper bound reported). Results go to `artifacts/backtest/latest.json`; CI replays recorded fixtures offline.
   - Files: `evals/upgrades.json`, `scripts/backtest.py`, `tests/test_backtest.py`, `.github/workflows/*`. Deps: T8.
 
 ### Checkpoint 1: is the core real?
