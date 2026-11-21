@@ -8,9 +8,13 @@ import type { TelegramCode } from "@/lib/telegram";
 export function TelegramConnect({
   installation,
   account,
+  label = "Connect Telegram",
+  primary = false,
 }: {
   installation: number;
   account: string;
+  label?: string;
+  primary?: boolean;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false),
@@ -49,8 +53,8 @@ export function TelegramConnect({
       {code ? (
         <div className="ci-tg-code" aria-live="polite">
           <p>
-            One-time code for {account}, valid until{" "}
-            <time dateTime={code.expires_at}>{expires}</time>:
+            Code for {account} · valid until{" "}
+            <time dateTime={code.expires_at}>{expires}</time>
           </p>
           <code className="ci-tg-code-value" translate="no">
             {code.code}
@@ -58,16 +62,15 @@ export function TelegramConnect({
           <div className="ci-tg-actions">
             <a className="ci-btn" href={code.group_link}>
               <PlaneMark />
-              Add @{code.bot_username} to a group
+              Add to a group
             </a>
-            <a className="ci-link" href={code.deep_link}>
-              Or a private chat <ArrowOut />
+            <a className="ci-btn-quiet" href={code.deep_link}>
+              Private chat <ArrowOut />
             </a>
           </div>
           <p>
-            In a group the bot is already in, send{" "}
-            <code translate="no">/link {code.code}</code>. Each code links one
-            chat.
+            Bot already in the group? Send{" "}
+            <code translate="no">/link {code.code}</code>
           </p>
           <div className="ci-tg-actions">
             <button
@@ -89,13 +92,13 @@ export function TelegramConnect({
         </div>
       ) : (
         <button
-          className="ci-btn-quiet"
+          className={primary ? "ci-btn" : "ci-btn-quiet"}
           onClick={create}
           disabled={busy}
           type="button"
         >
-          <PlaneMark size={14} />
-          {busy ? "Creating a code…" : "Connect Telegram"}
+          <PlaneMark size={primary ? 16 : 14} />
+          {busy ? "Creating a code…" : label}
         </button>
       )}
       <p role="alert" className="ci-error">

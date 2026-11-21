@@ -1,7 +1,10 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Check, Copy, KeyRound, Plus, Trash2 } from "lucide-react";
 import type { McpToken, NewMcpToken } from "@/lib/mcp";
+
+const ICON = { size: 15, strokeWidth: 1.5, "aria-hidden": true } as const;
 
 /** "AI agents": create an MCP token (shown once, with the command to add it) and revoke old ones. */
 export function AgentTokens({
@@ -49,9 +52,9 @@ export function AgentTokens({
   return (
     <div className="ci-agents">
       {created ? (
-        <div className="ci-tg-code" aria-live="polite">
+        <div className="ci-token-new" aria-live="polite">
           <p>
-            Token for {account}. It is shown once; add it to your agent now.
+            <Check {...ICON} /> Token for {account} · shown once
           </p>
           <code className="ci-agent-command" translate="no">
             {command}
@@ -65,6 +68,7 @@ export function AgentTokens({
                 setCopied(true);
               }}
             >
+              {copied ? <Check {...ICON} /> : <Copy {...ICON} />}
               {copied ? "Copied" : "Copy command"}
             </button>
             <button
@@ -75,38 +79,37 @@ export function AgentTokens({
               Done
             </button>
           </div>
-          <p>
-            Other agents: endpoint{" "}
-            <code translate="no">{created.endpoint}</code> with header{" "}
-            <code translate="no">Authorization: Bearer …</code>.
-          </p>
         </div>
       ) : (
         <button
-          className="ci-btn-quiet"
+          className="ci-btn"
           type="button"
           onClick={() => call("POST")}
           disabled={busy}
         >
-          {busy ? "Creating…" : "Create an agent token"}
+          <Plus {...ICON} />
+          {busy ? "Creating…" : "Create token"}
         </button>
       )}
       {tokens.length > 0 && (
-        <ul className="ci-agent-tokens" aria-label="Active agent tokens">
+        <ul className="ci-agent-tokens" aria-label={`Tokens for ${account}`}>
           {tokens.map((t) => (
             <li key={t.id}>
-              <code translate="no">ci_mcp_…{t.hint}</code>
+              <KeyRound {...ICON} />
+              <code translate="no">…{t.hint}</code>
               <span>
                 {t.last_used_at
-                  ? `used ${new Date(t.last_used_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`
-                  : "never used"}
+                  ? `Used ${new Date(t.last_used_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`
+                  : "Never used"}
               </span>
               <button
-                className="ci-link"
+                className="ci-icon-btn"
                 type="button"
                 onClick={() => call("DELETE", t.id)}
                 disabled={busy}
+                aria-label={`Revoke token ending ${t.hint}`}
               >
+                <Trash2 {...ICON} />
                 Revoke
               </button>
             </li>

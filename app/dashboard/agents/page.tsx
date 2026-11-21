@@ -1,24 +1,32 @@
 import Link from "next/link";
+import { BookOpen, SquareTerminal } from "lucide-react";
 import {
   AgentsTile,
   DashboardGate,
   PageHead,
 } from "@/components/dashboard/tiles";
+import { ArrowRight } from "@/components/site/icons";
 import { loadContext } from "@/lib/workspaces";
 
 export const metadata = { title: "AI agents · CodeIntent" };
 
+const CLIENTS: [string, string][] = [
+  ["Claude Code", "claude-code"],
+  ["Cursor", "cursor"],
+  ["Codex", "codex"],
+  ["Devin and others", "devin-and-other-clients"],
+];
 const TOOLS: [string, string][] = [
   [
     "upgrade_brief",
-    "What breaks if a package moves to a version, and the steps to fix it",
+    "What breaks if a package moves to a version, and how to fix it",
   ],
   ["why_pinned", "Every pin of a package, and the commit and PR that added it"],
   [
     "list_dependencies",
-    "Direct dependencies, their latest releases and what blocks them",
+    "Direct dependencies and what blocks their latest release",
   ],
-  ["advisories", "Known advisories for every locked or exactly pinned package"],
+  ["advisories", "Known advisories for every pinned package"],
 ];
 
 export default async function Agents() {
@@ -29,34 +37,44 @@ export default async function Agents() {
     <>
       <PageHead
         title="AI agents"
-        intro="Give Claude Code, Codex, Cursor or Devin the same answers the GitHub App posts, over MCP. Tokens belong to one installation and can be revoked here."
+        intro="Your coding agent asks CodeIntent over MCP."
+        action={
+          <Link className="ci-btn-quiet" href="/docs/mcp">
+            <BookOpen size={15} strokeWidth={1.5} aria-hidden="true" />
+            Docs
+          </Link>
+        }
       />
       <div className="ci-bento">
         <AgentsTile workspaces={context.workspaces} />
-        <section
-          className="ci-tile ci-tile-explain ci-tile-wide"
-          aria-labelledby="tools"
-        >
-          <div className="ci-tile-head">
-            <h2 id="tools">Tools</h2>
-            <Link href="/docs/mcp/clients">Connect a client</Link>
-          </div>
-          <dl className="ci-commands">
-            {TOOLS.map(([t, d]) => (
-              <div key={t}>
-                <dt>
-                  <code>{t}</code>
-                </dt>
-                <dd>{d}</dd>
-              </div>
+        <section className="ci-tile ci-tile-explain" aria-labelledby="clients">
+          <h2 id="clients">Connect</h2>
+          <ul className="ci-chips">
+            {CLIENTS.map(([name, id]) => (
+              <li key={id}>
+                <Link href={`/docs/mcp/clients#${id}`}>
+                  <SquareTerminal
+                    size={15}
+                    strokeWidth={1.5}
+                    aria-hidden="true"
+                  />
+                  {name}
+                  <ArrowRight size={12} />
+                </Link>
+              </li>
             ))}
-          </dl>
-          <p className="ci-tile-note">
-            All four are read-only.{" "}
-            <Link className="ci-link" href="/docs/mcp">
-              MCP reference
-            </Link>
-          </p>
+          </ul>
+          <h2>Tools</h2>
+          <ul className="ci-chips">
+            {TOOLS.map(([name, what]) => (
+              <li key={name}>
+                <code title={what} translate="no">
+                  {name}
+                </code>
+              </li>
+            ))}
+          </ul>
+          <p className="ci-tile-note">All read-only.</p>
         </section>
       </div>
     </>

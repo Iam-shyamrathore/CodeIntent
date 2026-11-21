@@ -5,10 +5,20 @@ import {
   SignInPanel,
 } from "@/components/auth-panel";
 import { AgentTokens } from "@/components/agent-tokens";
-import { ArrowOut, ArrowRight, GitHubMark } from "@/components/site/icons";
+import { KeyRound } from "lucide-react";
+import {
+  ArrowOut,
+  ArrowRight,
+  GitHubMark,
+  PlaneMark,
+} from "@/components/site/icons";
 import { DEMO_PR } from "@/components/site/links";
 import { TelegramConnect } from "@/components/telegram-connect";
-import { PackageChanges, VerdictLabel } from "@/components/verdict";
+import {
+  PackageChanges,
+  VerdictGlyph,
+  VerdictLabel,
+} from "@/components/verdict";
 import { installUrl } from "@/lib/auth";
 import {
   formatDate,
@@ -484,12 +494,26 @@ export function InstallTile() {
   );
 }
 
+const COMMANDS: [string, string][] = [
+  ["/status", "Repositories and the newest breaking pull requests"],
+  ["/why httpx", "The latest verdict for a package"],
+  ["/unlink", "Stop alerts in this chat"],
+];
+
 export function TelegramTile({ workspaces }: { workspaces: Workspace[] }) {
+  const linked = workspaces.some((w) => (w.telegram?.chats || []).length > 0);
   return (
     <section className="ci-tile ci-tile-telegram" aria-labelledby="tg-title">
-      <div className="ci-tile-head">
-        <h2 id="tg-title">Telegram</h2>
-        <Link href="/docs/telegram">How it works</Link>
+      <div className="ci-feature-head">
+        <span className="ci-feature-icon" aria-hidden="true">
+          <PlaneMark size={20} />
+        </span>
+        <div>
+          <h2 id="tg-title">Telegram</h2>
+          <p className="ci-tg-status" data-on={linked ? "" : undefined}>
+            {linked ? "Live" : "Not connected"}
+          </p>
+        </div>
       </div>
       {workspaces.map((w) => {
         const links = w.telegram;
@@ -504,47 +528,89 @@ export function TelegramTile({ workspaces }: { workspaces: Workspace[] }) {
               <p className="ci-note">
                 Telegram is not configured on this deployment.
               </p>
-            ) : chats.length > 0 ? (
-              <p className="ci-tg-status" data-on="">
-                <span>
-                  {chats.map((c) => c.title || "Telegram chat").join(", ")}{" "}
-                  <small>
-                    · {w.account_login} · linked{" "}
-                    <time dateTime={chats[0].linked_at}>
-                      {formatDate(chats[0].linked_at)}
-                    </time>
-                  </small>
-                </span>
-              </p>
             ) : (
-              <p className="ci-tg-status">
-                <span>
-                  Not connected{" "}
-                  {workspaces.length > 1 && <small>· {w.account_login}</small>}
-                </span>
-              </p>
-            )}
-            {links?.configured && chats.length === 0 && (
-              <TelegramConnect installation={w.id} account={w.account_login} />
+              <>
+                {chats.length > 0 && (
+                  <ul className="ci-chats">
+                    {chats.map((c) => (
+                      <li key={c.linked_at}>
+                        <strong>{c.title || "Telegram chat"}</strong>
+                        <span>
+                          {workspaces.length > 1 && `${w.account_login} · `}
+                          Linked{" "}
+                          <time dateTime={c.linked_at}>
+                            {formatDate(c.linked_at)}
+                          </time>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <TelegramConnect
+                  installation={w.id}
+                  account={w.account_login}
+                  primary={chats.length === 0}
+                  label={chats.length > 0 ? "Add a group" : "Connect Telegram"}
+                />
+              </>
             )}
           </div>
         );
       })}
+      <div className="ci-keys">
+        <span>In the chat</span>
+        {COMMANDS.map(([c, d]) => (
+          <kbd key={c} title={d}>
+            {c}
+          </kbd>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/** What gets pushed, as the same labels the dashboard uses. */
+export function AlertKindsTile() {
+  return (
+    <section className="ci-tile ci-tile-explain" aria-labelledby="kinds">
+      <h2 id="kinds">You get a message for</h2>
+      <ul className="ci-kinds">
+        <li>
+          <VerdictLabel verdict="breaks" />
+        </li>
+        <li>
+          <VerdictLabel verdict="needs-change" />
+        </li>
+        <li>
+          <span className="ci-verdict ci-verdict-no-known-impact">
+            <VerdictGlyph kind="no-known-impact" />
+            Pin can be lifted
+          </span>
+        </li>
+        <li>
+          <span className="ci-verdict">
+            <VerdictGlyph kind="not-checked" />
+            Known advisory
+          </span>
+        </li>
+      </ul>
+      <p className="ci-tile-note">Once per finding.</p>
     </section>
   );
 }
 
 export function AgentsTile({ workspaces }: { workspaces: Workspace[] }) {
   return (
-    <section className="ci-tile ci-tile-agents" aria-labelledby="agents">
-      <div className="ci-tile-head">
-        <h2 id="agents">AI agents</h2>
-        <Link href="/docs/mcp">MCP tools</Link>
+    <section className="ci-tile ci-tile-tokens" aria-labelledby="agents">
+      <div className="ci-feature-head">
+        <span className="ci-feature-icon" aria-hidden="true">
+          <KeyRound size={20} strokeWidth={1.5} />
+        </span>
+        <div>
+          <h2 id="agents">Agent tokens</h2>
+          <p className="ci-row-meta">Shown once · revoke any time</p>
+        </div>
       </div>
-      <p className="ci-tile-note">
-        Claude Code, Codex or Cursor ask CodeIntent what an upgrade breaks and
-        get the exact lines to change.
-      </p>
       {workspaces.map((w) =>
         w.agents === null ? (
           <p key={w.id} className="ci-note" role="status">
