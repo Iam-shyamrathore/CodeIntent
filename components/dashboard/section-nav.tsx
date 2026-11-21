@@ -17,6 +17,7 @@ const SECTIONS = new Set([
   "upcoming",
   "breaks",
   "impact",
+  "ecosystem",
   "runs",
   "repositories",
   "alerts",

@@ -66,6 +66,7 @@ export default async function DashboardLayout({
       {
         label: "Graph",
         items: [
+          { href: "/dashboard/ecosystem", label: "Ecosystem" },
           { href: "/dashboard/impact", label: "Impact" },
           {
             href: "/dashboard/runs",

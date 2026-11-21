@@ -2997,3 +2997,82 @@ li[data-state="next"] .ci-state {
     margin-left: 0;
   }
 }
+
+/* ------------------------------------------------ the ecosystem graph */
+.ci-eco-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 18px 24px;
+  margin-bottom: 16px;
+}
+.ci-eco-stats div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.ci-eco-stats strong {
+  font-family: var(--font-numerals);
+  font-variation-settings: "ROND" 100;
+  font-size: 30px;
+  font-weight: 800;
+  line-height: 1;
+}
+.ci-eco-stats span {
+  font-size: 12.5px;
+  color: var(--ash);
+}
+.ci-eco-stats .ci-note {
+  grid-column: 1 / -1;
+}
+.ci-chips-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--ash);
+}
+.ci-chips-line a {
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--carbon-2);
+  box-shadow: inset 0 0 0 1px var(--edge);
+  color: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+.ci-chips-line a:hover {
+  box-shadow: inset 0 0 0 1px var(--scan-deep);
+}
+.ci-why {
+  margin-bottom: 12px;
+  padding: 14px 18px;
+  border-radius: 16px;
+  background: var(--carbon);
+  box-shadow: inset 0 0 0 1px var(--scan-deep);
+  font-size: 14px;
+}
+.ci-why ol {
+  margin: 8px 0 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ci-dnode {
+  width: 190px;
+  flex-direction: row;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+.ci-dnode small {
+  text-transform: none;
+  letter-spacing: 0;
+  font-family: var(--font-mono);
+}
+.ci-gnode[data-tone="direct"] {
+  box-shadow: inset 0 0 0 1px var(--scan-deep);
+}
+.ci-exposure {
+  margin-top: 12px;
+}

@@ -378,6 +378,81 @@ export type Impact = {
   lines: ImpactLine[];
 };
 
+export type DependencyNode = {
+  id: string;
+  package: string;
+  version: string;
+  direct: boolean;
+};
+export type DependencyTree = {
+  repository: string;
+  nodes: DependencyNode[];
+  edges: { source: string; target: string }[];
+  why?: { package: string; chains: string[][] };
+};
+export type Exposure = {
+  installation_id: number;
+  repository: string;
+  package: string;
+  version: string;
+  direct: boolean;
+  advisory: string;
+  summary: string | null;
+  severity: string | null;
+  fixed: string | null;
+  url: string | null;
+  pulled_in_by: string[];
+};
+export type SourceRepoFacts = {
+  name: string;
+  url: string;
+  stars?: number | null;
+  forks?: number | null;
+  license?: string | null;
+  scorecard?: number | null;
+  maintained?: number | null;
+  description?: string | null;
+};
+export type PackageInfo = {
+  package: string;
+  known: boolean;
+  source?: SourceRepoFacts | null;
+  versions?: string[];
+  needs?: string[];
+  needed_by?: string[];
+  advisories?: {
+    name: string;
+    summary: string | null;
+    severity: string | null;
+    fixed: string | null;
+    url: string | null;
+  }[];
+  changes?: {
+    name: string;
+    kind: string;
+    version: string;
+    replacement: string | null;
+  }[];
+  dependents?: {
+    kind: "Repository" | "SourceRepo";
+    name: string;
+    stars: number | null;
+    hops: number;
+    via: string[];
+  }[];
+};
+export type EcosystemStats = {
+  nodes: Record<string, number>;
+  dependency_edges: number;
+  releases: Record<string, number>;
+  projects: {
+    full_name: string;
+    status: string;
+    dependencies: number | null;
+    indexed_at: string | null;
+  }[];
+};
+
 export type Loaded<T> =
   { state: "ok"; data: T } | { state: "missing" } | { state: "unavailable" };
 
