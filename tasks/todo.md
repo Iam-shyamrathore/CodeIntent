@@ -5,10 +5,10 @@ Standard checks: `uv run pytest -q`, `uv run ruff check . && uv run ruff format 
 
 ## Phase 0: Gates and baseline
 
-- [ ] **T1 Resolve the Next.js security advisory** (S). Skills: `vercel-react-best-practices`
+- [x] **T1 Resolve the Next.js security advisory** (S). Skills: `vercel-react-best-practices`
   - Accept: the upgrade is applied; `npm run build` passes with no security error; landing, investigate and report routes all return 200.
   - Files: `package.json`, `package-lock.json`, any API changes the upgrade requires.
-- [ ] **T2 Deploy the current app to a live HTTPS URL** (M). Skills: `shipping-and-launch`, `neo4j-aura-provisioning-skill`, `render-deploy` or `deploy-to-vercel`
+- [x] **T2 Deploy the current app to a live HTTPS URL** (M). Skills: `shipping-and-launch`, `neo4j-aura-provisioning-skill`, `render-deploy` or `deploy-to-vercel`
   - Accept: public `/health` returns 200; authenticated `/ready` returns 200; the saved HTTPX report opens on the public URL.
   - Files: `heroku.yml` / `render.yaml`, `docs/deployment.md`, `.env.example`. Deps: T1.
 - [ ] **T3 ArgosX baseline scan** (S). Skills: `security-review`
