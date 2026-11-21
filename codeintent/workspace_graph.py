@@ -89,7 +89,9 @@ class Batch:
         merged.update({k: v for k, v in props.items() if v is not None})
         return uid
 
-    def rel(self, kind: str, a: tuple[str, str], b: tuple[str, str], **props) -> None:
+    def rel(
+        self, kind: str, a: tuple[str, str], b: tuple[str, str], /, **props
+    ) -> None:
         group = self.rels[(a[0], kind, b[0])]
         group.setdefault((a[1], b[1]), {"a": a[1], "b": b[1], "props": {}})[
             "props"
