@@ -257,9 +257,10 @@ export default async function Dashboard({
   const recent = await loadRecent(session, repos);
   const latest = recent.slice(0, LATEST_SHOWN);
   const since = Date.now() - WEEK;
-  const breaking = recent.filter(
-    (p) => p.verdict === "breaks" && new Date(p.created_at).getTime() >= since,
-  ).length;
+  const thisWeek = recent.filter(
+    (p) => new Date(p.created_at).getTime() >= since,
+  );
+  const breaking = thisWeek.filter((p) => p.verdict === "breaks").length;
   const unavailable = workspaces.some((w) => w.repos.state === "unavailable");
   const install = installUrl();
   const greeting =
@@ -273,9 +274,9 @@ export default async function Dashboard({
           <h1 className="ci-title">
             {repos.length === 0
               ? "Nothing to watch yet"
-              : breaking > 0
-                ? `${breaking} upgrade${breaking === 1 ? "" : "s"} broke your code this week`
-                : "No breaking upgrades this week"}
+              : thisWeek.length > 0
+                ? `${thisWeek.length} dependency upgrade${thisWeek.length === 1 ? "" : "s"} checked this week`
+                : "No dependency upgrades this week"}
           </h1>
         </div>
       </div>
