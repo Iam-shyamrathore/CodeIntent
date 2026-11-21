@@ -28,6 +28,8 @@ node.File { color: #1b1a17; border-color: #77746c; diameter: 40px; caption: '{pa
 node.Symbol { color: #26343a; border-color: #8fd8ea; diameter: 46px; caption: '{name}'; }
 node.Package { color: #3b2f52; border-color: #b49cff; diameter: 52px; caption: '{name}'; }
 node.Release { color: #2d2640; border-color: #8f7ad6; diameter: 42px; caption: '{version}'; }
+node.UpstreamPR { color: #1d3a24; border-color: #5fd47f; diameter: 52px; caption: '{name}'; }
+node.Module { color: #22221f; border-color: #8f7ad6; diameter: 38px; caption: '{path}'; }
 node.PullRequest { color: #1d3a24; border-color: #5fd47f; diameter: 52px; caption: '{name}'; }
 node.Advisory { color: #5a4210; border-color: #ffb020; diameter: 48px; caption: '{name}'; }
 node.Pin { color: #3d2a12; border-color: #e08a3c; diameter: 46px; caption: '{name}'; }
@@ -37,3 +39,5 @@ relationship.CAUSED_BY { color: #ff4b3e; shaft-width: 2.5px; }
 relationship.AT { color: #ff6a5f; shaft-width: 2.5px; }
 relationship.CHANGED_IN { color: #5fd47f; shaft-width: 2.5px; }
 relationship.USES { color: #6be4ff; }
+relationship.DEPENDS_ON { color: #8f7ad6; shaft-width: 1.5px; }
+relationship.LOCKS { color: #6be4ff; }
