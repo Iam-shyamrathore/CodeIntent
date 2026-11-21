@@ -1,0 +1,28 @@
+export const metadata = { title: "Docs · CodeIntent" };
+
+# Introduction
+
+CodeIntent is a GitHub App for Python repositories. When a pull request changes a dependency, it reads your code and both releases of the library, without running either, and says whether the upgrade breaks you, at which lines, what to use instead, and why upstream changed it.
+
+It also compares every dependency with its latest release every day, so you hear about breakage before any pull request exists.
+
+## Where the answers show up
+
+| Surface                 | What you get                                                                         |
+| ----------------------- | ------------------------------------------------------------------------------------ |
+| **GitHub pull request** | One check run and one comment, edited in place on later pushes. This is the product. |
+| **Dashboard**           | Every verdict, upcoming breakage, pins you can lift, and your connections.           |
+| **Telegram**            | A message to your team's group when something breaks, once per finding.              |
+| **MCP server**          | AI coding agents ask the same questions and get the exact steps to apply.            |
+
+## What it never does
+
+- It never installs, imports or runs your code or the library's code. Both are parsed as data.
+- It never asks a model for the verdict. Fixed rules decide it from a static comparison.
+- "No known impact" is never a promise that an upgrade is safe. See [Verdicts](/docs/verdicts).
+
+## Next
+
+- [Quickstart](/docs/quickstart): a real verdict on your own repository in a few minutes.
+- [The analysis](/docs/how-it-works): what happens between the webhook and the comment.
+- [MCP server](/docs/mcp): give your agent the same answers.

@@ -1,0 +1,28 @@
+export const metadata = { title: "Telegram · CodeIntent docs" };
+
+# Telegram
+
+Findings are pushed to the Telegram group your team already reads, through `@codeintent_alerts_bot`.
+
+## Connect a group
+
+1. On [Alerts](/dashboard/alerts), choose **Connect Telegram**. You get a one-time 8-character code.
+2. Choose **Add @codeintent_alerts_bot to a group**, which adds the bot with the code. In a group the bot is already in, send `/link CODE` instead.
+3. The group is linked to that installation. Each code links one chat, is stored hashed and expires after 15 minutes.
+
+## What the group gets
+
+- A pull request breaks your code or needs a change.
+- A new release would break code you use.
+- A pin can be lifted.
+- A version you run has a known advisory.
+
+Each finding is sent once.
+
+## Commands
+
+| Command        | What it does                                       |
+| -------------- | -------------------------------------------------- |
+| `/status`      | Repositories and the newest breaking pull requests |
+| `/why package` | The latest verdict for a package                   |
+| `/unlink`      | Stop alerts in this chat                           |

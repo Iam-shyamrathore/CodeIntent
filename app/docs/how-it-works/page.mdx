@@ -1,0 +1,25 @@
+export const metadata = { title: "The analysis · CodeIntent docs" };
+
+# The analysis
+
+Every dependency pull request goes through the same steps on the worker. The verdict comes from these static checks; models only ever write explanations.
+
+## Steps
+
+1. **Read the dependency files.** The pull request's manifests and lock files are parsed with their source lines and pin kinds: `pyproject.toml`, `*requirements*.txt`, `uv.lock`, `poetry.lock`, `setup.cfg` and `setup.py`.
+2. **Find where your code uses the library.** Your code is parsed with LibCST, following aliases, keyword arguments, local subclasses, `**kwargs` forwarding and import fallbacks.
+3. **Download both releases from PyPI.** Each file is SHA-256 checked against PyPI and never installed.
+4. **Compare what you use, old against new.** Only the parts of the library your code touches are compared: removed symbols, removed or newly required parameters, moved parameters, changed defaults and deprecations.
+5. **Find the upstream decision.** For each change, the pull request that made it, the one that deprecated it and any later restoration, with quotes checked word for word.
+6. **Look up known vulnerabilities.** OSV.dev advisories for both versions, with the lowest fixed version.
+7. **Decide the verdict.** Fixed rules turn the findings into one of four [verdicts](/docs/verdicts).
+
+## What gets posted
+
+The worker posts one check run and one comment. On later pushes to the same pull request, the comment is edited in place rather than repeated. If anything fails, the check turns neutral and says why, so a failed analysis never blocks a merge.
+
+## What is out of scope
+
+- Packages that are not on PyPI.
+- Code reached only through dynamic imports such as `importlib.import_module(name)`. These are stated in the report, not counted.
+- Behaviour changes that leave every signature the same. A static comparison cannot see them, which is why "No known impact" is not "safe".

@@ -10,7 +10,7 @@ export function ConsoleHeader({
   session,
   next,
 }: {
-  current?: "setup" | "dashboard";
+  current?: "setup" | "dashboard" | "docs" | "pricing";
   /** Omit on static pages: no sign-in state is shown there. */
   session?: Session | null;
   /** Where "Sign in" returns to; defaults to the dashboard. */
@@ -35,6 +35,19 @@ export function ConsoleHeader({
             aria-current={current === "dashboard" ? "page" : undefined}
           >
             Dashboard
+          </Link>
+          <Link
+            href="/docs"
+            aria-current={current === "docs" ? "page" : undefined}
+          >
+            Docs
+          </Link>
+          <Link
+            className="ci-nav-pricing"
+            href="/pricing"
+            aria-current={current === "pricing" ? "page" : undefined}
+          >
+            Pricing
           </Link>
         </div>
         {session !== undefined && <AuthUser session={session} next={next} />}

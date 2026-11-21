@@ -9,6 +9,8 @@ export function SiteFooter() {
         “No known impact” is not a guarantee.
       </p>
       <nav aria-label="More">
+        <Link href="/docs">Docs</Link>
+        <Link href="/pricing">Pricing</Link>
         <Link href="/investigate">Investigations</Link>
         <Link href="/repositories">Repositories</Link>
         <Link href="/credits">Credits</Link>

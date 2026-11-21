@@ -1,0 +1,25 @@
+export const metadata = { title: "Before you upgrade · CodeIntent docs" };
+
+# Before you upgrade
+
+New releases appear without any change to your repository. So every watched repository's default branch is also scanned on its own: after install, after each merge, and daily.
+
+## What a scan compares
+
+For every direct dependency, the version you run now (from a lock file or an exact pin) is compared with its latest release, using the same [analysis](/docs/how-it-works) as a pull request. Nested projects in the same repository are included.
+
+## What it reports
+
+- **Breaks you** or **Needs a change:** the latest release would affect code you use, with the places in your code.
+- **Pin can be lifted:** a pin such as `httpx<0.28` blocks a release that changes nothing you use.
+- **Known advisory:** the version you run now has a published vulnerability, whether or not a newer release exists.
+
+## Pins and where they came from
+
+For each deliberate pin, the scan says whether to keep it, whether it can be lifted, or that it cannot tell, and finds the commit and pull request that added it. Git blame is walked back past edits that kept the clause, so you can read the author's reason before relaxing it.
+
+## Where to see it
+
+- On [Before you upgrade](/dashboard/upcoming), across all repositories, filterable by kind.
+- On each repository's page, with **Scan now** to run it again.
+- In Telegram, once per finding.

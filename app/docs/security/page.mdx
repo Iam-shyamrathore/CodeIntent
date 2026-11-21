@@ -1,0 +1,27 @@
+export const metadata = { title: "Security and data · CodeIntent docs" };
+
+# Security and data
+
+## What the App can access
+
+The GitHub App asks for read access to **contents** and **metadata**, and write access to **checks** and **pull requests**, only to post its own check run and comment. It sees only the repositories you select.
+
+## What happens to your code
+
+- Your repository is downloaded per analysis into a temporary folder and deleted afterwards.
+- Nothing is installed, built, imported or run. Your code and the library's code are read statically.
+- Library releases are downloaded from PyPI and checked against their SHA-256 hashes.
+- Verdicts, scans and pin origins are stored in PostgreSQL, scoped to your installation.
+
+## Who can see what
+
+- You sign in with GitHub. Your session lists the installations GitHub says you can access, and every dashboard read is scoped to them. Unknown and forbidden repositories look the same: not found.
+- Reports on private repositories are shown only to people whose session includes that installation.
+- In an organisation, access is per installation: anyone who can reach one installed repository sees the verdicts for that installation's repositories.
+
+## Tokens and secrets
+
+- MCP tokens are stored only as SHA-256 digests, shown once, revocable at any time, and their last use is recorded.
+- Telegram link codes are one-time, stored hashed and valid for 15 minutes.
+- Webhooks are accepted only with a valid HMAC-SHA256 signature, and each delivery is processed once.
+- Failures log only the error's class name, never upstream response text or tokens.

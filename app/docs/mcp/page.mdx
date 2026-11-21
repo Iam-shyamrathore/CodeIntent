@@ -1,0 +1,53 @@
+export const metadata = { title: "MCP server · CodeIntent docs" };
+
+# MCP server
+
+AI coding agents (Claude Code, Codex, Cursor, Devin, anything that speaks MCP) can ask CodeIntent the same question the GitHub App answers on pull requests: _what breaks in this repository if dependency X moves to version Y, and what exactly do I change?_
+
+The answers are deterministic. Both releases are compared statically against the repository's own code. Nothing is executed, and no model writes the brief.
+
+## Endpoint and auth
+
+- **Transport:** MCP streamable HTTP, endpoint `/mcp`. It is stateless, so any worker can serve any request.
+- **Hosted endpoint:** `https://codeintent-api-ded80aad7f4b.herokuapp.com/mcp`
+- **Auth:** every request needs `Authorization: Bearer <token>`. A missing or wrong token gets `401`.
+
+Create a token on [AI agents](/dashboard/agents). It belongs to one GitHub App installation, is shown once, is stored only as a SHA-256 digest, and can be revoked there.
+
+## Scope
+
+With a workspace token, the installation's own repositories, private ones included, are read with its installation token. Any other repository is fetched as the public sees it. Each call downloads the repository tarball for the requested ref (300 MB cap) into a temporary folder and deletes it afterwards.
+
+## Tools
+
+All four tools are read-only. Each returns structured JSON with an output schema. A failure comes back as a tool error with a short message the agent can act on, never a stack trace.
+
+| Tool                | Arguments                                                                                                       | Returns                                                                                                                                                                     |
+| ------------------- | --------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `upgrade_brief`     | `repo` (`owner/name` or `owner/name@ref`), `package`, `to_version` (exact or `latest`), optional `from_version` | `verdict`, `reason`, ordered `steps`, `findings` with `file:line`, `unchecked` uses with reasons, OSV `advisories` for both versions, `declarations`, `release`, `coverage` |
+| `why_pinned`        | `repo`, `package`                                                                                               | Every declaration with `file:line`, specifier, pins and locked version; for each deliberate pin, `introduced_by`: the commit and pull request that added it                 |
+| `list_dependencies` | `repo`                                                                                                          | Direct dependencies: current version, latest PyPI release, `newer_available`, and `blocked_by` (declarations that exclude the latest)                                       |
+| `advisories`        | `repo`                                                                                                          | OSV.dev advisories for every locked or exactly pinned package, split into `affected`, `not_checked`, `none_known` and `unpinned`                                            |
+
+`upgrade_brief` reads the current version from a lock file, or else from a single exact `==` pin. If neither exists, or several versions are found, it asks for `from_version`.
+
+## Example
+
+`upgrade_brief` with `openai/openai-python@v1.54.4`, `httpx`, `0.27.2` → `0.28.0` (abridged):
+
+```json
+{
+  "verdict": "breaks",
+  "reason": "2 change(s) in httpx 0.28.0 break code you use, at 3 place(s)",
+  "steps": [
+    "In src/openai/_base_client.py:1438, replace proxies= with proxy= or mounts= in the call to `httpx._client.AsyncClient`",
+    "In src/openai/_base_client.py:857, replace proxies= with proxy= or mounts= in the call to `httpx._client.Client`",
+    "In src/openai/cli/_cli.py:179, replace proxies= with proxy= or mounts= in the call to `httpx._client.Client`",
+    "Change `httpx==0.25.2` at requirements.lock:28 to `httpx==0.28.0`"
+  ]
+}
+```
+
+A first run for a package takes about 10 to 60 seconds; release files are cached afterwards. Long analyses keep the stream open with keepalive pings every 15 seconds.
+
+Next: [Connect an agent](/docs/mcp/clients).

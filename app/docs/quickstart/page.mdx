@@ -1,0 +1,41 @@
+export const metadata = { title: "Quickstart · CodeIntent docs" };
+
+# Quickstart
+
+## 1. See it on a real pull request
+
+The public demo repository pins `httpx==0.27.2` and calls `httpx.Client(proxies=...)`, which httpx 0.28 removed. Dependabot opened the upgrade and CodeIntent answered on its own.
+
+- **Breaks you:** [codeintent-demo#1](https://github.com/Iam-shyamrathore/codeintent-demo/pull/1), naming `weather/client.py:12`, the replacement `proxy=` or `mounts=`, and the upstream PR that removed it.
+- **No known impact:** [codeintent-demo#2](https://github.com/Iam-shyamrathore/codeintent-demo/pull/2), plus the advisories the upgrade leaves behind.
+
+## 2. Install the App
+
+1. Go to [Setup](/setup) and choose **Install on GitHub**.
+2. Pick repositories with a `pyproject.toml`, `requirements*.txt`, `uv.lock`, `poetry.lock`, `setup.cfg` or `setup.py`.
+3. Within a minute or two, [Before you upgrade](/dashboard/upcoming) lists any dependency whose latest release breaks or changes code you use.
+4. Open a pull request that changes a dependency, or wait for Dependabot or Renovate. One check run and one comment appear.
+
+The App asks for read access to contents and metadata, and write access to checks and pull requests for its own check and comment.
+
+## 3. Connect Telegram
+
+On [Alerts](/dashboard/alerts), choose **Connect Telegram** and add `@codeintent_alerts_bot` to your group with the one-time code. See [Telegram](/docs/telegram).
+
+## 4. Let your agent fix it
+
+On [AI agents](/dashboard/agents), create a token. It is shown once, with the command to add it:
+
+```bash
+claude mcp add --transport http codeintent https://codeintent-api-ded80aad7f4b.herokuapp.com/mcp \
+  --header "Authorization: Bearer ci_mcp_…"
+```
+
+Then ask: _"Use codeintent's upgrade_brief for httpx to latest on my repository and apply the steps."_ See [Connect an agent](/docs/mcp/clients) for Cursor, Codex and others.
+
+## 5. Run the engine locally
+
+```bash
+uv sync
+uv run python -m scripts.verdict --repo openai/openai-python@v1.54.4 --package httpx --from 0.27.2 --to 0.28.0
+```

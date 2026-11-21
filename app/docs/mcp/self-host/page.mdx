@@ -1,0 +1,23 @@
+export const metadata = { title: "Run the MCP server · CodeIntent docs" };
+
+# Run the MCP server
+
+The server ships with the repository. Run it locally or next to your own deployment:
+
+```bash
+export CODEINTENT_MCP_TOKEN="$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))')"
+uv run python -m scripts.mcp_server   # http://127.0.0.1:8220/mcp, plus an open GET /healthz
+```
+
+## Configuration
+
+| Variable                       | Default              | Meaning                                                                                                                                                                                                               |
+| ------------------------------ | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `CODEINTENT_MCP_TOKEN`         | none                 | Bearer token clients must send. Required when `CODEINTENT_ENV=production`, where the server refuses to start without it. Elsewhere a missing token logs a warning and leaves the endpoint open, for development only. |
+| `PORT` / `HOST`                | `8220` / `127.0.0.1` | Listen address. Use `HOST=0.0.0.0` in containers and on Heroku.                                                                                                                                                       |
+| `CODEINTENT_MCP_ALLOWED_HOSTS` | none                 | Comma-separated public hostnames. When set, requests with any other `Host` header get `421`.                                                                                                                          |
+| `CODEINTENT_MCP_CONCURRENCY`   | `2`                  | Repository analyses that may run at once. A caller that waits more than 60 s for a slot gets a "busy, retry" tool error.                                                                                              |
+| `FORWARDED_ALLOW_IPS`          | `127.0.0.1`          | Proxies whose `X-Forwarded-*` headers are trusted. Set it to `*` behind the Heroku router.                                                                                                                            |
+| `GITHUB_TOKEN`                 | none                 | Optional. Raises GitHub's anonymous rate limit for tarball downloads.                                                                                                                                                 |
+
+Release files are cached in `CODEINTENT_ARTIFACT_CACHE` after the first run for a package.

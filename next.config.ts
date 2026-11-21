@@ -1,6 +1,9 @@
 import type { NextConfig } from "next";
+import createMDX from "@next/mdx";
+
 const config: NextConfig = {
   devIndicators: false,
+  pageExtensions: ["js", "jsx", "md", "mdx", "ts", "tsx"],
   output: "standalone",
   poweredByHeader: false,
   outputFileTracingIncludes: { "/*": ["./fixtures/studies/*.json"] },
@@ -18,4 +21,8 @@ const config: NextConfig = {
   },
   turbopack: { root: process.cwd() },
 };
-export default config;
+/** Docs pages are MDX under app/docs; plugins are named as strings so Turbopack can load them. */
+const withMDX = createMDX({
+  options: { remarkPlugins: ["remark-gfm"], rehypePlugins: ["rehype-slug"] },
+});
+export default withMDX(config);

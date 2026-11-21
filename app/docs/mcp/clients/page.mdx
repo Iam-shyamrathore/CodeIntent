@@ -1,0 +1,83 @@
+export const metadata = { title: "Connect an agent · CodeIntent docs" };
+
+# Connect an agent
+
+Use the hosted endpoint `https://codeintent-api-ded80aad7f4b.herokuapp.com/mcp`, or your own deployment's URL. Keep the token in an environment variable, not in a committed file:
+
+```bash
+export CODEINTENT_MCP_TOKEN="ci_mcp_…"
+```
+
+## Claude Code
+
+```bash
+claude mcp add --transport http codeintent https://YOUR-HOST/mcp \
+  --header "Authorization: Bearer ${CODEINTENT_MCP_TOKEN}"
+```
+
+Or commit a project `.mcp.json`. Claude Code expands `${VAR}` when it connects, so the token stays out of the file:
+
+```json
+{
+  "mcpServers": {
+    "codeintent": {
+      "type": "http",
+      "url": "https://YOUR-HOST/mcp",
+      "headers": { "Authorization": "Bearer ${CODEINTENT_MCP_TOKEN}" }
+    }
+  }
+}
+```
+
+A first-time `upgrade_brief` can take longer than a minute. If Claude Code times out, raise its limit with `MCP_TOOL_TIMEOUT=300000` (milliseconds).
+
+## Cursor
+
+`.cursor/mcp.json` in the project, or `~/.cursor/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "codeintent": {
+      "url": "https://YOUR-HOST/mcp",
+      "headers": { "Authorization": "Bearer ${env:CODEINTENT_MCP_TOKEN}" }
+    }
+  }
+}
+```
+
+Some Cursor builds do not interpolate `${env:...}` in remote headers. If the server answers `401`, put the literal token in your global `~/.cursor/mcp.json` instead of a committed file.
+
+## Codex
+
+`~/.codex/config.toml`, or `.codex/config.toml` in a trusted project:
+
+```toml
+[mcp_servers.codeintent]
+url = "https://YOUR-HOST/mcp"
+bearer_token_env_var = "CODEINTENT_MCP_TOKEN"
+tool_timeout_sec = 300
+```
+
+The CLI equivalent:
+
+```bash
+codex mcp add codeintent --url https://YOUR-HOST/mcp --bearer-token-env-var CODEINTENT_MCP_TOKEN
+```
+
+## Devin and other clients
+
+Add a custom MCP server with transport **streamable HTTP** (sometimes labelled "HTTP"), URL `https://YOUR-HOST/mcp`, and the header `Authorization: Bearer <token>`.
+
+## Python (MCP SDK)
+
+```python
+import httpx2
+from mcp import Client
+from mcp.client.streamable_http import streamable_http_client
+
+async with httpx2.AsyncClient(headers={"Authorization": f"Bearer {token}"}, timeout=httpx2.Timeout(30, read=600)) as http:
+    async with Client(streamable_http_client("https://YOUR-HOST/mcp", http_client=http)) as client:
+        brief = await client.call_tool("upgrade_brief", {"repo": "pallets/flask@1.1.4", "package": "itsdangerous", "to_version": "2.1.0", "from_version": "1.1.0"})
+        print(brief.structured_content["steps"])
+```

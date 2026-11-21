@@ -1,8 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ConsoleHeader } from "@/components/console-header";
 import { SignInPanel } from "@/components/auth-panel";
-import { SiteFooter } from "@/components/site/footer";
 import { ArrowOut, ArrowRight } from "@/components/site/icons";
 import { Upcoming } from "@/components/upcoming";
 import { PackageChanges, VerdictLabel } from "@/components/verdict";
@@ -10,7 +8,6 @@ import {
   canAccessInstallation,
   getSession,
   installationQuery,
-  type Session,
 } from "@/lib/session";
 import {
   formatDate,
@@ -31,26 +28,6 @@ export async function generateMetadata({ params }: Props) {
   return { title: `${owner}/${name} · CodeIntent` };
 }
 
-function Shell({
-  session,
-  next,
-  children,
-}: {
-  session: Session | null;
-  next: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="ci ci-page">
-      <ConsoleHeader current="dashboard" session={session} next={next} />
-      <main className="ci-main" id="main">
-        {children}
-      </main>
-      <SiteFooter />
-    </div>
-  );
-}
-
 export default async function RepositoryDashboard({
   params,
   searchParams,
@@ -65,11 +42,11 @@ export default async function RepositoryDashboard({
   // Signed out: the same prompt for every repository, so it says nothing about which exist.
   if (!session)
     return (
-      <Shell session={null} next={base}>
+      <>
         <div className="ci-head">
           <div>
             <p className="ci-crumb">
-              <Link href="/dashboard">Dashboard</Link>
+              <Link href="/dashboard/repositories">Repositories</Link>
               <span aria-hidden="true">/</span>
               {owner}/{name}
             </p>
@@ -82,7 +59,7 @@ export default async function RepositoryDashboard({
           body="Dependency pull requests are listed for people with access to the repository’s installation of the GitHub App."
           operatorPurpose="For the deployment operator: the workspace key shows every repository."
         />
-      </Shell>
+      </>
     );
   const cursor =
     typeof query.cursor === "string" &&
@@ -116,11 +93,11 @@ export default async function RepositoryDashboard({
       ? result.data.repository.full_name
       : `${owner}/${name}`;
   return (
-    <Shell session={session} next={base}>
+    <>
       <div className="ci-head">
         <div>
           <p className="ci-crumb">
-            <Link href="/dashboard">Dashboard</Link>
+            <Link href="/dashboard/repositories">Repositories</Link>
             <span aria-hidden="true">/</span>
             {cursor ? "Older pull requests" : "Dependency pull requests"}
           </p>
@@ -200,6 +177,6 @@ export default async function RepositoryDashboard({
           result={upcoming.state === "ok" ? upcoming.data.scan : "unavailable"}
         />
       )}
-    </Shell>
+    </>
   );
 }

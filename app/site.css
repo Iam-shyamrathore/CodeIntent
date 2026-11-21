@@ -752,8 +752,17 @@
   grid-row: 1;
 }
 .ci-tile-telegram {
+  grid-column: 1 / 4;
+}
+.ci-tile-setup {
   grid-column: 1 / 3;
   grid-row: 2;
+}
+.ci-tile-explain {
+  grid-column: 4 / 7;
+}
+.ci-tile-wide {
+  grid-column: 1 / -1;
 }
 .ci-tile-repos {
   grid-column: 1 / 5;
@@ -1555,6 +1564,618 @@ li[data-state="next"] .ci-state {
 .ci-tile-upcoming .ci-tile-head,
 .ci-upcoming .ci-tile-head {
   flex-wrap: wrap;
+}
+
+/* -------------------------------------------- app shell: section menu */
+.ci-app {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 216px minmax(0, 1fr);
+  gap: 40px;
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: clamp(28px, 6vh, 56px) var(--pad) 48px;
+}
+.ci-app-main {
+  min-width: 0;
+}
+.ci-sections {
+  position: sticky;
+  top: 24px;
+  align-self: start;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.ci-sections-group > p {
+  margin: 0 0 6px 12px;
+  font-size: 12.5px;
+  color: var(--dim);
+}
+.ci-sections ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.ci-sections a {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 10px;
+  font-size: 14px;
+  color: var(--ash);
+  white-space: nowrap;
+  transition:
+    color 200ms var(--ease),
+    background-color 200ms var(--ease);
+}
+.ci-sections a:hover {
+  color: var(--ink);
+  background: var(--carbon);
+}
+.ci-sections a[aria-current="page"] {
+  color: var(--ink);
+  background: var(--carbon-2);
+  box-shadow:
+    inset 0 0 0 1px var(--edge-strong),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+.ci-sections-count {
+  font-family: var(--font-numerals);
+  font-variation-settings: "ROND" 100;
+  font-weight: 800;
+  font-size: 16px;
+  line-height: 1;
+  color: var(--dim);
+  font-variant-numeric: tabular-nums;
+}
+.ci-sections-count[data-alarm] {
+  color: var(--break);
+}
+
+/* ----------------------------------------------------- dashboard parts */
+.ci-see-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+.ci-tile-breaks .ci-tile-note a {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink);
+}
+.ci-tile-breaks .ci-tile-note a:hover {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.ci-setup-rows {
+  margin: auto 0 0;
+  padding: 0;
+  list-style: none;
+}
+.ci-setup-rows li + li {
+  border-top: 1px solid var(--edge);
+}
+.ci-setup-rows a {
+  display: grid;
+  grid-template-columns: 7px auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  font-size: 13.5px;
+  color: var(--ash);
+  transition: color 200ms var(--ease);
+}
+.ci-setup-rows a::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--dim);
+}
+.ci-setup-rows a[data-on]::before {
+  background: var(--scan);
+}
+.ci-setup-rows strong {
+  font-weight: 500;
+  color: var(--ink);
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ci-setup-rows a:not([data-on]) strong {
+  color: var(--ash);
+}
+.ci-setup-rows a:hover strong {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.ci-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 16px;
+}
+.ci-filters a {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: var(--carbon);
+  box-shadow: inset 0 0 0 1px var(--edge);
+  font-size: 13.5px;
+  color: var(--ash);
+  transition:
+    color 200ms var(--ease),
+    background-color 200ms var(--ease);
+}
+.ci-filters a:hover {
+  color: var(--ink);
+}
+.ci-filters a[aria-current] {
+  color: var(--ink);
+  background: var(--carbon-3);
+  box-shadow: inset 0 0 0 1px var(--edge-strong);
+}
+.ci-filters a[data-empty]:not([aria-current]) {
+  opacity: 0.55;
+}
+.ci-filters span {
+  color: var(--dim);
+  font-variant-numeric: tabular-nums;
+}
+.ci-search input {
+  width: min(240px, 100%);
+  min-height: 34px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--carbon-2);
+  box-shadow: inset 0 0 0 1px var(--edge);
+  color: var(--ink);
+  font: inherit;
+  font-size: 13.5px;
+}
+.ci-search input::placeholder {
+  color: var(--dim);
+}
+.ci-plain-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 14px;
+  color: var(--ash);
+}
+.ci-plain-list li {
+  padding: 8px 0;
+}
+.ci-plain-list li + li {
+  border-top: 1px solid var(--edge);
+}
+.ci-tile-explain h2 + * {
+  margin-top: -4px;
+}
+.ci-tile-explain * + h2 {
+  margin-top: 10px;
+}
+.ci-commands {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px 24px;
+  margin: 0;
+}
+.ci-commands dt code {
+  color: var(--ink);
+  font-size: 12.5px;
+}
+.ci-commands dd {
+  margin: 4px 0 0;
+  font-size: 13.5px;
+  color: var(--ash);
+}
+.ci-tile-explain .ci-tile-note {
+  margin-top: auto;
+  font-size: 13.5px;
+  color: var(--ash);
+}
+.ci-notice {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 16px;
+  padding: 12px 16px;
+  border-radius: 14px;
+  background: var(--carbon);
+  box-shadow: inset 0 0 0 1px var(--edge);
+  font-size: 14px;
+  color: var(--ash);
+}
+.ci-notice::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--scan);
+  flex-shrink: 0;
+}
+
+/* ------------------------------------------------------------- billing */
+.ci-tile-plan,
+.ci-tile-pay {
+  grid-column: 1 / 3;
+}
+.ci-tile-usage,
+.ci-tile-invoices {
+  grid-column: 3 / 7;
+}
+.ci-plan-now {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.ci-plan-now strong {
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  font-variation-settings: "wdth" 112;
+}
+.ci-plan-now span,
+.ci-tile-pay .ci-tile-note {
+  font-size: 13.5px;
+  color: var(--ash);
+}
+.ci-tile-plan .ci-btn-quiet,
+.ci-tile-pay .ci-btn-quiet {
+  align-self: flex-start;
+  margin-top: auto;
+}
+.ci-tile-pay .ci-btn-quiet:disabled {
+  color: var(--dim);
+  cursor: not-allowed;
+}
+.ci-usage {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 16px 24px;
+  margin: auto 0 0;
+}
+.ci-usage dt a {
+  font-size: 13px;
+  color: var(--ash);
+}
+.ci-usage dt a:hover {
+  color: var(--ink);
+}
+.ci-usage dd {
+  margin: 6px 0 0;
+  font-size: 44px;
+}
+
+/* ------------------------------------------------------------- pricing */
+.ci-plans {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ci-plan {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 26px 24px 24px;
+  border-radius: var(--radius);
+  background: var(--carbon);
+  box-shadow:
+    inset 0 0 0 1px var(--edge),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+.ci-plan[data-featured] {
+  background: var(--carbon-2);
+  box-shadow:
+    inset 0 0 0 1px rgba(107, 228, 255, 0.28),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+.ci-plan-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.ci-plan-head h2 {
+  font-size: 18px;
+}
+.ci-plan-tag {
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--carbon-3);
+  font-size: 12px;
+  color: var(--ash);
+}
+.ci-plan-price {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+}
+.ci-plan-price strong {
+  font-family: var(--font-numerals);
+  font-variation-settings: "ROND" 100;
+  font-weight: 800;
+  font-size: 52px;
+  line-height: 1;
+}
+.ci-plan-price span,
+.ci-plan-summary {
+  font-size: 13.5px;
+  color: var(--ash);
+}
+.ci-plan-features {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 4px 0 8px;
+  padding: 14px 0 0;
+  list-style: none;
+  border-top: 1px solid var(--edge);
+  font-size: 14px;
+}
+.ci-plan-features li {
+  position: relative;
+  padding-left: 18px;
+}
+.ci-plan-features li::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+  top: 0.62em;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--ash);
+}
+.ci-plan .ci-btn,
+.ci-plan .ci-btn-quiet {
+  margin-top: auto;
+  justify-content: center;
+}
+.ci-faq {
+  margin-top: 56px;
+}
+.ci-faq h2 {
+  font-size: 18px;
+  margin-bottom: 18px;
+}
+.ci-faq dl {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 24px;
+  margin: 0;
+}
+.ci-faq dt {
+  font-weight: 500;
+}
+.ci-faq dd {
+  margin: 6px 0 0;
+  font-size: 14px;
+  color: var(--ash);
+}
+.ci-faq dd a {
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* ---------------------------------------------------------------- docs */
+.ci-prose {
+  max-width: 74ch;
+  color: #d4d1c8;
+  font-size: 15.5px;
+  line-height: 1.7;
+}
+.ci-prose h1 {
+  font-size: clamp(30px, 3.4vw, 42px);
+  line-height: 1.06;
+  letter-spacing: -0.03em;
+  font-variation-settings: "wdth" 112;
+  color: var(--ink);
+  margin-bottom: 18px;
+}
+.ci-prose h2 {
+  font-size: 21px;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+  margin: 44px 0 12px;
+  scroll-margin-top: 24px;
+}
+.ci-prose h3 {
+  font-size: 16.5px;
+  color: var(--ink);
+  margin: 28px 0 8px;
+  scroll-margin-top: 24px;
+}
+.ci-prose p,
+.ci-prose ul,
+.ci-prose ol,
+.ci-prose pre,
+.ci-prose-table {
+  margin: 0 0 16px;
+}
+.ci-prose ul,
+.ci-prose ol {
+  padding-left: 1.3em;
+}
+.ci-prose li + li {
+  margin-top: 6px;
+}
+.ci-prose li::marker {
+  color: var(--dim);
+}
+.ci-prose strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+.ci-prose a {
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-color: rgba(237, 235, 228, 0.3);
+  text-underline-offset: 3px;
+  transition: text-decoration-color 200ms var(--ease);
+}
+.ci-prose a:hover {
+  text-decoration-color: var(--scan);
+}
+.ci-prose :not(pre) > code {
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: var(--carbon-2);
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+.ci-prose pre {
+  padding: 16px 18px;
+  border-radius: 14px;
+  background: var(--carbon);
+  box-shadow: inset 0 0 0 1px var(--edge);
+  overflow-x: auto;
+  font-size: 13px;
+  line-height: 1.65;
+}
+.ci-prose pre code {
+  font-size: 12.5px;
+  color: var(--ink);
+}
+.ci-prose-table {
+  overflow-x: auto;
+  border-radius: 14px;
+  box-shadow: inset 0 0 0 1px var(--edge);
+}
+.ci-prose table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+  line-height: 1.55;
+}
+.ci-prose th {
+  text-align: left;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--dim);
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--edge-strong);
+}
+.ci-prose td {
+  padding: 11px 14px;
+  vertical-align: top;
+  border-top: 1px solid var(--edge);
+}
+.ci-prose tr:first-child td {
+  border-top: 0;
+}
+.ci-prose td:first-child code {
+  white-space: nowrap;
+  overflow-wrap: normal;
+}
+.ci-plan-price strong[data-word] {
+  font-family: var(--font-sans);
+  font-variation-settings: "wdth" 112;
+  font-weight: 600;
+  font-size: 40px;
+  letter-spacing: -0.02em;
+}
+.ci-docs-pager {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  max-width: 74ch;
+  margin-top: 48px;
+  padding-top: 20px;
+  border-top: 1px solid var(--edge);
+}
+.ci-docs-pager a {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 16px;
+  border-radius: 14px;
+  background: var(--carbon);
+  box-shadow: inset 0 0 0 1px var(--edge);
+  font-weight: 500;
+  transition: background-color 200ms var(--ease);
+}
+.ci-docs-pager a:hover {
+  background: var(--carbon-2);
+}
+.ci-docs-pager a[data-next] {
+  margin-left: auto;
+  align-items: flex-end;
+}
+.ci-docs-pager a span {
+  font-size: 12.5px;
+  font-weight: 400;
+  color: var(--dim);
+}
+
+@media (max-width: 960px) {
+  .ci-app {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
+    padding-top: 20px;
+  }
+  .ci-sections {
+    position: static;
+    flex-direction: row;
+    gap: 2px;
+    margin: 0 calc(var(--pad) * -1);
+    padding: 0 var(--pad) 4px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .ci-sections::-webkit-scrollbar {
+    display: none;
+  }
+  .ci-sections-group > p {
+    display: none;
+  }
+  .ci-sections ul {
+    flex-direction: row;
+  }
+  .ci-tile-setup,
+  .ci-tile-explain,
+  .ci-tile-plan,
+  .ci-tile-pay,
+  .ci-tile-usage,
+  .ci-tile-invoices {
+    grid-column: 1 / -1;
+    grid-row: auto;
+  }
+  .ci-tile-telegram {
+    grid-column: 1 / -1;
+  }
+  .ci-plans,
+  .ci-faq dl {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 420px) {
+  .ci-nav-pricing {
+    display: none !important;
+  }
 }
 
 /* ---------------------------------------------------------- responsive */

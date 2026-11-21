@@ -1,0 +1,33 @@
+export const metadata = { title: "Verdicts · CodeIntent docs" };
+
+# Verdicts
+
+Each upgrade gets exactly one verdict, decided by fixed rules over the static comparison. No model is involved.
+
+| Verdict             | Meaning                                                                                                                      |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| **Breaks you**      | Something your code uses is removed, or an argument it passes no longer works, and the use is not behind an import fallback. |
+| **Needs a change**  | A deprecation, a removal your code guards against, or a changed literal default.                                             |
+| **Not checked**     | A use the analysis could not follow touches a part of the library that changed.                                              |
+| **No known impact** | Everything your code uses was compared in both releases and nothing relevant changed.                                        |
+
+## "No known impact" is not "safe"
+
+It means every use of the library was compared in both releases and nothing it relies on changed. Behaviour can still change behind an unchanged signature. Read it as "nothing found", and keep your tests.
+
+## Reading a finding
+
+Each finding names:
+
+- the file and line in your code,
+- what changed in the library, such as `proxies=` removed from `httpx.Client`,
+- the replacement, taken from the library's own deprecation message or new signature,
+- the upstream pull request behind the change, when one is found.
+
+## How well it works
+
+Measured over 101 labelled upgrades from real repositories:
+
+- **19 real breakages:** 14 called Breaks you, 13 of them at the lines named in the original issues. The other 5 are Not checked, never No known impact.
+- **2 controls with an import fallback:** neither called Breaks you.
+- **80 harmless upgrades** from merged Dependabot pull requests with passing CI: 78 ran, with **0 false Breaks you** (95% upper bound 4.7%).
