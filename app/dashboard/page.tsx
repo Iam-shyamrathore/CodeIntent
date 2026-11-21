@@ -397,15 +397,32 @@ export default async function Dashboard({
         </section>
 
         <section className="ci-tile ci-tile-install" aria-labelledby="more">
-          <h2 id="more">Install on more repositories</h2>
-          <p>
-            Add or remove repositories on GitHub at any time. New ones are
-            checked from their next dependency pull request.
-          </p>
+          <h2 id="more">Watch more repositories</h2>
+          <p>Add or remove repositories on GitHub at any time.</p>
           <a className="ci-btn" href={install}>
             <GitHubMark />
             Choose repositories <ArrowOut />
           </a>
+          <ol className="ci-install-steps" aria-label="What happens next">
+            <li>
+              <span className="ci-num" aria-hidden="true">
+                1
+              </span>
+              Pick them on GitHub
+            </li>
+            <li>
+              <span className="ci-num" aria-hidden="true">
+                2
+              </span>
+              Their next dependency PR is checked
+            </li>
+            <li>
+              <span className="ci-num" aria-hidden="true">
+                3
+              </span>
+              One check and one comment land on it
+            </li>
+          </ol>
         </section>
       </div>
     </Shell>
