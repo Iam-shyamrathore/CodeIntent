@@ -147,6 +147,15 @@ def investigate_question(context, question_id: str):
     process(context, question_id)
 
 
+@app.periodic(cron="17 */6 * * *")
+@app.task(name="graph_keepalive", queue="maintenance")
+def graph_keepalive(timestamp: int):
+    from codeintent import graph
+
+    with graph.driver() as db:
+        graph.run_query(db, "RETURN 1")
+
+
 @app.periodic(cron="* * * * *")
 @app.task(name="worker_heartbeat", queue="maintenance")
 def heartbeat(timestamp: int):
