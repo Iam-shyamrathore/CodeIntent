@@ -1,0 +1,15 @@
+{
+  "repository": "JSChronicles/emberpost",
+  "number": 103,
+  "title": "chore(uv): bump the uv-dependencies group with 3 updates",
+  "url": "https://github.com/JSChronicles/emberpost/pull/103",
+  "base_sha": "8e7536ad5d8f2cc78e45d265a89da8ea7973daf7",
+  "head_sha": "4acb46e5f5f20faefdc5dd74d1032353c633d441",
+  "merge_base": "8e7536ad5d8f2cc78e45d265a89da8ea7973daf7",
+  "files": [
+    {
+      "filename": "uv.lock",
+      "status": "modified"
+    }
+  ]
+}

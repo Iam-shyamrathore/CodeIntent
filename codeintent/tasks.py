@@ -147,6 +147,51 @@ def investigate_question(context, question_id: str):
     process(context, question_id)
 
 
+@app.task(
+    name="analyze_pull_request",
+    queue="pulls",
+    pass_context=True,
+    retry=procrastinate.RetryStrategy(max_attempts=3, wait=30),
+)
+def analyze_pull_request(context, analysis_id: str):
+    from psycopg.types.json import Jsonb
+
+    from codeintent.github_app import Client, dependency_changes
+
+    with store.connection() as conn:
+        row = conn.execute(
+            "UPDATE ci_pull_analyses SET status='running',error=NULL,updated_at=now() WHERE id=%s AND status IN ('queued','retrying','running') RETURNING *",
+            (analysis_id,),
+        ).fetchone()
+    if not row:
+        return
+    client = Client.for_installation(row["installation_id"])
+    try:
+        diff = dependency_changes(
+            client, row["repository"], row["number"], row["base_sha"], row["head_sha"]
+        )
+        with store.connection() as conn:
+            conn.execute(
+                "UPDATE ci_pull_analyses SET status=%s,diff=%s,updated_at=now() WHERE id=%s",
+                ("diffed" if diff["files"] else "skipped", Jsonb(diff), analysis_id),
+            )
+    except Exception as exc:
+        # Exception text may echo upstream responses; store and log only the category.
+        logger.warning("Pull analysis %s failed (%s)", analysis_id, type(exc).__name__)
+        with store.connection() as conn:
+            conn.execute(
+                "UPDATE ci_pull_analyses SET status=%s,error=%s,updated_at=now() WHERE id=%s",
+                (
+                    "retrying" if context.job.attempts < 3 else "failed",
+                    type(exc).__name__,
+                    analysis_id,
+                ),
+            )
+        raise RuntimeError(type(exc).__name__) from None
+    finally:
+        client.close()
+
+
 @app.periodic(cron="17 */6 * * *")
 @app.task(name="graph_keepalive", queue="maintenance")
 def graph_keepalive(timestamp: int):

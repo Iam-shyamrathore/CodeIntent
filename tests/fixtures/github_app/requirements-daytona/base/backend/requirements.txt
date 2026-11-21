@@ -1,0 +1,80 @@
+fastapi>=0.162.5
+uvicorn[standard]>=0.54.0
+motor>=3.7.1
+pymongo>=4.20.0
+pydantic>=2.14.3
+python-dotenv>=1.2.4
+httpx>=0.28.1
+bcrypt>=5.0.0
+PyJWT>=2.15.1
+python-multipart>=0.0.33
+itsdangerous>=2.2.0
+jinja2>=3.1.6
+cryptography>=50.0.2
+
+aiosqlite>=0.22.1  # SQLite async adapter for STORAGE_BACKEND=sqlite
+
+beautifulsoup4>=4.14.3
+lxml>=6.1.3           # HTML parser for BeautifulSoup (seo_audit.py uses bs4 "lxml" feature)
+
+# Website-scanner detection deps. These MUST stay in sync with the scanner's
+# imports in services/scanner.py — the production image installs THIS file
+# (Dockerfile.backend), not the root requirements.txt that CI uses, so omitting
+# them makes prod silently return "No systems detected" while CI finds systems:
+#   - curl_cffi: Chrome TLS/JA3 impersonation for the anti-bot HTTP fetch
+#     (without it, gucci.com-class Akamai sites return a blocked/empty body).
+#   - dnspython: the MX/NS/TXT/CNAME analysis (_analyze_dns) that yields the
+#     ~11 "no-browser-needed" systems (Akamai, Microsoft 365, Salesforce, …).
+curl_cffi>=0.17.0
+dnspython>=2.9.2
+
+# Headless-browser rendering for the website scanner (JS-rendered / bot-protected
+# sites). The Chromium binary is installed in the Docker image (see Dockerfile.backend);
+# where it is absent the scanner gracefully falls back to static-HTML detection.
+playwright>=1.65.1
+
+# CTO-level PDF export for SEO/GEO/AEO/AIO audit reports (services/seo_report_pdf.py).
+# Must stay in sync with the root requirements.txt entry.
+reportlab>=5.1.0,<6
+
+# Free server-side TTS for /agent/sam/speak (voice/tts.py gTTS backend). The
+# push-to-talk SAM flow falls back to browser SpeechSynthesis without it, but
+# with gtts installed the backend returns real audio (mp3 bytes when ffmpeg
+# is absent — browsers play them fine).
+gTTS>=2.5.0
+
+# Langfuse observability/tracing for chat + agent runs. The Dockerfile installs
+# THIS file (not root requirements.txt), so langfuse MUST be here — without it,
+# get_langfuse_client() logs "langfuse package not installed" and no traces
+# are emitted, even when LANGFUSE_PUBLIC_KEY/SECRET_KEY are set on Render.
+langfuse>=5.2.0,<6
+
+# ── Runtime deps that shipped code imports directly ──────────────────────────
+# Same failure mode as the scanner/langfuse entries above: Dockerfile.backend
+# installs THIS file, never the root requirements.txt, so anything imported by
+# shipped code and listed only there is silently absent in production.
+# tests/test_backend_requirements_cover_runtime_imports.py guards this drift.
+
+# Anthropic SDK — agent/loop.py imports it for the native Messages API path.
+# Without it the import raises, the loop silently falls through to the
+# OpenAI-compatible failover, and paid Claude calls degrade.
+anthropic>=2.8.0
+
+# E2B Firecracker micro-VM sandbox — services/e2b_config.is_e2b_sdk_importable().
+# Without it the Providers screen reports "e2b OFFLINE / SDK not installed"
+# no matter how E2B_API_KEY is configured.
+e2b-code-interpreter>=2.11.9,<3.0.0
+# Fallback sandbox providers (services/sandbox_providers.py); optional at runtime.
+daytona>=0.231.0,<1.0.0
+instabox-sdk>=0.4.0,<1.0.0
+
+# config/models.yaml catalog loader (packages/ai/brain_config.py and 4 other
+# call sites). Present transitively via uvicorn[standard] today; pinned here so
+# a transitive change can't remove the model catalog.
+PyYAML>=6.0.3
+
+# handlers/v3_models.py /stats imports psutil unguarded — absent it 500s.
+psutil>=7.2.2
+# Fires scheduled and agency jobs (packages/scheduler/scheduler.py). This is
+# the file the production image installs (Dockerfile.backend).
+apscheduler>=3.11.3,<4

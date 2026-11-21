@@ -1,0 +1,15 @@
+{
+  "repository": "Senzing/mapper-ofac",
+  "number": 181,
+  "title": "build(deps-dev): bump virtualenv from 21.15.0 to 21.15.1",
+  "url": "https://github.com/Senzing/mapper-ofac/pull/181",
+  "base_sha": "6613c42c8433e4a2383025a4d2e2d0b05674f0c1",
+  "head_sha": "a6421df7992ab5fc4610eff0dfa53ad4bd980765",
+  "merge_base": "6613c42c8433e4a2383025a4d2e2d0b05674f0c1",
+  "files": [
+    {
+      "filename": "pyproject.toml",
+      "status": "modified"
+    }
+  ]
+}

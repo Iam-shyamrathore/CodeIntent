@@ -9,8 +9,10 @@ import threading
 from contextlib import asynccontextmanager
 from uuid import UUID
 
-from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, field_validator
+from starlette.concurrency import run_in_threadpool
 
 from codeintent import store
 from codeintent.github import canonical_repository
@@ -341,6 +343,43 @@ def question_status(ident: UUID):
     if not row:
         raise HTTPException(404, "Investigation job not found")
     return row
+
+
+@app.post("/github/webhook", status_code=202)
+async def github_webhook(
+    request: Request,
+    x_hub_signature_256: str = Header(default=""),
+    x_github_event: str = Header(default=""),
+    x_github_delivery: str = Header(default=""),
+):
+    """GitHub App deliveries: verify the raw body, record, enqueue. No slow work here."""
+    import json
+
+    from codeintent.github_app import handle_webhook, verify_signature
+
+    secret = os.getenv("GITHUB_WEBHOOK_SECRET", "")
+    if not secret:
+        raise HTTPException(503, "GitHub App webhooks are not configured")
+    body = await request.body()
+    if not verify_signature(body, secret, x_hub_signature_256):
+        raise HTTPException(401, "Invalid webhook signature")
+    if not x_github_event or not x_github_delivery or len(x_github_delivery) > 100:
+        raise HTTPException(400, "X-GitHub-Event and X-GitHub-Delivery are required")
+    try:
+        payload = json.loads(body)
+    except ValueError:
+        raise HTTPException(400, "Webhook body must be JSON") from None
+    if not isinstance(payload, dict):
+        raise HTTPException(400, "Webhook body must be a JSON object")
+    try:
+        code, content = await run_in_threadpool(
+            handle_webhook, x_github_event, x_github_delivery, payload
+        )
+    except Exception as exc:
+        # Do not log payload contents; GitHub redelivery will retry this delivery id.
+        logger.warning("Webhook %s failed (%s)", x_github_event, type(exc).__name__)
+        raise HTTPException(500, "Webhook could not be recorded") from None
+    return JSONResponse(status_code=code, content=content)
 
 
 @app.exception_handler(store.QuotaExceeded)

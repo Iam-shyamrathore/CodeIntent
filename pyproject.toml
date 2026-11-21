@@ -21,6 +21,7 @@ dependencies = [
   "poetry-core==2.5.0",
   "libcst==1.9.0",
   "griffelib==2.4.1",
+  "pyjwt[crypto]==2.15.1",
 ]
 
 [dependency-groups]

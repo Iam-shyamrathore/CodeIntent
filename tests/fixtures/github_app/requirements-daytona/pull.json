@@ -1,0 +1,19 @@
+{
+  "repository": "strikersam/autonomous-ai-agency",
+  "number": 1984,
+  "title": "chore(deps): update daytona requirement from <1.0.0,>=0.231.0 to >=0.231.1,<1.0.0",
+  "url": "https://github.com/strikersam/autonomous-ai-agency/pull/1984",
+  "base_sha": "d1765b652725a75a1651b8afcb91ef0904e77c1d",
+  "head_sha": "7691c88fe2839f06d9f085fe71c8720a345e3f11",
+  "merge_base": "d1765b652725a75a1651b8afcb91ef0904e77c1d",
+  "files": [
+    {
+      "filename": "backend/requirements.txt",
+      "status": "modified"
+    },
+    {
+      "filename": "requirements.txt",
+      "status": "modified"
+    }
+  ]
+}
