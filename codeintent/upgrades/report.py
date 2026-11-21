@@ -107,9 +107,10 @@ def traced(package: str, found: dict | None) -> list[str]:
     reach = found.get("reach") or {}
     if reach.get("uses"):
         files = reach.get("files") or []
-        lines.append(
+        lines += (
             f"**Where {_code(package)} reaches your code:** {reach['uses']} use(s) in "
-            f"{len(files)} file(s): {_listed(files, 4)}."
+            f"{len(files)} file(s): {_listed(files, 4)}.",
+            "",
         )
     through = reach.get("through") or []
     if through:
@@ -122,20 +123,21 @@ def traced(package: str, found: dict | None) -> list[str]:
             )
             for t in through[:3]
         ]
-        lines.append(
+        lines += (
             (
                 "**Also pulled in through:** "
                 if reach.get("uses")
                 else "**Reaches you through:** "
             )
             + "; ".join(chains)
-            + "."
+            + ".",
+            "",
         )
     hits = [
         b for b in found.get("blast") or [] if b.get("function") or b.get("importers")
     ]
     if hits:
-        lines.append("**What else this breaks:**")
+        lines += ["**What else this breaks:**", ""]
         for b in hits[:5]:
             bits = []
             if b.get("function"):
@@ -144,21 +146,24 @@ def traced(package: str, found: dict | None) -> list[str]:
             if callers:
                 bits.append(f"called by {_listed(callers)}")
             entries = [
-                e["name"]
+                e["file"] if e.get("name") == "script" else e["name"]
                 for e in b.get("entry_points") or []
-                if e.get("name") != "script"
             ]
             if entries:
-                bits.append(f"reached from {_listed(sorted(set(entries)))}")
+                bits.append(f"reached from {_listed(list(dict.fromkeys(entries)))}")
             if b.get("importers"):
-                bits.append(f"{len(b['importers'])} file(s) import it")
+                bits.append(
+                    f"imported by {_listed([i['file'] for i in b['importers']])}"
+                )
             if b.get("tests"):
                 bits.append(f"tests: {_listed(b['tests'])}")
             where = _code(f"{b['file']}:{b['line']}")
             lines.append(f"- {where} " + ", ".join(bits) + ".")
         if len(hits) > 5:
             lines.append(f"- and {len(hits) - 5} more place(s)")
-    return lines + [""] if lines else []
+    if lines and lines[-1]:
+        lines.append("")
+    return lines
 
 
 def section(verdict: UpgradeVerdict, found: dict | None = None) -> str:

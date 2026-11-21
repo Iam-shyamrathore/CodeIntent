@@ -100,9 +100,36 @@ def test_says_where_the_package_reaches_the_code():
 def test_follows_a_broken_line_to_its_callers_routes_and_tests():
     assert (
         "- `src/app/client.py:5` in `make()`, called by `users()`, `Session.__init__()`, "
-        "reached from `GET /users`, 1 file(s) import it, tests: `tests/test_client.py`."
+        "reached from `GET /users`, imported by `src/app/api.py`, tests: `tests/test_client.py`."
         in body()
     )
+
+
+def test_each_graph_fact_is_its_own_paragraph():
+    assert "`src/app/api.py`.\n\n**What else this breaks:**\n\n- " in body()
+
+
+def test_names_scripts_that_reach_the_line():
+    traced = {
+        "httpx": {
+            "reach": {"uses": 1, "files": ["weather/client.py"], "through": []},
+            "blast": [
+                {
+                    "file": "weather/client.py",
+                    "line": 12,
+                    "function": "make_client",
+                    "callers": [],
+                    "importers": [{"file": "main.py", "depth": 1}],
+                    "tests": [],
+                    "entry_points": [
+                        {"name": "script", "function": None, "file": "main.py"}
+                    ],
+                }
+            ],
+        }
+    }
+    text = report.comment([BREAKS], [], None, graph=traced)
+    assert "reached from `main.py`, imported by `main.py`" in text
 
 
 def test_names_the_chain_for_a_package_the_code_never_imports():
