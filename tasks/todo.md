@@ -11,12 +11,10 @@ Standard checks: `uv run pytest -q`, `uv run ruff check . && uv run ruff format 
 - [x] **T2 Deploy the current app to a live HTTPS URL** (M). Skills: `shipping-and-launch`, `neo4j-aura-provisioning-skill`, `render-deploy` or `deploy-to-vercel`
   - Accept: public `/health` returns 200; authenticated `/ready` returns 200; the saved HTTPX report opens on the public URL.
   - Files: `heroku.yml` / `render.yaml`, `docs/deployment.md`, `.env.example`. Deps: T1.
-- [ ] **T3 ArgosX baseline scan** (S). Skills: `security-review`
-  - Accept: the report is downloaded into `docs/security/argosx-baseline.pdf`; every finding is listed in `docs/security/remediation-log.md` with severity and owner.
-  - Deps: T2. **Deadline: midnight, 21 Nov.**
+- [x] **T3 ArgosX baseline scan**: dropped. Not a hard requirement, and scanning today's site would mostly test the investigation app being replaced. Folded into T28.
 
 ### Checkpoint 0
-- [ ] Live URL works, baseline report saved, all standard checks pass.
+- [x] Live URL works, all standard checks pass.
 
 ## Phase 1: Verdict engine (offline, highest risk)
 
@@ -131,8 +129,8 @@ Standard checks: `uv run pytest -q`, `uv run ruff check . && uv run ruff format 
   - Accept: threat model written to `docs/security/threat-model.md`; all critical and high findings fixed or justified in the remediation log; workflows pinned by SHA with least-privilege tokens.
 - [ ] **T27 Demo repository and evaluator guide** (S)
   - Accept: a public demo repo has the App installed and an open Dependabot PR showing a real "Breaks you". `docs/evaluator-guide.md` explains how to try it without us; the backtest numbers are published.
-- [ ] **T28 ArgosX final scan** (S)
-  - Accept: the second report is saved; the remediation log says what was found, what was fixed, what remains and why. **Deadline: 11 AM, 22 Nov.**
+- [ ] **T28 ArgosX Pro scan of the dashboard** (S). Skills: `security-review`
+  - Accept: one Pro scan once the dashboard and webhook are live, with a test login for each of two workspaces; the report is saved to `docs/security/argosx.pdf`; the remediation log says what was found, what was fixed, what remains and why. **By 11 AM, 22 Nov.**
 
 ### Final checkpoint
 - [ ] Definition of done in the Build Plan is met on the live URL. All standard checks pass. Build Plan items 1–10 demonstrably work.

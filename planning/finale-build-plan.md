@@ -48,7 +48,7 @@ Full diagram: `docs/architecture.md`.
 | Verdict engine and CLI, backtest harness | Not built | T8, T9. |
 | Known-vulnerability check (OSV.dev), upcoming breakage | Not built | T30, T31; added in v3. |
 | Upstream range index, workspaces data model, pin explainer, GitHub App, Telegram, MCP, new web pages | Not built | No code yet. |
-| ArgosX scans | Not started | `docs/security/remediation-log.md` tables empty. Baseline due 23:59, 21 Nov. |
+| ArgosX scan | Planned | One Pro scan once the dashboard and webhook are live; not a hard requirement. `docs/security/remediation-log.md` records it. |
 | Accounts | Single operator token | No user accounts; public repositories only. |
 
 **Testing approach.** Verification runs on real repositories, real PyPI artifacts and real GitHub data, not mocks. T9 records these runs as fixtures so CI replays them offline, and the deployed API is tested against real repositories.
@@ -91,14 +91,14 @@ Advisories are reported next to the verdict, never folded into it: "Known adviso
 
 | Window | Work | Checkpoint / cut rule |
 | --- | --- | --- |
-| 18:50–21:00 | T29 blind spots, time-boxed about 30 min each: (b) return types, (c) library `**kwargs`, (d) renames, (e) scan cache, parallel scan, PyPI metadata cache. **ArgosX free baseline scan now (2 min).** | Anything unfinished at 21:00 moves after the GitHub App. True findings unchanged on every real case. |
+| 18:50–21:00 | T29 blind spots, time-boxed about 30 min each: (b) return types, (c) library `**kwargs`, (d) renames, (e) scan cache, parallel scan, PyPI metadata cache. Parallel agents: scan speed, OSV advisories, labelled backtest cases, GitHub App webhook. | Anything unfinished at 21:00 moves after the GitHub App. True findings unchanged on every real case. |
 | 21:00–22:30 | T8 verdict engine and CLI. | 4/4 outages "Breaks you" with the right line; botocore 1.29.130 "Needs a change". If not, the demo uses only the cases caught and §5 reports the miss. |
-| 22:30–00:00 | T9 backtest harness, labelled cases, ≥50 harmless bumps. | Baseline ArgosX report saved and logged before 23:59 (hard deadline). |
+| 22:30–00:00 | T9 backtest harness over the labelled cases and ≥50 harmless bumps. | Numbers published in `artifacts/backtest/latest.json`. |
 | 00:00–03:30 | Data model and shared range index; upstream PR linking; GitHub App webhook, check run and comment; demo repo with a Dependabot PR. | Real PR gets a check by 03:30. If the App is blocked, fall back to a GitHub Action that runs the CLI and posts the same comment. |
 | 03:30–06:00 | MCP server; Telegram alerts; OSV advisories. | Claude Code fix from the brief; Telegram alert for the demo PR. |
 | 06:00–08:30 | Web setup flow, repository overview, verdict report. | PR comment links open on the live URL. |
 | 08:30–10:00 | Pin explainer; upcoming breakage; failure states; structured logs. | Pins cut to "introduced by" if over time. |
-| 10:00–11:00 | ArgosX final (Pro scan with a test login); remediation log; evaluator guide; publish backtest numbers. | Final report saved by 11:00 (hard deadline). |
+| 10:00–11:00 | ArgosX Pro scan of the dashboard with two test workspaces; fix findings; remediation log; evaluator guide. | Report and fixes logged by 11:00. |
 | 11:00–12:00 | Code freeze, rehearse the demo twice, submit. | No merges after 11:15. |
 
 **Cut order if time runs short:** upcoming breakage → pin "can be lifted" (keep "introduced by") → Telegram commands (keep alerts) → sign-in and private repositories → T29 (b)/(c).
@@ -129,7 +129,7 @@ Constant-time HMAC webhook verification; duplicate `X-GitHub-Delivery` ignored; 
 
 Least-privilege App permissions (metadata and contents read; pull requests and checks write); secrets in the environment only, never in the Next.js bundle; library code is never installed, built or imported; artifact SHA-256 checks and safe extraction; tenant-isolation test; the security pass (`security-review`, `semgrep`, threat model, Actions hardening) covers the engine and webhook.
 
-**ArgosX** scans the live site from outside: exposed databases (including Supabase misconfiguration), API keys in page source, security headers, and with the Pro tier, behaviour behind a test login. It does not see the engine, the webhook or the App permissions, so it complements the security pass rather than replacing it. Baseline: the free deep scan tonight. Final: the Pro scan (covered by `HACKFRONT-IN26`) after sign-in exists, with a test account per workspace to probe isolation.
+**ArgosX** scans the live site from outside: exposed databases (including Supabase misconfiguration), API keys in page source, security headers, and with the Pro tier, behaviour behind a test login. It does not see the engine, the webhook or the App permissions, so it complements the security pass rather than replacing it. Scanning today's site would mostly test the investigation app we are replacing, so we run one Pro scan (covered by `HACKFRONT-IN26`) after the dashboard and webhook are live, with a test account per workspace to probe isolation.
 
 ### Self-serve
 
