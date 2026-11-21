@@ -448,11 +448,32 @@ def _decorators(obj: griffe.Object) -> set[str]:
     }
 
 
+def _benign_class_decorator(cls: griffe.Object, decorator) -> bool:
+    """Decorators that leave ``__init__`` as the constructor's signature.
+
+    ``six.add_metaclass(Meta)`` only sets the metaclass, so it is benign unless ``Meta`` overrides
+    ``__call__``, which could change construction.
+    """
+    value = decorator.value
+    name = str(getattr(value, "canonical_path", value)).split("(")[0].split(".")[-1]
+    if name in ("total_ordering", "final", "runtime_checkable", "unique"):
+        return True
+    if name != "add_metaclass" or not isinstance(value, griffe.ExprCall):
+        return False
+    meta = next(iter(value.arguments), None)
+    path = getattr(meta, "canonical_path", None)
+    module = cls.parent
+    target = (
+        module.members.get(path.split(".")[-1]) if path and module is not None else None
+    )
+    return target is not None and target.is_class and "__call__" not in target.members
+
+
 def signature(obj: griffe.Object) -> Signature | None:
     """Parameters a call to ``obj`` accepts, or None when they can't be known statically."""
     owner = obj
     if obj.is_class:
-        if obj.decorators:
+        if any(not _benign_class_decorator(obj, d) for d in obj.decorators):
             return None
         members = obj.all_members
         init = members.get("__init__") or members.get("__new__")
@@ -928,6 +949,18 @@ def _final(member) -> griffe.Object | None:
         return None
 
 
+def _literal(default) -> tuple | None:
+    """``(value,)`` for a literal default such as ``"scrypt"``, ``False`` or ``None``.
+
+    Names (``DEFAULT_ALLOWED_METHODS``) and sentinels (``_Default``) are often resolved inside the body,
+    so a textual change there says nothing about the effective default.
+    """
+    try:
+        return (ast.literal_eval(str(default)),)
+    except (ValueError, SyntaxError, TypeError, MemoryError, RecursionError):
+        return None
+
+
 def _arguments(old, new, usage, before, after, changes, problems):
     was, now = signature(before), signature(after)
     passes = bool(usage.keywords or usage.positional)
@@ -1010,7 +1043,9 @@ def _arguments(old, new, usage, before, after, changes, problems):
         elif (
             earlier is not None
             and not parameter.required
-            and str(earlier.default) != str(parameter.default)
+            and _literal(earlier.default)
+            and _literal(parameter.default)
+            and _literal(earlier.default)[0] != _literal(parameter.default)[0]
         ):
             changes.append(
                 APIChange(

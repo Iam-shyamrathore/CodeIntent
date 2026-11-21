@@ -32,7 +32,7 @@ Standard checks: `uv run pytest -q`, `uv run ruff check . && uv run ruff format 
   - Accept: load each version statically with griffe (`allow_inspection=False`); resolve every used symbol (including non-public aliases) in both versions; compare parameters for used keyword arguments; add DeprecationWarning detection. Extract the API from each version's released source (modules, classes, functions, parameters, kw-only args, `**kwargs`, literal defaults, `__all__`, `warnings.warn(Deprecation…)` sites) and diff it into `APIChange{kind: removed|param_removed|renamed|default_changed|deprecated, symbol, detail}`. httpx 0.27.2 → 0.28.0 must include `Client(proxies=)` removed.
   - Files: `codeintent/upgrades/surface.py`, `tests/upgrades/test_surface.py`. Deps: T6.
   - Done: `check(old, new, usage)` returns `removed | parameter-removed | parameter-required | parameter-moved | default-changed | deprecated` plus typed unchecked reasons. `renamed` is not detected; removals carry the old release's deprecation message, which usually names the replacement. Verified on real artifacts: 4/4 outages at the issue lines, botocore 1.29.130 guarded, jinja2 3.1 and werkzeug 2.1/3.0 variants on Flask 1.1.2, and 6 harmless upgrades with no removal or parameter findings.
-- [ ] **T29 Reduce static blind spots** (M). Skills: `fp-check`, `variant-analysis`
+- [x] **T29 Reduce static blind spots** (M). Skills: `fp-check`, `variant-analysis`
   - Accept: (a) names defined under `try: import / except ImportError: fallback` resolve to the `try` side; (b) attributes of return values follow declared return types; (c) library `**kwargs` is followed to the function that receives it, a few hops deep; (d) removals name the replacement from the old alias target, quoted names in the deprecation message that exist in the new release, or a same-signature object marked "likely renamed"; (e) usage scans are cached per file content hash, run in parallel, and PyPI metadata is cached. Re-run on every real case so far: "Not checked" counts fall, true findings unchanged, no new false findings; openai first check under 3 s, repeat under 1 s.
   - Files: `codeintent/upgrades/surface.py`, `codeintent/upgrades/usage/extractor.py`, `codeintent/upgrades/artifacts.py`. Deps: T7.
 - [ ] **T8 Verdict engine and CLI** (M)
@@ -63,7 +63,7 @@ Standard checks: `uv run pytest -q`, `uv run ruff check . && uv run ruff format 
   - Accept: for each pin, find the commit/PR that introduced it (history of the manifest file, then the line) and its cited reason. Say "can be lifted" only when evidence shows the cause was fixed or restored upstream; otherwise "keep" or "unknown". Tested on `httpx<0.28` in a real repo.
   - Files: `codeintent/pins.py`, `codeintent/github.py`, `tests/test_pins.py`. Deps: T4, T10.
 
-- [ ] **T30 Known-vulnerability check** (S). Skills: `supply-chain-risk-auditor`, `security-and-hardening`
+- [x] **T30 Known-vulnerability check** (S). Skills: `supply-chain-risk-auditor`, `security-and-hardening`
   - Accept: batch-query OSV.dev for every dependency (name + locked or pinned version, ecosystem PyPI); return advisory IDs, aliases (CVE/GHSA), summary, severity when given, and the lowest fixed version; cache per (package, version) with expiry; failures become "Not checked: advisory lookup failed", never "No known advisories". Verified against real known-vulnerable versions (e.g. requests 2.31.0, urllib3 1.26.15) and their fixed versions. Shown in the PR comment, Telegram, MCP and the overview.
   - Files: `codeintent/upgrades/advisories.py`. Deps: T4.
 - [ ] **T31 Upcoming breakage scan** (S)
@@ -75,13 +75,13 @@ Standard checks: `uv run pytest -q`, `uv run ruff check . && uv run ruff format 
 
 ## Phase 3: GitHub App (primary journey)
 
-- [ ] **T15 GitHub App and installation auth** (S). Skills: `gh-cli`, `security-and-hardening`
+- [ ] **T15 GitHub App and installation auth** (S). Code done (`codeintent/github_app.py`); waiting on App registration and Heroku config. Skills: `gh-cli`, `security-and-hardening`
   - Accept: App manifest with least-privilege permissions (contents:read, pull_requests:write, checks:write, metadata:read); JWT plus a cached installation token client; private repos readable after install.
   - Files: `codeintent/github_app.py`, `codeintent/settings.py`, `docs/github-app.md`.
-- [ ] **T16 Webhook endpoint** (M). Skills: `fastapi`, `api-and-interface-design`
+- [x] **T16 Webhook endpoint** (M). Skills: `fastapi`, `api-and-interface-design`
   - Accept: HMAC signature verified (constant time); duplicate `X-GitHub-Delivery` ignored. Handles `installation*`, `pull_request` from Dependabot/Renovate, and `push` touching manifests. Each event enqueues a job and returns within 1 s.
   - Files: `codeintent/api.py`, `codeintent/webhooks.py`, `tests/test_webhooks.py`. Deps: T11, T15.
-- [ ] **T17 Dependency PR parser** (S)
+- [x] **T17 Dependency PR parser** (S)
   - Accept: the package, from and to versions are taken from the PR's manifest diff (the authority), with the title as fallback. Multi-package and grouped PRs are handled.
   - Files: `codeintent/depprs.py`, `tests/test_depprs.py`.
 - [ ] **T18 Check run and PR comment** (M). Skills: `pr-writer`
