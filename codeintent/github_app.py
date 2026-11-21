@@ -508,17 +508,26 @@ def handle_webhook(event: str, delivery: str, payload: dict) -> tuple[int, dict]
                 payload.get("pull_request") or {},
                 payload.get("repository") or {},
             )
-            if (
-                action == "closed"
-                and pull.get("merged")
-                and installation_id
-                and repo.get("full_name")
-                and (pull.get("base") or {}).get("ref") == repo.get("default_branch")
-            ):
-                # A merge into the default branch can change what is locked: rescan for upcoming breakage.
+            if action == "closed" and installation_id and repo.get("full_name"):
+                from codeintent import breaks
+
+                number = int(payload.get("number") or pull.get("number") or 0)
                 _upsert_installation(conn, installation, repo.get("owner"))
-                _scan(conn, installation_id, [repo])
-                return finish("queued", 202, {"status": "rescan"})
+                # Breaks still open when the pull request closes were merged anyway, or dropped with it.
+                breaks.pull_closed(
+                    conn,
+                    installation_id,
+                    repo["full_name"],
+                    number,
+                    bool(pull.get("merged")),
+                )
+                if pull.get("merged") and (pull.get("base") or {}).get(
+                    "ref"
+                ) == repo.get("default_branch"):
+                    # A merge into the default branch can change what is locked: rescan.
+                    _scan(conn, installation_id, [repo])
+                    return finish("queued", 202, {"status": "rescan"})
+                return finish("processed", 202, {"status": "closed"})
             if action not in PULL_ACTIONS:
                 return finish(
                     "ignored", 202, {"status": "ignored", "reason": f"action {action}"}

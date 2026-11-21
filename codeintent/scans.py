@@ -14,7 +14,7 @@ from pathlib import Path
 import procrastinate
 from psycopg.types.json import Jsonb
 
-from codeintent import store
+from codeintent import runs, store
 
 logger = logging.getLogger(__name__)
 FRESH = timedelta(hours=20)
@@ -99,8 +99,6 @@ def run(installation_id: int, repository: str, client, pypi) -> str:
 
     ``client`` is a ``github_app.Client`` for the installation; ``pypi`` an ``httpx.Client``.
     """
-    from codeintent.upgrades import repository as source
-    from codeintent.upgrades import upcoming
 
     with store.connection() as conn:
         watched = conn.execute(
@@ -125,25 +123,55 @@ def run(installation_id: int, repository: str, client, pypi) -> str:
             ON CONFLICT(installation_id,repository) DO UPDATE SET status='running',error=NULL,updated_at=now()""",
             (installation_id, repository),
         )
-    response = client.get(f"/repos/{repository}")
-    if response.status_code == 404:
-        # No longer readable by this installation (deselected, deleted or made private elsewhere):
-        # re-read the installation's list from GitHub rather than trusting a missed webhook.
-        from codeintent.github_app import accessible_repositories, reconcile
+    with runs.recorded(
+        "scan",
+        installation_id=installation_id,
+        repository=repository,
+        subject="default branch",
+    ) as run:
+        return _scan(installation_id, repository, client, pypi, previous, run)
 
-        with store.connection() as conn:
-            reconcile(conn, installation_id, accessible_repositories(client))
-        fail(installation_id, repository, "not-found")
-        return "removed"
-    response.raise_for_status()
-    meta = response.json()
-    branch = meta.get("default_branch")
+
+def _scan(installation_id: int, repository: str, client, pypi, previous, run) -> str:
+    from codeintent import breaks
+    from codeintent.upgrades import repository as source
+    from codeintent.upgrades import upcoming
+
+    with run.step("read the repository") as note:
+        response = client.get(f"/repos/{repository}")
+        if response.status_code == 404:
+            # No longer readable by this installation (deselected, deleted or made private elsewhere):
+            # re-read the installation's list from GitHub rather than trusting a missed webhook.
+            from codeintent.github_app import accessible_repositories, reconcile
+
+            with store.connection() as conn:
+                changed = reconcile(
+                    conn, installation_id, accessible_repositories(client)
+                )
+            fail(installation_id, repository, "not-found")
+            note["detail"] = (
+                f"not readable by the App any more; {len(changed['removed'])} repositories dropped"
+            )
+            run.finish(
+                "skipped",
+                summary={"reason": "the App can no longer read this repository"},
+            )
+            return "removed"
+        response.raise_for_status()
+        meta = response.json()
+        branch = meta.get("default_branch")
+        note["detail"] = f"default branch {branch}"
     if meta.get("archived") or not branch:
         _finish(
             installation_id, repository, status="skipped", error="archived-or-empty"
         )
+        run.finish("skipped", summary={"reason": "archived or empty"})
         return "skipped"
-    sha = client.json(f"/repos/{repository}/branches/{branch}")["commit"]["sha"]
+    with run.step("read the latest commit") as note:
+        sha = client.json(f"/repos/{repository}/branches/{branch}")["commit"]["sha"]
+        note["detail"] = sha[:12]
+    with store.connection() as conn:
+        conn.execute("UPDATE ci_runs SET ref=%s WHERE id=%s", (sha, run.id))
     if (
         previous
         and previous["status"] in ("done", "skipped")
@@ -152,16 +180,19 @@ def run(installation_id: int, repository: str, client, pypi) -> str:
         and datetime.now(UTC) - previous["scanned_at"] < FRESH
     ):
         _finish(installation_id, repository, status=previous["status"])
+        run.finish("skipped", summary={"reason": "unchanged since the last scan"})
         return previous["status"]
-    tree = client.json(
-        f"/repos/{repository}/git/trees/{sha}", params={"recursive": "1"}
-    )
-    paths = [
-        e["path"]
-        for e in (tree.get("tree") or [])[:MAX_TREE_ENTRIES]
-        if e.get("type") == "blob"
-    ]
-    found = projects(paths)
+    with run.step("find Python projects") as note:
+        tree = client.json(
+            f"/repos/{repository}/git/trees/{sha}", params={"recursive": "1"}
+        )
+        paths = [
+            e["path"]
+            for e in (tree.get("tree") or [])[:MAX_TREE_ENTRIES]
+            if e.get("type") == "blob"
+        ]
+        found = projects(paths)
+        note["detail"] = ", ".join(found) or "none"
     if not found:
         _finish(
             installation_id,
@@ -173,28 +204,67 @@ def run(installation_id: int, repository: str, client, pypi) -> str:
             items=None,
             scanned_at=datetime.now(UTC),
         )
+        run.finish("skipped", summary={"reason": "no Python manifest or lock file"})
         return "skipped"
     with source.temporary() as folder:
-        root = source.download(repository, sha, Path(folder), client.token())
-        items = [
-            item
-            for project in found
-            for item in upcoming.scan(
-                root if project == "." else root / project,
-                pypi,
-                explain=True,
-                source=(repository, sha),
-                project=project,
+        with run.step("download the repository"):
+            root = source.download(repository, sha, Path(folder), client.token())
+        items = []
+        for project in found:
+            with run.step(
+                f"compare dependencies of {'the root project' if project == '.' else project}"
+            ) as note:
+                found_items = upcoming.scan(
+                    root if project == "." else root / project,
+                    pypi,
+                    explain=True,
+                    source=(repository, sha),
+                    project=project,
+                )
+                compared = [i for i in found_items if i.verdict]
+                note["detail"] = (
+                    f"{len(found_items)} dependencies, {len(compared)} with a newer release, "
+                    f"{sum(1 for i in compared if i.verdict.verdict == 'breaks')} breaking"
+                )
+            items += found_items
+        dumped = [i.model_dump(mode="json") for i in items]
+        with run.step("record breaks") as note, store.connection() as conn:
+            counts = breaks.record(
+                conn,
+                installation_id=installation_id,
+                repository=repository,
+                source="scan",
+                verdicts=[i["verdict"] for i in dumped if i.get("verdict")],
+                root=root,
+                run_id=run.id,
             )
-        ]
+            note["detail"] = (
+                f"{counts['found']} found, {counts['fixed']} no longer found"
+            )
     _finish(
         installation_id,
         repository,
         status="done",
         ref=branch,
         head_sha=sha,
-        items=Jsonb([i.model_dump(mode="json") for i in items]),
+        items=Jsonb(dumped),
         scanned_at=datetime.now(UTC),
+    )
+    verdicts = [i["verdict"]["verdict"] for i in dumped if i.get("verdict")]
+    unreadable = [i["package"] for i in dumped if i.get("status") == "unreadable"]
+    run.finish(
+        "partial" if unreadable else "succeeded",
+        summary={
+            "branch": branch,
+            "projects": found,
+            "dependencies": len(dumped),
+            "breaks": verdicts.count("breaks"),
+            "needs_change": verdicts.count("needs-change"),
+            "not_checked": verdicts.count("not-checked"),
+            "liftable_pins": sum(1 for i in dumped if i.get("lift") == "can-be-lifted"),
+            "unreadable": unreadable,
+        },
+        result={"items": dumped},
     )
     return "done"
 

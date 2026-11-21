@@ -159,8 +159,8 @@ def test_only_merges_into_the_default_branch_rescan(schema):
             },
         )[1]
 
-    assert merged("d-3", "feature")["status"] == "ignored"
-    assert merged("d-4", "main", merged=False)["status"] == "ignored"
+    assert merged("d-3", "feature")["status"] == "closed"
+    assert merged("d-4", "main", merged=False)["status"] == "closed"
     assert merged("d-5", "main")["status"] == "rescan"
     assert [j["args"] for j in jobs()] == [
         {"installation_id": 21, "repository": "acme/app"}
@@ -388,3 +388,28 @@ def test_demo_repository_scan_finds_the_breaking_httpx_release(schema):
     assert ("weather/client.py", 12) in locations
     requests_item = next(i for i in items if i["package"] == "requests")
     assert requests_item["advisories"]["status"] == "advisories"
+    with store.connection() as conn:
+        run = conn.execute("SELECT * FROM ci_runs WHERE kind='scan'").fetchone()
+        steps = [
+            r["name"]
+            for r in conn.execute(
+                "SELECT name FROM ci_run_steps WHERE run_id=%s ORDER BY seq",
+                (run["id"],),
+            ).fetchall()
+        ]
+        broken = conn.execute(
+            "SELECT * FROM ci_breaks WHERE package='httpx'"
+        ).fetchone()
+    assert run["status"] in ("succeeded", "partial") and run["summary"]["breaks"] >= 1
+    assert steps[:4] == [
+        "read the repository",
+        "read the latest commit",
+        "find Python projects",
+        "download the repository",
+    ]
+    assert steps[-1] == "record breaks"
+    assert broken["source"] == "scan" and broken["status"] == "open"
+    assert {"file": "weather/client.py", "line": 12} in [
+        {"file": p["file"], "line": p["line"]} for p in broken["places"]
+    ]
+    assert "proxies=" in next(p["code"] for p in broken["places"] if p["line"] == 12)

@@ -158,6 +158,7 @@ def scan(
                 verdict = evaluate(
                     item.package, item.current, item.latest, root, client
                 )
+            verdict = _relocated(verdict, project)
             unreadable = verdict.verdict == "not-checked" and verdict.coverage is None
             item = item.model_copy(
                 update={
@@ -196,6 +197,32 @@ def _within(project: str, location: Location) -> Location:
     if project in ("", "."):
         return location
     return location.model_copy(update={"file": f"{project}/{location.file}"})
+
+
+def _relocated(verdict: UpgradeVerdict, project: str) -> UpgradeVerdict:
+    """Consumer locations relative to the repository root, like the PR check's, for a nested project."""
+    if project in ("", "."):
+        return verdict
+    return verdict.model_copy(
+        update={
+            "findings": tuple(
+                f.model_copy(
+                    update={
+                        "locations": tuple(_within(project, loc) for loc in f.locations)
+                    }
+                )
+                for f in verdict.findings
+            ),
+            "unchecked": tuple(
+                u.model_copy(update={"location": _within(project, u.location)})
+                for u in verdict.unchecked
+            ),
+            "limits": tuple(
+                u.model_copy(update={"location": _within(project, u.location)})
+                for u in verdict.limits
+            ),
+        }
+    )
 
 
 def _with_origin(

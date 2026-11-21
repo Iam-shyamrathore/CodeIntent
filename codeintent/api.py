@@ -9,6 +9,7 @@ import os
 import threading
 from contextlib import asynccontextmanager
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 from fastapi import (
@@ -927,6 +928,116 @@ def app_telegram_chats(installation_id: int):
         "configured": telegram.configured(),
         "bot_username": telegram.bot_username() or None,
         "chats": telegram.linked_chats(installation_id),
+    }
+
+
+RUN_COLUMNS = """id,installation_id,kind,repository,ref,subject,status,failed_step,error,attempt,final,
+  analysis_id,summary,started_at,finished_at,
+  (extract(epoch FROM coalesce(finished_at,now())-started_at)*1000)::bigint AS duration_ms"""
+
+
+def _run_row(row: dict) -> dict:
+    return {
+        **row,
+        "id": str(row["id"]),
+        "analysis_id": row["analysis_id"] and str(row["analysis_id"]),
+    }
+
+
+@app.get("/app/runs", dependencies=[Depends(authenticated)])
+def app_runs(
+    installations: list[int] | None = Query(default=None),
+    kind: Literal["pull", "scan", "mcp"] | None = None,
+    problems: bool = False,
+    repository: str | None = Query(default=None, max_length=201),
+    limit: int = Query(default=30, ge=1, le=100),
+):
+    """Recent runs, newest first; ``problems`` keeps failed and partial ones (final attempts only)."""
+    scope = _installation_scope(installations)
+    with store.connection() as conn:
+        rows = conn.execute(
+            f"""SELECT {RUN_COLUMNS} FROM ci_runs
+            WHERE (%s::bigint[] IS NULL OR installation_id=ANY(%s::bigint[]))
+              AND (%s::text IS NULL OR kind=%s)
+              AND (%s::text IS NULL OR lower(repository)=lower(%s))
+              AND (NOT %s OR (status IN ('failed','partial') AND (final OR status='partial')))
+            ORDER BY started_at DESC LIMIT %s""",
+            (scope, scope, kind, kind, repository, repository, problems, limit),
+        ).fetchall()
+    return {"runs": [_run_row(r) for r in rows]}
+
+
+@app.get("/app/runs/{run_id}", dependencies=[Depends(authenticated)])
+def app_run(run_id: UUID, installations: list[int] | None = Query(default=None)):
+    """One run with its steps, its full result, and the other attempts of the same work."""
+    scope = _installation_scope(installations)
+    with store.connection() as conn:
+        row = conn.execute(
+            f"""SELECT {RUN_COLUMNS},input,result FROM ci_runs WHERE id=%s
+              AND (%s::bigint[] IS NULL OR installation_id=ANY(%s::bigint[]))""",
+            (run_id, scope, scope),
+        ).fetchone()
+        if not row:
+            raise HTTPException(404, "Run not found")
+        steps = conn.execute(
+            "SELECT seq,name,status,started_at,duration_ms,detail FROM ci_run_steps WHERE run_id=%s ORDER BY seq",
+            (run_id,),
+        ).fetchall()
+        attempts = (
+            conn.execute(
+                f"SELECT {RUN_COLUMNS} FROM ci_runs WHERE analysis_id=%s ORDER BY started_at",
+                (row["analysis_id"],),
+            ).fetchall()
+            if row["analysis_id"]
+            else []
+        )
+        found = conn.execute(
+            """SELECT repository,source,pull_number,key,severity,package,start_version,end_version,change,
+              decision,places,status,first_seen,last_seen,resolved_at
+            FROM ci_breaks WHERE first_run=%s OR last_run=%s ORDER BY severity,package""",
+            (run_id, run_id),
+        ).fetchall()
+    return {
+        **_run_row(row),
+        "input": row["input"],
+        "result": row["result"],
+        "steps": steps,
+        "attempts": [_run_row(a) for a in attempts],
+        "breaks": found,
+    }
+
+
+@app.get("/app/breaks", dependencies=[Depends(authenticated)])
+def app_breaks(
+    installations: list[int] | None = Query(default=None),
+    status: Literal["open", "resolved", "all"] = "open",
+    limit: int = Query(default=200, ge=1, le=500),
+):
+    """Every recorded break: open ones by default, worst and newest first."""
+    scope = _installation_scope(installations)
+    with store.connection() as conn:
+        rows = conn.execute(
+            """SELECT b.installation_id,b.repository,b.source,b.pull_number,b.key,b.severity,b.package,
+              b.start_version,b.end_version,b.change,b.decision,b.places,b.status,b.analysis_id,
+              b.first_run,b.last_run,b.first_seen,b.last_seen,b.resolved_at,a.title AS pull_title
+            FROM ci_breaks b
+            JOIN ci_installation_repositories r ON r.installation_id=b.installation_id AND r.full_name=b.repository
+            LEFT JOIN ci_pull_analyses a ON a.id=b.analysis_id
+            WHERE (%s::bigint[] IS NULL OR b.installation_id=ANY(%s::bigint[]))
+              AND (%s='all' OR (%s='open' AND b.status='open') OR (%s='resolved' AND b.status<>'open'))
+            ORDER BY b.status<>'open',b.severity<>'breaks',b.last_seen DESC LIMIT %s""",
+            (scope, scope, status, status, status, limit),
+        ).fetchall()
+    return {
+        "breaks": [
+            {
+                **r,
+                "analysis_id": r["analysis_id"] and str(r["analysis_id"]),
+                "first_run": r["first_run"] and str(r["first_run"]),
+                "last_run": r["last_run"] and str(r["last_run"]),
+            }
+            for r in rows
+        ]
     }
 
 

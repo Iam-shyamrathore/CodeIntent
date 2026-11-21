@@ -160,6 +160,7 @@ def analyze_pull_request(context, analysis_id: str):
     import httpx
     from psycopg.types.json import Jsonb
 
+    from codeintent import breaks, runs
     from codeintent import github_app as gh
     from codeintent.upgrades import advisories, report, repository
     from codeintent.upgrades.verdict import evaluate
@@ -176,70 +177,145 @@ def analyze_pull_request(context, analysis_id: str):
     report_url = f"{public}/pulls/{analysis_id}" if public else None
     client = gh.Client.for_installation(row["installation_id"])
     check_id = row.get("check_run_id")
+    attempts = context.job.attempts or 0
+    final = attempts >= 3
     try:
-        diff = gh.dependency_changes(client, repo, number, row["base_sha"], head)
-        if not diff["files"]:
+        with runs.recorded(
+            "pull",
+            installation_id=row["installation_id"],
+            repository=repo,
+            ref=head,
+            subject=f"#{number}",
+            analysis_id=analysis_id,
+            attempt=attempts + 1,
+            final=final,
+        ) as run:
+            with run.step("read the dependency changes") as note:
+                diff = gh.dependency_changes(
+                    client, repo, number, row["base_sha"], head
+                )
+                note["detail"] = (
+                    f"{len(diff['files'])} manifest file(s), {len(diff.get('changed') or [])} change(s)"
+                )
+            if not diff["files"]:
+                with store.connection() as conn:
+                    conn.execute(
+                        "UPDATE ci_pull_analyses SET status='skipped',diff=%s,updated_at=now() WHERE id=%s",
+                        (Jsonb(diff), analysis_id),
+                    )
+                run.finish(
+                    "skipped", summary={"reason": "no Python dependency changed"}
+                )
+                return
+            with run.step("open the check run"):
+                title = client.json(f"/repos/{repo}/pulls/{number}").get("title")
+                check_id = check_id or gh.create_check(client, repo, head)
             with store.connection() as conn:
                 conn.execute(
-                    "UPDATE ci_pull_analyses SET status='skipped',diff=%s,updated_at=now() WHERE id=%s",
-                    (Jsonb(diff), analysis_id),
+                    "UPDATE ci_pull_analyses SET status='diffed',diff=%s,title=%s,check_run_id=%s,updated_at=now() WHERE id=%s",
+                    (Jsonb(diff), title, check_id, analysis_id),
                 )
-            return
-        title = client.json(f"/repos/{repo}/pulls/{number}").get("title")
-        check_id = check_id or gh.create_check(client, repo, head)
-        with store.connection() as conn:
-            conn.execute(
-                "UPDATE ci_pull_analyses SET status='diffed',diff=%s,title=%s,check_run_id=%s,updated_at=now() WHERE id=%s",
-                (Jsonb(diff), title, check_id, analysis_id),
-            )
-        pairs, added = gh.upgrades(diff)
-        verdicts, new_packages = [], []
-        with (
-            httpx.Client(timeout=60, follow_redirects=True) as pypi,
-            repository.using(client.token),
-        ):
-            if pairs:
-                with repository.temporary() as folder:
-                    root = repository.download(repo, head, Path(folder), client.token())
-                    verdicts = [
-                        evaluate(name, a, b, root, pypi) for name, a, b in pairs[:20]
-                    ]
-            for name, version in added[:20]:
-                checks = advisories.check([(name, version)], pypi) if version else []
-                new_packages.append((name, version, checks))
-        notes = [
-            f"{name}: one side is a version range, not an exact version, so there is no pair to compare."
-            for name in gh.unresolved(diff)
-        ]
-        body = report.comment(verdicts, new_packages, report_url, notes)
-        with store.connection() as conn:
-            previous = conn.execute(
-                "SELECT comment_id FROM ci_pull_analyses WHERE repository=%s AND number=%s AND comment_id IS NOT NULL ORDER BY updated_at DESC LIMIT 1",
-                (repo, number),
-            ).fetchone()
-        comment_id = gh.upsert_comment(
-            client, repo, number, body, previous["comment_id"] if previous else None
-        )
-        result = report.check_output(verdicts, body)
-        check_id = gh.complete_check(
-            client,
-            repo,
-            head,
-            check_id,
-            result["conclusion"],
-            result["output"],
-            report_url,
-        )
-        with store.connection() as conn:
-            conn.execute(
-                "UPDATE ci_pull_analyses SET status='reported',verdicts=%s,verdict=%s,check_run_id=%s,comment_id=%s,updated_at=now() WHERE id=%s",
-                (
-                    Jsonb([v.model_dump(mode="json") for v in verdicts]),
-                    report.worst(verdicts) if verdicts else None,
+            pairs, added = gh.upgrades(diff)
+            verdicts, new_packages, root = [], [], None
+            with (
+                httpx.Client(timeout=60, follow_redirects=True) as pypi,
+                repository.using(client.token),
+                repository.temporary() as folder,
+            ):
+                if pairs:
+                    with run.step("download the repository"):
+                        root = repository.download(
+                            repo, head, Path(folder), client.token()
+                        )
+                    for name, a, b in pairs[:20]:
+                        with run.step(f"compare {name} {a} → {b}") as note:
+                            verdict = evaluate(name, a, b, root, pypi)
+                            note["detail"] = f"{verdict.label}: {verdict.reason}"
+                        verdicts.append(verdict)
+                if added:
+                    with run.step("check advisories for new packages"):
+                        for name, version in added[:20]:
+                            checks = (
+                                advisories.check([(name, version)], pypi)
+                                if version
+                                else []
+                            )
+                            new_packages.append((name, version, checks))
+                dumped = [v.model_dump(mode="json") for v in verdicts]
+                with run.step("record breaks") as note, store.connection() as conn:
+                    counts = breaks.record(
+                        conn,
+                        installation_id=row["installation_id"],
+                        repository=repo,
+                        source="pull",
+                        verdicts=dumped,
+                        root=root,
+                        run_id=run.id,
+                        pull_number=number,
+                        analysis_id=analysis_id,
+                    )
+                    note["detail"] = (
+                        f"{counts['found']} found, {counts['fixed']} fixed since the last push"
+                    )
+            notes = [
+                f"{name}: one side is a version range, not an exact version, so there is no pair to compare."
+                for name in gh.unresolved(diff)
+            ]
+            body = report.comment(verdicts, new_packages, report_url, notes)
+            with run.step("write the comment"):
+                with store.connection() as conn:
+                    previous = conn.execute(
+                        "SELECT comment_id FROM ci_pull_analyses WHERE repository=%s AND number=%s AND comment_id IS NOT NULL ORDER BY updated_at DESC LIMIT 1",
+                        (repo, number),
+                    ).fetchone()
+                comment_id = gh.upsert_comment(
+                    client,
+                    repo,
+                    number,
+                    body,
+                    previous["comment_id"] if previous else None,
+                )
+            result = report.check_output(verdicts, body)
+            with run.step("complete the check run") as note:
+                check_id = gh.complete_check(
+                    client,
+                    repo,
+                    head,
                     check_id,
-                    comment_id,
-                    analysis_id,
-                ),
+                    result["conclusion"],
+                    result["output"],
+                    report_url,
+                )
+                note["detail"] = result["conclusion"]
+            worst = report.worst(verdicts) if verdicts else None
+            with store.connection() as conn:
+                conn.execute(
+                    "UPDATE ci_pull_analyses SET status='reported',verdicts=%s,verdict=%s,check_run_id=%s,comment_id=%s,updated_at=now() WHERE id=%s",
+                    (Jsonb(dumped), worst, check_id, comment_id, analysis_id),
+                )
+            unreadable = [
+                v.package
+                for v in verdicts
+                if v.verdict == "not-checked" and v.coverage is None
+            ]
+            run.finish(
+                "partial" if unreadable else "succeeded",
+                summary={
+                    "verdict": worst,
+                    "packages": [
+                        {
+                            "package": v.package,
+                            "from": v.start,
+                            "to": v.end,
+                            "verdict": v.verdict,
+                        }
+                        for v in verdicts
+                    ],
+                    "added": [n for n, _, _ in new_packages],
+                    "unreadable": unreadable,
+                    "conclusion": result["conclusion"],
+                },
+                result={"verdicts": dumped},
             )
         try:
             notify_telegram.defer(analysis_id=analysis_id)
@@ -253,7 +329,6 @@ def analyze_pull_request(context, analysis_id: str):
     except Exception as exc:
         # Exception text may echo upstream responses; store and log only the category.
         logger.warning("Pull analysis %s failed (%s)", analysis_id, type(exc).__name__)
-        final = context.job.attempts >= 3
         if check_id:
             try:
                 gh.complete_check(
