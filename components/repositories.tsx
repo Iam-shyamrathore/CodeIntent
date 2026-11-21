@@ -279,14 +279,26 @@ export default function Repositories() {
           <div className="section-line">
             <h2 id="repositories-heading">Ready to investigate</h2>
             <span>
-              {data?.repositories.filter((r) => r.ready_index).length || 0}{" "}
-              repositories
+              {data
+                ? `${data.repositories.filter((r) => r.ready_index).length} repositories`
+                : ""}
             </span>
           </div>
-          {!data && !error && (
+          {!data && !loadError && (
             <p className="muted-state" role="status">
               Loading repositories…
             </p>
+          )}
+          {!data && loadError && (
+            <div className="muted-state">
+              <p>
+                The live index is unreachable, but the saved HTTPX example is
+                readable without it.
+              </p>
+              <Link href="/investigate" className="text-link">
+                Open the saved example <ArrowRight size={14} />
+              </Link>
+            </div>
           )}
           {data?.repositories
             .filter((r) => r.ready_index)

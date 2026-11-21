@@ -32,7 +32,7 @@ def submit(indexed: dict, question: str, key: str, client: str) -> dict:
         ident = str(row["id"]) if row else str(uuid.uuid4())
         conn.execute(
             """INSERT INTO ci_questions(id,cache_key,index_id,question) VALUES (%s,%s,%s,%s)
-            ON CONFLICT(cache_key) DO UPDATE SET status='queued',error=NULL,updated_at=now()""",
+            ON CONFLICT(cache_key) DO UPDATE SET status='queued',error=NULL,events='[]'::jsonb,updated_at=now()""",
             (ident, key, indexed["id"], question),
         )
         task = investigate_question.configure(
@@ -45,7 +45,7 @@ def submit(indexed: dict, question: str, key: str, client: str) -> dict:
 def status(ident: str):
     with store.connection() as conn:
         row = conn.execute(
-            """SELECT q.id,q.status,q.error,p.result FROM ci_questions q
+            """SELECT q.id,q.status,q.error,q.events,p.result FROM ci_questions q
             LEFT JOIN ci_reports p ON p.id=q.report_id WHERE q.id=%s""",
             (ident,),
         ).fetchone()
@@ -55,16 +55,26 @@ def status(ident: str):
         "job_id": str(row["id"]),
         "status": row["status"],
         "detail": row["error"],
+        "events": row["events"] or [],
         "result": row["result"],
     }
 
 
 def process(context, question_id: str):
+    import json
+
     from codeintent.investigate import investigate
+
+    def report(stage: str, detail: str = ""):
+        with store.connection() as conn:
+            conn.execute(
+                "UPDATE ci_questions SET events=events||%s::jsonb,updated_at=now() WHERE id=%s",
+                (json.dumps([{"stage": stage, "detail": detail}]), question_id),
+            )
 
     with store.connection() as conn:
         row = conn.execute(
-            "UPDATE ci_questions SET status='running',error=NULL,updated_at=now() WHERE id=%s AND status<>'ready' RETURNING *",
+            "UPDATE ci_questions SET status='running',error=NULL,events='[]'::jsonb,updated_at=now() WHERE id=%s AND status<>'ready' RETURNING *",
             (question_id,),
         ).fetchone()
     if not row:
@@ -81,6 +91,7 @@ def process(context, question_id: str):
                     indexed["corpus"],
                     indexed["decisions"],
                     scope=indexed["id"],
+                    progress=report,
                 ),
                 row["cache_key"],
             )

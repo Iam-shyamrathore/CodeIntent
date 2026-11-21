@@ -64,7 +64,10 @@ export default function EvidenceGraph({
       },
       sourcePosition: Position.Right,
       targetPosition: Position.Left,
-      style: { width: 250 },
+      style: {
+        width: 250,
+        ...(cited.has(s.id) ? { borderColor: "#7ea3f0" } : {}),
+      },
       ariaLabel: `Inspect ${s.title}`,
     };
   });
@@ -77,9 +80,9 @@ export default function EvidenceGraph({
       target: p.target,
       label: p.relation.toLowerCase().replaceAll("_", " "),
       type: "smoothstep",
-      style: { stroke: "#9daab7" },
-      labelStyle: { fontSize: 10, fill: "#566570" },
-      labelBgStyle: { fill: "#f7f8f8" },
+      style: { stroke: "#566473" },
+      labelStyle: { fontSize: 10, fill: "#8a96a2" },
+      labelBgStyle: { fill: "#11161c" },
     }));
   if (!nodes.length) return null;
   return (

@@ -215,6 +215,41 @@ def report(ident: UUID):
     return row["result"]
 
 
+def suggested_questions(decisions: list) -> list:
+    """Starter questions derived from recorded decision assertions."""
+    templates = {
+        "introduce": "Why was {subject} introduced?",
+        "remove": "Why was {subject} removed?",
+        "deprecate": "Why was {subject} deprecated?",
+        "restore": "Why was {subject} brought back?",
+        "replace": "What replaced {subject}, and why?",
+        "retain": "Why was {subject} kept in place?",
+    }
+    ranked = sorted(
+        decisions,
+        key=lambda d: (
+            d.get("status") != "replaced_in_aspect" and not d.get("replacement"),
+            d.get("date", ""),
+        ),
+        reverse=True,
+    )
+    suggestions, seen = [], set()
+    for decision in ranked:
+        subject = decision.get("subject", "").strip("` ")
+        if not subject or subject.lower() in seen:
+            continue
+        if decision.get("replacement"):
+            question = f"Was {subject} fully rolled back, or only partly?"
+        else:
+            question = templates.get(decision.get("action"), "").format(subject=subject)
+        if question:
+            suggestions.append(question)
+            seen.add(subject.lower())
+        if len(suggestions) == 4:
+            break
+    return suggestions
+
+
 @app.get("/indexes/{scope}", dependencies=[Depends(authenticated)])
 def index_details(scope: str):
     row = store.get_index(scope)
@@ -225,6 +260,7 @@ def index_details(scope: str):
         "repository": row["corpus"]["repository"],
         "revision": row["revision"],
         "coverage": row["corpus"]["coverage"],
+        "suggested": suggested_questions(row["decisions"]),
         "decisions": row["decisions"],
         "decision_sources": [
             s

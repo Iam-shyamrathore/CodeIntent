@@ -131,9 +131,27 @@ def investigate(
     *,
     graph: bool = True,
     scope: str | None = None,
+    progress=None,
 ) -> dict:
     started = time.perf_counter()
+    stages = []
+
+    def mark(stage: str, detail: str = ""):
+        event = {
+            "stage": stage,
+            "detail": detail,
+            "ms": round((time.perf_counter() - started) * 1000),
+        }
+        stages.append(event)
+        if progress:
+            progress(stage, detail)
+
+    mark("retrieving")
     corpus, sources, paths = retrieve(question, corpus, graph=graph, scope=scope)
+    mark(
+        "expanded",
+        f"{len(sources)} sources · {len(paths)} recorded connections",
+    )
     source_ledger = {source["id"]: source for source in corpus["documents"]}
     for source in sources:
         original = source_ledger[source["id"]]
@@ -199,8 +217,16 @@ Return the requested JSON schema. Historical source coverage is deliberately bou
             "paths": paths,
         }
     )
+    mark("drafting")
     answer = generate_answer(prompt, payload, spans, sources)
-    answer = check_support(answer, sources)
+    mark("drafted", f"{len(answer.claims)} proposed claims")
+    mark("verifying")
+    answer, withheld = check_support(answer, sources)
+    mark(
+        "verified",
+        f"{len(answer.claims)} claims supported"
+        + (f" · {withheld} withheld by review" if withheld else ""),
+    )
     validate_citations(answer, sources)
     from datetime import datetime
 
@@ -213,9 +239,12 @@ Return the requested JSON schema. Historical source coverage is deliberately bou
                 original = source_ledger[citation["source_id"]]
                 sources.append(original)
                 ids.add(original["id"])
+    answer_dict = answer.model_dump()
+    answer_dict["withheld"] = withheld
     return {
         "question": question,
-        "answer": answer.model_dump(),
+        "answer": answer_dict,
+        "stages": stages,
         "sources": sources,
         "paths": paths,
         "repository": corpus["repository"],
@@ -241,7 +270,7 @@ def check_support(answer, sources):
         supported_claims: list[int] = Field(max_length=8)
 
     if not answer.claims:
-        return answer
+        return answer, 0
     by_id = {s["id"]: s for s in sources}
     payload = [
         {
@@ -280,7 +309,8 @@ def check_support(answer, sources):
         )
     accepted = set(Review.model_validate_json(response.text).supported_claims)
     kept = [c for i, c in enumerate(answer.claims) if i in accepted]
-    if len(kept) != len(answer.claims):
+    withheld = len(answer.claims) - len(kept)
+    if withheld:
         answer = answer.model_copy(deep=True)
         answer.claims = kept
         answer.unknowns.append(
@@ -289,7 +319,7 @@ def check_support(answer, sources):
         answer.status = "partial" if kept else "insufficient"
         if not kept:
             answer.title = "The captured evidence does not establish an answer"
-    return answer
+    return answer, withheld
 
 
 def generate_answer(prompt: str, payload: str, spans: dict, sources: list):

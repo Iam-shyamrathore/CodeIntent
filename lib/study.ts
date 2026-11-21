@@ -25,6 +25,11 @@ export interface Source {
   merged_at?: string;
   path?: string;
 }
+export interface Stage {
+  stage: string;
+  detail?: string;
+  ms?: number;
+}
 export interface Study {
   question: string;
   answer: {
@@ -33,7 +38,10 @@ export interface Study {
     claims: Claim[];
     unknowns: string[];
     temporal_note: string;
+    withheld?: number;
   };
+  stages?: Stage[];
+  suggested?: string[];
   sources: Source[];
   paths: {
     source: string;

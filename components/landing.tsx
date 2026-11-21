@@ -9,6 +9,7 @@ import {
   GitPullRequest,
   MessageSquare,
   CornerDownRight,
+  ShieldCheck,
 } from "lucide-react";
 import { Brand } from "./brand";
 import { EvidenceInspector } from "./evidence";
@@ -72,11 +73,16 @@ export default function Landing({ study }: { study: Study }) {
       <main>
         <section className="hero">
           <div className="hero-intro">
-            <h1>
-              Know <span>why</span>
-              <br />
-              this code exists.
-            </h1>
+            <div>
+              <p className="hero-eyebrow">
+                <b>Code Intent</b> — evidence-backed code investigations
+              </p>
+              <h1>
+                Know <span>why</span>
+                <br />
+                this code exists.
+              </h1>
+            </div>
             <div className="hero-aside">
               <p>
                 Code tells you what.
@@ -145,6 +151,18 @@ export default function Landing({ study }: { study: Study }) {
                       </button>
                     </div>
                   ))}
+                  <div className="trail-step trail-withheld">
+                    <div className="trail-node is-verified">
+                      <ShieldCheck size={18} strokeWidth={1.5} />
+                    </div>
+                    <div className="trail-redacted">
+                      <div className="withheld-lines" aria-hidden="true">
+                        <span />
+                        <span />
+                      </div>
+                      <span>Every claim verified — or visibly withheld.</span>
+                    </div>
+                  </div>
                 </div>
                 <div className="story-resolution">
                   <span className="resolution-symbol">↳</span>
@@ -161,6 +179,42 @@ export default function Landing({ study }: { study: Study }) {
               <span>
                 Every step opens its source <ChevronRight size={13} />
               </span>
+            </div>
+          </div>
+        </section>
+        <section className="verify-section">
+          <div className="verify-grid">
+            <div className="verify-step">
+              <span className="step-no">01</span>
+              <h3>Search the record</h3>
+              <p>
+                Captured pull requests, reviews, issues and diffs — searched
+                lexically and semantically inside a bounded index.
+              </p>
+            </div>
+            <div className="verify-step">
+              <span className="step-no">02</span>
+              <h3>Follow the connections</h3>
+              <p>
+                Recorded links between sources expand the evidence — linked
+                issues, renames, diffs and the discussions behind them.
+              </p>
+            </div>
+            <div className="verify-step">
+              <span className="step-no">03</span>
+              <h3>Cite exact passages</h3>
+              <p>
+                Every claim must reference verbatim spans. Offsets are checked
+                against the captured snapshot character for character.
+              </p>
+            </div>
+            <div className="verify-step">
+              <span className="step-no">04</span>
+              <h3>Withhold what fails</h3>
+              <p>
+                An independent review rejects unsupported explanations. Rejected
+                claims are never silently presented.
+              </p>
             </div>
           </div>
         </section>
@@ -195,7 +249,7 @@ export default function Landing({ study }: { study: Study }) {
             <p className="honesty-answer">
               “I can show you the implementation.
               <br />
-              The indexed history doesn’t establish why.”
+              <strong>The record doesn’t establish why.”</strong>
             </p>
             <p className="secondary-copy">
               Knowing where the record ends is part of the answer.

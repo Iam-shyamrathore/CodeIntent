@@ -21,10 +21,34 @@ import {
   Copy,
   Link2,
   Download,
+  Search,
+  Waypoints,
+  PenLine,
+  ShieldCheck,
 } from "lucide-react";
 import { Brand } from "./brand";
 import { EvidenceInspector, SourceIcon, formatDate } from "./evidence";
-import type { Study, Source, Citation } from "@/lib/study";
+import type { Study, Source, Citation, Stage } from "@/lib/study";
+
+const STAGE_LABELS: Record<string, string> = {
+  retrieving: "Searching captured sources",
+  expanded: "Following recorded connections",
+  drafting: "Drafting cited explanations",
+  drafted: "Answer drafted",
+  verifying: "Verifying claims against exact passages",
+  verified: "Source support review complete",
+};
+function StageIcon({ stage }: { stage: string }) {
+  const Icon =
+    stage === "retrieving"
+      ? Search
+      : stage === "expanded"
+        ? Waypoints
+        : stage === "drafting" || stage === "drafted"
+          ? PenLine
+          : ShieldCheck;
+  return <Icon size={15} strokeWidth={1.5} aria-hidden="true" />;
+}
 
 const questions = [
   "Why did HTTPX bring back URL.raw after removing RawURL? Was it a full rollback?",
@@ -54,6 +78,9 @@ export default function Workbench({
   } | null>(null);
   const [saved, setSaved] = useState(true);
   const [tab, setTab] = useState("answer");
+  const [liveStages, setLiveStages] = useState<Stage[]>([]);
+  const [pendingQuestion, setPendingQuestion] = useState("");
+  const [fresh, setFresh] = useState(false);
   const input = useRef<HTMLTextAreaElement>(null);
   const evidenceOpener = useRef<HTMLElement | null>(null);
   const [recent, setRecent] = useState<{ id: string; question: string }[]>([]);
@@ -92,6 +119,7 @@ export default function Workbench({
   }
   const open = (id: string, citation?: Citation) => {
     const source = study.sources.find((s) => s.id === id);
+    setFresh(false);
     if (source) {
       evidenceOpener.current =
         document.activeElement instanceof HTMLElement
@@ -111,7 +139,10 @@ export default function Workbench({
   async function ask(text = question) {
     if (text.trim().length < 8 || pending) return;
     setPending(true);
+    setPendingQuestion(text.trim());
     setPendingMessage("Submitting investigation…");
+    setLiveStages([]);
+    setFresh(false);
     setError("");
     try {
       const response = await fetch("/api/investigate", {
@@ -144,6 +175,7 @@ export default function Workbench({
             cache: "no-store",
           });
           data = await poll.json();
+          if (data.events) setLiveStages(data.events);
           if (!poll.ok || data.status === "failed")
             throw new Error(
               data.detail || "The investigation could not be completed",
@@ -160,6 +192,8 @@ export default function Workbench({
       }
       setStudy(data);
       setSaved(false);
+      setFresh(true);
+      setLiveStages([]);
       setQuestion("");
       setTab("answer");
     } catch (e) {
@@ -244,6 +278,7 @@ export default function Workbench({
                   i === 0
                     ? (setStudy(homeStudy),
                       setSaved(true),
+                      setFresh(false),
                       setTab("answer"),
                       setError(""))
                     : ask(q)
@@ -358,7 +393,57 @@ export default function Workbench({
                   : "New investigation"}
             </span>
           </div>
-          <h1>{study.question}</h1>
+          <h1>{pending ? pendingQuestion : study.question}</h1>
+          {pending && (
+            <div className="live-trail" role="status">
+              <p className="live-trail-label">Investigating the record</p>
+              <ol className="pipeline-trail">
+                {liveStages.map((s, i) => (
+                  <li key={i} className="stage-row stage-done">
+                    <StageIcon stage={s.stage} />
+                    <span>{STAGE_LABELS[s.stage] || s.stage}</span>
+                    {s.detail && <em>{s.detail}</em>}
+                  </li>
+                ))}
+                <li className="stage-row stage-running">
+                  <LoaderCircle className="loading-icon" size={15} />
+                  <span>{pendingMessage}</span>
+                </li>
+              </ol>
+              <p className="live-trail-note">
+                Claims are only published after exact citations and an
+                independent support review pass.
+              </p>
+            </div>
+          )}
+          {!pending && !!study.stages?.length && !empty && (
+            <details className="pipeline" open={fresh || undefined}>
+              <summary>
+                <ShieldCheck size={14} /> How this answer was built
+                <span className="pipeline-seconds">{study.seconds}s</span>
+              </summary>
+              <ol className="pipeline-trail">
+                {study.stages.map((s, i) => (
+                  <li
+                    key={i}
+                    className={`stage-row stage-done${fresh ? " stage-reveal" : ""}`}
+                    style={
+                      fresh
+                        ? { animationDelay: `${0.28 * i + 0.15}s` }
+                        : undefined
+                    }
+                  >
+                    <StageIcon stage={s.stage} />
+                    <span>{STAGE_LABELS[s.stage] || s.stage}</span>
+                    {s.detail && <em>{s.detail}</em>}
+                    {typeof s.ms === "number" && (
+                      <time>{(s.ms / 1000).toFixed(1)}s</time>
+                    )}
+                  </li>
+                ))}
+              </ol>
+            </details>
+          )}
           <Tabs.Root
             value={tab}
             onValueChange={setTab}
@@ -430,7 +515,15 @@ export default function Workbench({
               )}
               <div className="answer-claims">
                 {study.answer.claims.map((claim, i) => (
-                  <div className="answer-claim" key={i}>
+                  <div
+                    className={`answer-claim${fresh ? " claim-enter" : ""}`}
+                    style={
+                      fresh
+                        ? { animationDelay: `${0.9 + 0.22 * i}s` }
+                        : undefined
+                    }
+                    key={i}
+                  >
                     <p>{inlineCode(claim.text)}</p>
                     {claim.support === "inferred" && (
                       <span className="inference-label">
@@ -471,6 +564,32 @@ export default function Workbench({
                   </div>
                 ))}
               </div>
+              {!!study.answer.withheld && (
+                <div
+                  className={`withheld-card${fresh ? " claim-enter" : ""}`}
+                  style={
+                    fresh
+                      ? {
+                          animationDelay: `${1 + 0.22 * study.answer.claims.length}s`,
+                        }
+                      : undefined
+                  }
+                >
+                  <div className="withheld-lines" aria-hidden="true">
+                    <span />
+                    <span />
+                    <span />
+                  </div>
+                  <p>
+                    {study.answer.withheld} proposed{" "}
+                    {study.answer.withheld === 1
+                      ? "explanation was"
+                      : "explanations were"}{" "}
+                    withheld — the cited passages did not fully support{" "}
+                    {study.answer.withheld === 1 ? "it" : "them"}.
+                  </p>
+                </div>
+              )}
               {study.answer.unknowns.length > 0 && (
                 <div className="unknowns">
                   <h3>What remains unknown</h3>
@@ -637,6 +756,15 @@ export default function Workbench({
             <p className="request-error" role="alert">
               {error}
             </p>
+          )}
+          {!pending && !question && !!study.suggested?.length && (
+            <div className="suggestion-chips">
+              {study.suggested.map((s) => (
+                <button key={s} onClick={() => ask(s)}>
+                  {s}
+                </button>
+              ))}
+            </div>
           )}
           <form
             className="question-composer"

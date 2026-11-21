@@ -29,12 +29,16 @@ export default async function Investigate({
         (r: { name: string }) => r.name === repository,
       );
       if (repo?.ready_index) {
+        const detailsResponse = await service(`/indexes/${repo.ready_index}`);
+        const details = detailsResponse.ok ? await detailsResponse.json() : {};
         // Saved reports retain their original snapshot. New questions use their displayed index.
-        if (initial && initial.index_id === repo.ready_index) {
-          const details = await service(`/indexes/${repo.ready_index}`).then(
-            (r) => r.json(),
-          );
+        if (
+          initial &&
+          initial.index_id === repo.ready_index &&
+          details.decisions
+        ) {
           const attach = (study: Study) => {
+            study.suggested = details.suggested;
             const ids = new Set(study.sources.map((s) => s.id));
             study.decisions = details.decisions.filter((d: Decision) =>
               ids.has(d.source_id),
@@ -52,13 +56,15 @@ export default async function Investigate({
           };
           attach(initial);
           if (home) attach(home);
-        } else
+        } else {
           initial = emptyStudy(
             repo.name,
             repo.revision,
             repo.ready_index,
             repo.coverage,
           );
+          initial.suggested = details.suggested;
+        }
       }
     }
   } catch {

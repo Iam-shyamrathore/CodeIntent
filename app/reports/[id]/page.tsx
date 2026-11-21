@@ -1,8 +1,38 @@
+import { cache } from "react";
 import { notFound } from "next/navigation";
 import Workbench from "@/components/workbench";
 import { service } from "@/lib/server-api";
+import type { Study } from "@/lib/study";
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Saved investigation · Code Intent" };
+const loadReport = cache(
+  async (
+    id: string,
+  ): Promise<{ state: "ok" | "missing" | "unavailable"; study?: Study }> => {
+    let response;
+    try {
+      response = await service(`/reports/${id}`);
+    } catch {
+      return { state: "unavailable" };
+    }
+    if (response.status === 404) return { state: "missing" };
+    if (!response.ok) throw new Error("Could not load investigation");
+    return { state: "ok", study: await response.json() };
+  },
+);
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  if (!/^[a-f0-9-]{36}$/.test(id)) return {};
+  const { study } = await loadReport(id);
+  if (!study) return { title: "Saved investigation · Code Intent" };
+  return {
+    title: `${study.question} · Code Intent`,
+    description: `${study.answer.title} — investigated against ${study.repository} @ ${study.revision.slice(0, 7)}. Every claim cites a captured passage.`,
+  };
+}
 export default async function Report({
   params,
 }: {
@@ -10,10 +40,8 @@ export default async function Report({
 }) {
   const { id } = await params;
   if (!/^[a-f0-9-]{36}$/.test(id)) notFound();
-  let response;
-  try {
-    response = await service(`/reports/${id}`);
-  } catch {
+  const { state, study } = await loadReport(id);
+  if (state === "unavailable")
     return (
       <main className="credits-page">
         <h1>The evidence service is unavailable</h1>
@@ -21,9 +49,6 @@ export default async function Report({
         <a href="/repositories">Return to repositories</a>
       </main>
     );
-  }
-  if (response.status === 404) notFound();
-  if (!response.ok) throw new Error("Could not load investigation");
-  const study = await response.json();
+  if (!study) notFound();
   return <Workbench initial={study} homeStudy={study} />;
 }
