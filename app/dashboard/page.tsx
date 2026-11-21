@@ -8,6 +8,7 @@ import { ConsoleHeader } from "@/components/console-header";
 import { SiteFooter } from "@/components/site/footer";
 import { ArrowOut, GitHubMark } from "@/components/site/icons";
 import { DEMO_PR } from "@/components/site/links";
+import { AgentTokens } from "@/components/agent-tokens";
 import { TelegramConnect } from "@/components/telegram-connect";
 import { VerdictLabel } from "@/components/verdict";
 import { installUrl } from "@/lib/auth";
@@ -26,6 +27,7 @@ import {
   type RepositoryPulls,
   type UpcomingSummary,
 } from "@/lib/dashboard";
+import type { McpToken } from "@/lib/mcp";
 import type { TelegramLinks } from "@/lib/telegram";
 
 export const metadata = { title: "Dashboard · CodeIntent" };
@@ -41,6 +43,7 @@ type Workspace = Installation & {
   repos:
     { state: "ok"; list: InstalledRepository[] } | { state: "unavailable" };
   telegram: TelegramLinks | null;
+  agents: McpToken[] | null;
 };
 
 /** Installations this session may see: all for the operator, the user's own for GitHub sessions. */
@@ -56,14 +59,18 @@ async function loadWorkspaces(session: Session): Promise<Workspace[] | null> {
       // The backend already filters; this keeps the page safe if it ever does not.
       .filter((installation) => canAccessInstallation(session, installation.id))
       .map(async (installation) => {
-        const [repos, telegram] = await Promise.all([
+        const [repos, telegram, agents] = await Promise.all([
           read<{ repositories: InstalledRepository[] }>(
             `/app/installations/${installation.id}/repositories`,
           ),
           read<TelegramLinks>(`/app/installations/${installation.id}/telegram`),
+          read<{ tokens: McpToken[] }>(
+            `/app/installations/${installation.id}/mcp-tokens`,
+          ),
         ]);
         return {
           telegram: telegram.state === "ok" ? telegram.data : null,
+          agents: agents.state === "ok" ? agents.data.tokens : null,
           ...installation,
           repos:
             repos.state === "ok"
@@ -213,6 +220,37 @@ function UpcomingTile({ summary }: { summary: UpcomingSummary | null }) {
           and {findings.length - UPCOMING_SHOWN} more; open a repository to see
           them all.
         </p>
+      )}
+    </section>
+  );
+}
+
+function AgentsTile({ workspaces }: { workspaces: Workspace[] }) {
+  return (
+    <section className="ci-tile ci-tile-agents" aria-labelledby="agents">
+      <div className="ci-tile-head">
+        <h2 id="agents">AI agents</h2>
+        <a href="https://github.com/Iam-shyamrathore/CodeIntent/blob/main/docs/mcp.md">
+          MCP tools
+        </a>
+      </div>
+      <p className="ci-tile-note">
+        Claude Code, Codex or Cursor ask CodeIntent what an upgrade breaks and
+        get the exact lines to change.
+      </p>
+      {workspaces.map((w) =>
+        w.agents === null ? (
+          <p key={w.id} className="ci-note" role="status">
+            Agent tokens for {w.account_login} could not be loaded.
+          </p>
+        ) : (
+          <AgentTokens
+            key={w.id}
+            installation={w.id}
+            account={w.account_login}
+            tokens={w.agents}
+          />
+        ),
       )}
     </section>
   );
@@ -514,6 +552,8 @@ export default async function Dashboard({
             </li>
           </ol>
         </section>
+
+        <AgentsTile workspaces={workspaces} />
       </div>
     </Shell>
   );

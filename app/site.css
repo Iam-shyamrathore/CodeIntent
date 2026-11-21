@@ -761,6 +761,23 @@
 .ci-tile-install {
   grid-column: 5 / 7;
 }
+.ci-tile-agents {
+  grid-column: 1 / 7;
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  column-gap: 32px;
+  align-items: start;
+}
+.ci-tile-agents > .ci-tile-head,
+.ci-tile-agents > .ci-tile-note {
+  grid-column: 1;
+}
+.ci-tile-agents > .ci-agents,
+.ci-tile-agents > .ci-note {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  margin-top: 0;
+}
 .ci-big {
   font-family: var(--font-numerals);
   font-variation-settings: "ROND" 100;
@@ -1426,6 +1443,55 @@ li[data-state="next"] .ci-state {
   margin-top: 0;
   background: var(--carbon-2);
 }
+.ci-agents {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: auto;
+}
+.ci-agent-command {
+  display: block;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--carbon-2);
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+.ci-agent-tokens {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+  color: var(--ash);
+}
+.ci-agent-tokens li {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 6px 0;
+}
+.ci-agent-tokens li + li {
+  border-top: 1px solid var(--edge);
+}
+.ci-agent-tokens button {
+  margin-left: auto;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ash);
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.ci-agent-tokens button:hover {
+  color: var(--ink);
+}
+.ci-agents > .ci-btn-quiet {
+  align-self: flex-start;
+}
 .ci-fold > summary {
   cursor: pointer;
   font-size: 14px;
@@ -1487,6 +1553,14 @@ li[data-state="next"] .ci-state {
   .ci-tile-repos,
   .ci-tile-upcoming {
     grid-column: 1 / -1;
+    grid-row: auto;
+  }
+  .ci-tile-agents {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .ci-tile-agents > .ci-agents,
+  .ci-tile-agents > .ci-note {
+    grid-column: 1;
     grid-row: auto;
   }
   .ci-tile-breaks,
@@ -1594,6 +1668,8 @@ li[data-state="next"] .ci-state {
   }
   .ci-tile-latest,
   .ci-tile-repos,
+  .ci-tile-upcoming,
+  .ci-tile-agents,
   .ci-tile-breaks,
   .ci-tile-telegram,
   .ci-tile-install {
