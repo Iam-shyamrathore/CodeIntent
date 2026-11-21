@@ -83,9 +83,9 @@ class Batch:
         self.nodes: dict[str, dict[str, dict]] = defaultdict(dict)
         self.rels: dict[tuple[str, str, str], dict[tuple, dict]] = defaultdict(dict)
 
-    def node(self, label: str, key: str, **props) -> str:
-        uid = f"{self.ws}|{label}|{key}"
-        merged = self.nodes[label].setdefault(uid, {"uid": uid, "ws": self.ws})
+    def node(self, kind: str, key: str, /, **props) -> str:
+        uid = f"{self.ws}|{kind}|{key}"
+        merged = self.nodes[kind].setdefault(uid, {"uid": uid, "ws": self.ws})
         merged.update({k: v for k, v in props.items() if v is not None})
         return uid
 

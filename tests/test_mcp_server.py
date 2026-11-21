@@ -37,6 +37,8 @@ async def test_tools_are_read_only_with_structured_output():
         "why_pinned",
         "list_dependencies",
         "advisories",
+        "impact",
+        "who_uses",
     }
     for tool in tools.values():
         assert tool.annotations.read_only_hint is True
