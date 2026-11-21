@@ -1426,6 +1426,24 @@ li[data-state="next"] .ci-state {
   margin-top: 0;
   background: var(--carbon-2);
 }
+.ci-fold > summary {
+  cursor: pointer;
+  font-size: 14px;
+  color: var(--ash);
+  padding: 6px 0;
+}
+.ci-fold > summary:hover {
+  color: var(--ink);
+}
+.ci-pins h3 {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ash);
+  margin-bottom: 4px;
+}
+.ci-pins .ci-row-title > span a {
+  color: var(--ink);
+}
 .ci-upcoming-clear {
   display: flex;
   align-items: center;

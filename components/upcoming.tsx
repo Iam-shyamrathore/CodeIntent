@@ -20,6 +20,91 @@ const SKIPPED: Record<string, string> = {
   "archived-or-empty": "The repository is archived or has no default branch.",
 };
 
+const LIFT: Record<string, string> = {
+  "can-be-lifted": "Can be lifted",
+  keep: "Keep the pin",
+  unknown: "Lift unknown",
+};
+const itemKey = (item: UpcomingItem) =>
+  `${item.project || "."}:${item.package}`;
+
+function Pins({
+  items,
+  repository,
+  sha,
+}: {
+  items: UpcomingItem[];
+  repository: string;
+  sha: string;
+}) {
+  if (!items.length) return null;
+  return (
+    <div className="ci-pins">
+      <h3>Pins that hold back the latest release</h3>
+      <ul className="ci-rows">
+        {items.map((item) => {
+          const origin = item.origin;
+          const file = item.location.file
+            .split("/")
+            .map(encodeURIComponent)
+            .join("/");
+          return (
+            <li key={itemKey(item)} className="ci-row">
+              <span
+                className={`ci-verdict ci-verdict-regular${item.lift === "can-be-lifted" ? " ci-verdict-no-known-impact" : ""}`}
+              >
+                {LIFT[item.lift || "unknown"]}
+              </span>
+              <span className="ci-row-title">
+                <strong>
+                  <code translate="no">
+                    {item.package}
+                    {item.specifier}
+                  </code>{" "}
+                  blocks {item.latest}
+                </strong>
+                <span>
+                  {item.lift_reason
+                    ? `${item.lift_reason[0].toUpperCase()}${item.lift_reason.slice(1)}. `
+                    : ""}
+                  Pinned at{" "}
+                  <a
+                    href={`https://github.com/${repository}/blob/${sha}/${file}${item.location.line ? `#L${item.location.line}` : ""}`}
+                  >
+                    <code translate="no">
+                      {item.location.file}
+                      {item.location.line ? `:${item.location.line}` : ""}
+                    </code>
+                  </a>
+                </span>
+                {origin ? (
+                  <span>
+                    Added in{" "}
+                    {origin.pr_url && origin.pr_number ? (
+                      <a href={origin.pr_url}>
+                        #{origin.pr_number} {origin.pr_title}
+                      </a>
+                    ) : (
+                      <a href={origin.commit_url || "#"}>
+                        {origin.message.split("\n", 1)[0]}
+                      </a>
+                    )}
+                    {origin.date && ` · ${formatDate(origin.date)}`}
+                  </span>
+                ) : (
+                  item.origin_detail && (
+                    <span>Origin not found: {item.origin_detail}.</span>
+                  )
+                )}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
 const activeAdvisories = (item: UpcomingItem) =>
   item.advisories?.status === "advisories"
     ? (item.advisories.advisories || []).filter((a) => !a.withdrawn)
@@ -66,13 +151,23 @@ export function Upcoming({
         RANK[a.verdict!.verdict] - RANK[b.verdict!.verdict] ||
         a.package.localeCompare(b.package),
     );
-  const shown = compared.filter(
-    (i) => i.verdict!.verdict !== "no-known-impact",
+  const acting = compared.filter(
+    (i) =>
+      i.verdict!.verdict === "breaks" || i.verdict!.verdict === "needs-change",
   );
-  const quiet = compared.length - shown.length;
+  const unchecked = compared.filter(
+    (i) => i.verdict!.verdict === "not-checked",
+  );
+  const quiet = compared.length - acting.length - unchecked.length;
+  const projects = new Set(result.items.map((i) => i.project || "."));
+  const where = (item: UpcomingItem) =>
+    projects.size > 1 ? ` in ${item.project || "the root project"}` : "";
   const current = result.items.filter((i) => i.status === "current").length;
   const loose = result.items.filter((i) => i.status === "not-locked").length;
   const advised = result.items.filter((i) => activeAdvisories(i).length);
+  const pinned = result.items.filter(
+    (i) => i.lift && i.allows_latest === false,
+  );
   const source = {
     repository,
     head_sha: result.head_sha || result.ref || "HEAD",
@@ -100,46 +195,16 @@ export function Upcoming({
         {loose > 0 && `${loose} without an exact version to compare`}
         {(quiet > 0 || current > 0 || loose > 0) && "."}
       </p>
-      {advised.length > 0 && (
-        <ul
-          className="ci-rows"
-          aria-label="Known advisories on versions in use"
-        >
-          {advised.map((item) => (
-            <li key={item.package} className="ci-row">
-              <span className="ci-verdict ci-verdict-regular">
-                Known advisory
-              </span>
-              <span className="ci-row-title">
-                <strong>
-                  <code translate="no">{item.package}</code> {item.current}, the
-                  version you run now
-                </strong>
-                <span>
-                  {activeAdvisories(item)
-                    .slice(0, 4)
-                    .map((a, i) => (
-                      <span key={a.id}>
-                        {i > 0 && ", "}
-                        <a href={a.url}>{a.id}</a>
-                        {a.fixed ? ` (fixed in ${a.fixed})` : ""}
-                      </span>
-                    ))}
-                </span>
-              </span>
-            </li>
-          ))}
-        </ul>
-      )}
-      {shown.length === 0 ? (
+      {acting.length === 0 ? (
         <p className="ci-upcoming-clear">
           <VerdictLabel verdict="no-known-impact" /> No latest release changes
-          anything your code uses.
+          anything your code uses
+          {unchecked.length > 0 ? " that could be checked." : "."}
         </p>
       ) : (
-        shown.map((item, index) => (
+        acting.map((item, index) => (
           <PackageVerdict
-            key={item.package}
+            key={itemKey(item)}
             pull={source}
             verdict={item.verdict!}
             index={index}
@@ -147,6 +212,64 @@ export function Upcoming({
             heading="h3"
           />
         ))
+      )}
+      <Pins items={pinned} repository={repository} sha={source.head_sha} />
+      {advised.length > 0 && (
+        <details className="ci-fold" open={advised.length <= 3}>
+          <summary>
+            Known advisories on {advised.length} version
+            {advised.length === 1 ? "" : "s"} you run now
+          </summary>
+          <ul className="ci-rows">
+            {advised.map((item) => (
+              <li key={itemKey(item)} className="ci-row">
+                <span className="ci-verdict ci-verdict-regular">
+                  Known advisory
+                </span>
+                <span className="ci-row-title">
+                  <strong>
+                    <code translate="no">{item.package}</code> {item.current}
+                    {where(item)}
+                  </strong>
+                  <span>
+                    {activeAdvisories(item)
+                      .slice(0, 4)
+                      .map((a, i) => (
+                        <span key={a.id}>
+                          {i > 0 && ", "}
+                          <a href={a.url}>{a.id}</a>
+                          {a.fixed ? ` (fixed in ${a.fixed})` : ""}
+                        </span>
+                      ))}
+                  </span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
+      {unchecked.length > 0 && (
+        <details className="ci-fold">
+          <summary>
+            {unchecked.length} upgrade{unchecked.length === 1 ? "" : "s"} could
+            not be fully checked
+          </summary>
+          <ul className="ci-rows">
+            {unchecked.map((item) => (
+              <li key={itemKey(item)} className="ci-row">
+                <VerdictLabel verdict="not-checked" />
+                <span className="ci-row-title">
+                  <strong>
+                    <code translate="no">{item.package}</code> {item.current} →{" "}
+                    {item.latest}
+                    {where(item)}
+                  </strong>
+                  <span>{item.verdict!.reason}.</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </details>
       )}
     </section>
   );

@@ -174,10 +174,14 @@ function UpcomingTile({ summary }: { summary: UpcomingSummary | null }) {
       ) : (
         <ul className="ci-rows">
           {findings.slice(0, UPCOMING_SHOWN).map((f) => (
-            <li key={`${f.repository}-${f.package}`}>
+            <li key={`${f.repository}-${f.project}-${f.package}`}>
               <Link className="ci-row" href={repoHref(f.repository)}>
                 {f.verdict === "breaks" || f.verdict === "needs-change" ? (
                   <VerdictLabel verdict={f.verdict} />
+                ) : f.lift === "can-be-lifted" ? (
+                  <span className="ci-verdict ci-verdict-no-known-impact">
+                    Pin can be lifted
+                  </span>
                 ) : (
                   <span className="ci-verdict">Known advisory</span>
                 )}
@@ -186,7 +190,9 @@ function UpcomingTile({ summary }: { summary: UpcomingSummary | null }) {
                     <code translate="no">{f.package}</code>{" "}
                     {f.verdict === "breaks" || f.verdict === "needs-change"
                       ? `${f.current} → ${f.latest}`
-                      : `${f.current}: ${f.advisories.slice(0, 2).join(", ")}${f.advisories.length > 2 ? ` and ${f.advisories.length - 2} more` : ""}`}
+                      : f.lift === "can-be-lifted"
+                        ? `${f.specifier} blocks ${f.latest}, which changes nothing you use`
+                        : `${f.current}: ${f.advisories.slice(0, 2).join(", ")}${f.advisories.length > 2 ? ` and ${f.advisories.length - 2} more` : ""}`}
                   </strong>
                   <span>{f.repository}</span>
                 </span>

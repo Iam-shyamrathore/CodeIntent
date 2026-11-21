@@ -206,6 +206,25 @@ export type UpcomingItem = {
   verdict: UpgradeVerdict | null;
   detail: string | null;
   advisories: AdvisoryCheck | null;
+  /** Folder of the declaring project, relative to the repository root. */
+  project?: string;
+  specifier?: string;
+  pins?: { kind: string; clause: string }[];
+  allows_latest?: boolean | null;
+  lift?: "can-be-lifted" | "keep" | "unknown" | null;
+  lift_reason?: string | null;
+  origin?: PinOrigin | null;
+  origin_detail?: string | null;
+};
+export type PinOrigin = {
+  commit: string;
+  commit_url?: string | null;
+  date?: string | null;
+  author?: string | null;
+  message: string;
+  pr_number?: number | null;
+  pr_title?: string | null;
+  pr_url?: string | null;
 };
 export type RepositoryScan = {
   repository: string;
@@ -221,7 +240,10 @@ export type RepositoryScan = {
 };
 export type UpcomingFinding = {
   repository: string;
+  project: string;
   package: string;
+  specifier: string;
+  lift: "can-be-lifted" | "keep" | "unknown" | null;
   current: string | null;
   latest: string | null;
   verdict: Verdict | null;
