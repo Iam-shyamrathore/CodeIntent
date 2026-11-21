@@ -80,6 +80,7 @@ UncheckedReason = Literal[
     "dynamic-attribute",
     "dynamic-definition",
     "dynamic-import",
+    "environment-dependent",
     "external-alias",
     "external-base",
     "file-too-large",

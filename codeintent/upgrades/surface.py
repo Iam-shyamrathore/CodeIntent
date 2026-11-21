@@ -12,6 +12,7 @@ from __future__ import annotations
 import ast
 import logging
 import re
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -93,6 +94,7 @@ class Surface:
         self.modules = tuple(sorted(modules, key=len, reverse=True))
         self._collection = griffe.ModulesCollection()
         self._loaded: dict[str, griffe.Module | None] = {}
+        self._tries: dict[str, dict[str, list]] = {}
 
     @classmethod
     def fetch(cls, package: str, version: str, client: httpx.Client) -> Surface:
@@ -144,10 +146,25 @@ class Surface:
             member = (obj.all_members if obj.is_class else obj.members).get(part)
             if member is None:
                 return self._missing(obj, part)
+            primary = self._primary(obj, member, part) if obj.is_module else None
+            if isinstance(primary, Unknown):
+                return primary
+            rest = tuple(parts[index + 1 :])
+            if primary is not None and not self._inside(primary):
+                return Found(None, member.path, external=primary, rest=rest)
+            if primary is not None:
+                preferred = self.lookup(".".join((primary, *rest)), depth + 1)
+                if not _accelerator(preferred):
+                    return preferred
             if member.is_alias:
                 try:
                     member = member.final_target
                 except (griffe.AliasResolutionError, griffe.CyclicAliasError):
+                    target = member.target_path
+                    if self._inside(target) and target != member.path and depth < 6:
+                        return self.lookup(
+                            ".".join((target, *parts[index + 1 :])), depth + 1
+                        )
                     return Found(
                         None,
                         member.path,
@@ -170,6 +187,54 @@ class Surface:
         if any(target == m or target.startswith(m + ".") for m in self.modules):
             return self.lookup(".".join((target, *rest)), depth + 1)
         return Found(None, obj.path, external=target, rest=rest)
+
+    def _inside(self, path: str) -> bool:
+        return any(path == m or path.startswith(m + ".") for m in self.modules)
+
+    def _primary(
+        self, module: griffe.Object, member, name: str
+    ) -> str | Unknown | None:
+        """The ``try`` side of ``try: import name / except ImportError: fallback``, when griffe kept the fallback.
+
+        Only standard-library or same-distribution imports count: a third-party ``try`` side may not be
+        installed, so which side runs is unknown and the usage stays unchecked.
+        """
+        line = member.alias_lineno if member.is_alias else member.lineno
+        for target, handlers in self._try_imports(module).get(name, ()):
+            if line is None or not any(a <= line <= b for a, b in handlers):
+                continue
+            if target.split(".")[0] in sys.stdlib_module_names or self._inside(target):
+                return target
+            return Unknown(
+                "environment-dependent",
+                f"{module.path}.{name} is {target} when {target.split('.')[0]} is installed, otherwise a fallback",
+            )
+        return None
+
+    def _try_imports(self, module: griffe.Object) -> dict[str, list]:
+        if module.path in self._tries:
+            return self._tries[module.path]
+        found: dict[str, list] = {}
+        tree = None
+        if isinstance(module.filepath, Path):
+            try:
+                tree = ast.parse("\n".join(_lines(module.filepath)))
+            except SyntaxError:
+                tree = None
+        package = (
+            module.path if module.is_init_module else module.path.rpartition(".")[0]
+        )
+        for node in ast.walk(tree) if tree else ():
+            if not isinstance(node, ast.Try) or not any(
+                _catches_import_error(h) for h in node.handlers
+            ):
+                continue
+            handlers = [(h.lineno, h.end_lineno or h.lineno) for h in node.handlers]
+            for statement in node.body:
+                for local, target in _imported(statement, package):
+                    found.setdefault(local, []).append((target, handlers))
+        self._tries[module.path] = found
+        return found
 
     def _missing(self, parent: griffe.Object, name: str) -> Missing | Shimmed | Unknown:
         path = f"{parent.path}.{name}"
@@ -217,6 +282,53 @@ class Surface:
             return ast.parse(_dedent(segment))
         except SyntaxError:
             return None
+
+
+def _accelerator(result) -> bool:
+    """A compiled speed-up whose pure-Python fallback in the same package is the readable reference."""
+    if isinstance(result, Unknown):
+        return result.reason == "compiled-module"
+    obj = getattr(result, "obj", None)
+    return (
+        obj is not None
+        and isinstance(obj.filepath, Path)
+        and obj.filepath.suffix == ".pyi"
+    )
+
+
+def _catches_import_error(handler: ast.ExceptHandler) -> bool:
+    if handler.type is None:
+        return True
+    names = handler.type.elts if isinstance(handler.type, ast.Tuple) else [handler.type]
+    return any(
+        ast.unparse(n).split(".")[-1]
+        in ("ImportError", "ModuleNotFoundError", "Exception")
+        for n in names
+    )
+
+
+def _imported(statement: ast.stmt, package: str) -> list[tuple[str, str]]:
+    """(local name, absolute target) for each name an import statement binds."""
+    if isinstance(statement, ast.Import):
+        return [
+            (
+                a.asname or a.name.split(".")[0],
+                a.name if a.asname else a.name.split(".")[0],
+            )
+            for a in statement.names
+        ]
+    if not isinstance(statement, ast.ImportFrom):
+        return []
+    base = statement.module or ""
+    if statement.level:
+        parts = package.split(".")
+        anchor = ".".join(parts[: len(parts) - statement.level + 1])
+        base = f"{anchor}.{base}" if base else anchor
+    return [
+        (a.asname or a.name, f"{base}.{a.name}")
+        for a in statement.names
+        if a.name != "*"
+    ]
 
 
 _LINES: dict[Path, list[str]] = {}
