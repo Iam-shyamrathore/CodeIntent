@@ -9,14 +9,14 @@ export const metadata: Metadata = {
   metadataBase: new URL(
     process.env.CODEINTENT_PUBLIC_URL || "http://localhost:3000",
   ),
-  title: "Code Intent — Know why this code exists",
+  title: "CodeIntent Dependency Check",
   description:
-    "Investigate the decisions behind a codebase through its code, commits and discussions.",
+    "A GitHub App that tells you whether a Python dependency upgrade breaks the code your repository actually has, at the exact file and line.",
   openGraph: {
-    title: "Code Intent — Know why this code exists",
+    title: "CodeIntent Dependency Check",
     description:
-      "Follow the decisions, discussions and changes behind a real repository. Every claim cites its source.",
-    siteName: "Code Intent",
+      "One check and one comment on every dependency pull request: what breaks, what to use instead, and why upstream changed it.",
+    siteName: "CodeIntent",
     type: "website",
   },
 };
