@@ -20,7 +20,7 @@ Standard checks: `uv run pytest -q`, `uv run ruff check . && uv run ruff format 
 
 ## Phase 1: Verdict engine (offline, highest risk)
 
-- [ ] **T4 Manifest and lockfile parser** (M). Skills: `modern-python`, `property-based-testing`
+- [x] **T4 Manifest and lockfile parser** (M). Skills: `modern-python`, `property-based-testing`
   - Accept: `pyproject.toml` (PEP 621 + uv/poetry groups), `requirements*.txt` (incl. `-r`, markers, hashes), `uv.lock` and `poetry.lock` all parse to `{name, specifier, locked_version, direct, source_line}`; names normalised per PEP 503; pins (upper bounds, `!=`, `==`) are flagged.
   - Verify: property tests for specifier round-trips; fixtures from real repos.
   - Files: `codeintent/upgrades/manifests/*`, `codeintent/upgrades/models.py`, `tests/upgrades/test_manifests.py`.

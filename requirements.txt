@@ -75,9 +75,16 @@ numpy==2.5.4
 opentelemetry-api==1.45.2
     # via fastapi
 packaging==26.3
-    # via procrastinate
+    # via
+    #   code-intent
+    #   pip-requirements-parser
+    #   procrastinate
 pathspec==1.1.1
     # via lizard
+pip-requirements-parser==32.0.1
+    # via code-intent
+poetry-core==2.5.0
+    # via code-intent
 procrastinate==3.10.0
     # via code-intent
 psycopg==3.3.6
@@ -106,6 +113,8 @@ pydriller==2.12
     # via code-intent
 pygments==2.21.0
     # via lizard
+pyparsing==3.3.3
+    # via pip-requirements-parser
 pypdf==6.21.4
     # via neo4j-graphrag
 python-dateutil==4.0.0
