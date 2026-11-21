@@ -19,6 +19,7 @@ Code Intent uses upstream packages through their APIs. Their notices and licence
 | packaging (PyPA) | PEP 440/503/508 versions, specifiers, markers, name normalisation | Apache-2.0 OR BSD-2-Clause |
 | pip-requirements-parser (aboutcode-org) | `requirements.txt` parsing with line numbers, used behind our own include handling | MIT |
 | poetry-core | Converting Poetry `^`/`~` constraints to PEP 440 | MIT |
+| LibCST (Meta / Instagram) | Scope and qualified-name metadata for finding how consumer code uses a library | MIT; marked PSF portions |
 | IBM Plex Sans / Mono | Self-hosted fonts | SIL OFL-1.1 |
 | Lucide | Interface icons | ISC |
 | PostgreSQL / Neo4j Community | Ledger and graph services | PostgreSQL Licence / GPL-3.0, separate container distributions |

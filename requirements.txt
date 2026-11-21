@@ -62,6 +62,8 @@ idna==3.20
     #   requests
 json-repair==0.64.2
     # via neo4j-graphrag
+libcst==1.9.0
+    # via code-intent
 lizard==1.24.3
     # via pydriller
 neo4j==6.4.1
@@ -131,6 +133,7 @@ pytz==2026.6
     #   pydriller
 pyyaml==6.0.3
     # via
+    #   libcst
     #   neo4j-graphrag
     #   uvicorn
 requests==2.34.2

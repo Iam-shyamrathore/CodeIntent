@@ -24,7 +24,7 @@ Standard checks: `uv run pytest -q`, `uv run ruff check . && uv run ruff format 
   - Accept: `pyproject.toml` (PEP 621 + uv/poetry groups), `requirements*.txt` (incl. `-r`, markers, hashes), `uv.lock` and `poetry.lock` all parse to `{name, specifier, locked_version, direct, source_line}`; names normalised per PEP 503; pins (upper bounds, `!=`, `==`) are flagged.
   - Verify: property tests for specifier round-trips; fixtures from real repos.
   - Files: `codeintent/upgrades/manifests/*`, `codeintent/upgrades/models.py`, `tests/upgrades/test_manifests.py`.
-- [ ] **T5 Usage extractor** (M). Skills: `test-driven-development`
+- [x] **T5 Usage extractor** (M). Skills: `test-driven-development`
   - Accept: LibCST finds imports (aliases, `from x import y`), attribute chains rooted at imported names, call keyword arguments, module-level aliases, local subclasses of library classes and `**kwargs` forwarding to `super().__init__`, each with file and line. Import names map to distributions (e.g. `yaml` → PyYAML). Dynamic access (`getattr`, `**kwargs` pass-through, star imports) is recorded as an *unknown* with a reason.
   - Files: `codeintent/upgrades/usage/extractor.py`, `codeintent/upgrades/usage/distributions.py`, `tests/upgrades/test_usage.py`.
 - [ ] **T6 Release locator** (S)

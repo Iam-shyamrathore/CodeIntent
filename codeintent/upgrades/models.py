@@ -38,6 +38,7 @@ class Record(BaseModel):
 class Location(Record):
     file: str
     line: int | None = None
+    column: int | None = None
 
 
 class Pin(Record):
@@ -70,3 +71,39 @@ class Issue(Record):
 class ManifestScan(Record):
     dependencies: tuple[Dependency, ...] = ()
     issues: tuple[Issue, ...] = ()
+
+
+UsageKind = Literal["import", "reference", "annotation", "call", "subclass"]
+Guard = Literal["import-error", "broad-exception", "type-checking"]
+UncheckedReason = Literal[
+    "dynamic-attribute",
+    "dynamic-import",
+    "file-too-large",
+    "kwargs-passthrough",
+    "parse-error",
+    "path-outside-repository",
+    "star-import",
+]
+
+
+class Usage(Record):
+    symbol: str
+    kind: UsageKind
+    keywords: tuple[str, ...] = ()
+    positional: int = 0
+    via: tuple[str, ...] = ()
+    guard: Guard | None = None
+    location: Location
+
+
+class Unchecked(Record):
+    reason: UncheckedReason
+    detail: str
+    location: Location
+
+
+class UsageScan(Record):
+    modules: tuple[str, ...]
+    files: int
+    usages: tuple[Usage, ...] = ()
+    unchecked: tuple[Unchecked, ...] = ()
