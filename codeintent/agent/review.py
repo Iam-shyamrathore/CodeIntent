@@ -217,7 +217,10 @@ def check_behaviour(session: Session, used: set[str]):
 def recheck(
     package: str, start: str, end: str, root: Path, patches: list[Patch]
 ) -> list[bool]:
-    """Whether each edit removes its break: apply them all to a copy and run the analysis again."""
+    """Whether each edit removes its break: apply them all to a copy and run the analysis again.
+
+    An edit counts only if it was applied (its ``before`` text was still there) and no break remains
+    around it."""
     import httpx
 
     from codeintent.upgrades.verdict import evaluate
@@ -225,11 +228,13 @@ def recheck(
     with tempfile.TemporaryDirectory() as scratch:
         copy = Path(scratch) / "repo"
         shutil.copytree(root, copy, symlinks=True)
+        applied = []
         for p in patches:
             target = copy / p.file
             patched = apply(target.read_text(encoding="utf-8", errors="replace"), p)
             if patched is not None:
                 target.write_text(patched, encoding="utf-8")
+            applied.append(patched is not None)
         with httpx.Client(timeout=60, follow_redirects=True) as pypi:
             after = evaluate(
                 package,
@@ -245,10 +250,11 @@ def recheck(
         (loc.file, loc.line or 0) for f in after.findings for loc in f.locations
     }
     out = []
-    for p in patches:
+    for p, done in zip(patches, applied):
         span = len(p.after.strip("\n").splitlines()) + 3
         out.append(
-            not any(
+            done
+            and not any(
                 f == p.file and p.line - 3 <= ln <= p.line + span for f, ln in remaining
             )
         )

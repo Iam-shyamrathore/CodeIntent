@@ -316,7 +316,10 @@ def test_codeintent_confirms_a_patch_by_analysing_the_patched_copy(
 ):
     monkeypatch.setenv("CODEINTENT_ARTIFACT_CACHE", str(tmp_path / "cache"))
     wrong = PATCH.model_copy(update={"after": "        proxies=proxy,  # unchanged"})
-    assert review.recheck("httpx", "0.27.2", "0.28.1", repo, [PATCH, wrong]) == [
+    assert review.recheck("httpx", "0.27.2", "0.28.1", repo, [PATCH]) == [True]
+    assert review.recheck("httpx", "0.27.2", "0.28.1", repo, [wrong]) == [False]
+    # An edit that could not be applied (its line was already changed) is never counted as confirmed.
+    assert review.recheck("httpx", "0.27.2", "0.28.1", repo, [PATCH, PATCH]) == [
         True,
         False,
     ]
