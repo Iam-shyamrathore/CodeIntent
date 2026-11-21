@@ -387,6 +387,28 @@ def notify_upcoming(installation_id: int):
         raise RuntimeError(type(exc).__name__) from None
 
 
+@app.periodic(cron="*/10 * * * *")
+@app.task(name="ops_watch", queue="maintenance")
+def ops_watch(timestamp: int):
+    """Tell the operator's Telegram chat about jobs that failed for good in the last ten minutes."""
+    from datetime import UTC, datetime, timedelta
+
+    from codeintent import ops, telegram
+
+    chat = ops.operator_chat()
+    if chat is None or not telegram.configured():
+        return
+    since = datetime.fromtimestamp(timestamp, UTC) - timedelta(minutes=10)
+    with store.connection() as conn:
+        lines = ops.problems(conn, since)
+    if lines:
+        telegram.send(
+            chat,
+            "<b>CodeIntent operations</b>\n"
+            + "\n".join(f"• {telegram.esc(line)}" for line in lines),
+        )
+
+
 @app.periodic(cron="17 */6 * * *")
 @app.task(name="graph_keepalive", queue="maintenance")
 def graph_keepalive(timestamp: int):

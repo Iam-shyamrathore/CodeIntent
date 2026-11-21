@@ -930,6 +930,15 @@ def app_telegram_chats(installation_id: int):
     }
 
 
+@app.get("/app/ops", dependencies=[Depends(operator)])
+def app_ops():
+    """Operator view of the deployment: queue, worker, webhooks, verdicts, scans, Telegram, MCP."""
+    from codeintent import ops
+
+    with store.connection() as conn:
+        return ops.snapshot(conn)
+
+
 # --- MCP tokens for AI agents --------------------------------------------------------------------
 
 
