@@ -10,6 +10,7 @@ returned as unchecked with the reason.
 from __future__ import annotations
 
 import ast
+import importlib
 import logging
 import re
 import sys
@@ -177,16 +178,81 @@ class Surface:
     def _follow(
         self, obj: griffe.Object, rest: tuple[str, ...], depth: int
     ) -> Found | Missing | Unknown:
-        """Follow ``name = other.name`` assignments, which griffe keeps as attributes."""
-        value = obj.value if obj.is_attribute else None
-        if not isinstance(value, (griffe.ExprName, griffe.ExprAttribute)) or depth > 4:
+        """Follow ``name = other.name`` assignments (which griffe keeps as attributes) and,
+        for attributes read from a call's result, the function's declared return type."""
+        if depth > 4:
             return Found(obj, obj.path, rest=rest)
-        target = value.canonical_path
-        if target == obj.path:
+        if obj.is_function and rest:
+            target = self._annotation_class(obj.returns, obj.parent)
+        else:
+            value = obj.value if obj.is_attribute else None
+            is_name = isinstance(value, (griffe.ExprName, griffe.ExprAttribute))
+            target = value.canonical_path if is_name else None
+        if target is None or target == obj.path:
             return Found(obj, obj.path, rest=rest)
-        if any(target == m or target.startswith(m + ".") for m in self.modules):
+        if self._inside(target):
             return self.lookup(".".join((target, *rest)), depth + 1)
         return Found(None, obj.path, external=target, rest=rest)
+
+    def _annotation_class(self, expr, scope, depth: int = 0) -> str | None:
+        """The one class an annotation names, unwrapping ``Optional``, ``X | None`` and bound TypeVars.
+
+        Containers (``list[X]``) and real unions return None: the attribute isn't on a single known class.
+        """
+        if expr is None or depth > 3:
+            return None
+        if isinstance(expr, str):
+            return self._name_in(expr.strip("'\""), scope)
+        if isinstance(expr, griffe.ExprBinOp) and expr.operator == "|":
+            options = [o for o in (expr.left, expr.right) if str(o) != "None"]
+            return (
+                self._annotation_class(options[0], scope, depth + 1)
+                if len(options) == 1
+                else None
+            )
+        if isinstance(expr, griffe.ExprSubscript):
+            wrapper = str(getattr(expr.left, "canonical_path", expr.left)).split(".")[
+                -1
+            ]
+            inner = expr.slice
+            elements = (
+                list(inner.elements) if isinstance(inner, griffe.ExprTuple) else [inner]
+            )
+            options = [e for e in elements if str(e) != "None"]
+            if wrapper == "Annotated":
+                options = elements[:1]
+            if wrapper in ("Optional", "Union", "Annotated") and len(options) == 1:
+                return self._annotation_class(options[0], scope, depth + 1)
+            return None
+        if not isinstance(expr, (griffe.ExprName, griffe.ExprAttribute)):
+            return None
+        path = expr.canonical_path
+        found = self.lookup(path, 5) if self._inside(path) else None
+        value = getattr(getattr(found, "obj", None), "value", None)
+        if isinstance(value, griffe.ExprCall) and value.canonical_path.endswith(
+            "TypeVar"
+        ):
+            bound = next(
+                (
+                    a.value
+                    for a in value.arguments
+                    if getattr(a, "name", None) == "bound"
+                ),
+                None,
+            )
+            return self._annotation_class(bound, found.obj.parent, depth + 1)
+        return path
+
+    def _name_in(self, dotted: str, scope) -> str | None:
+        """Resolve a dotted name written as a string annotation, from the module or class it appears in."""
+        head, _, tail = dotted.partition(".")
+        while scope is not None and not scope.is_module and head not in scope.members:
+            scope = scope.parent
+        member = scope.members.get(head) if scope is not None else None
+        if member is None:
+            return None
+        base = member.target_path if member.is_alias else member.path
+        return f"{base}.{tail}" if tail else base
 
     def _inside(self, path: str) -> bool:
         return any(path == m or path.startswith(m + ".") for m in self.modules)
@@ -236,7 +302,30 @@ class Surface:
         self._tries[module.path] = found
         return found
 
-    def _missing(self, parent: griffe.Object, name: str) -> Missing | Shimmed | Unknown:
+    @staticmethod
+    def _standard_member(cls: griffe.Object, name: str) -> str | None:
+        """``builtins.str.replace`` when ``name`` comes from a standard-library base such as ``str``.
+
+        Only standard-library classes are imported to check this, never library code; a library upgrade
+        can't change them, so both releases compare equal unless the base itself changes.
+        """
+        for base in cls.bases:
+            path = str(getattr(base, "canonical_path", base))
+            module, _, attribute = path.rpartition(".")
+            module = module or "builtins"
+            if module.split(".")[0] not in sys.stdlib_module_names:
+                continue
+            try:
+                owner = getattr(importlib.import_module(module), attribute)
+            except (ImportError, AttributeError):
+                continue
+            if isinstance(owner, type) and hasattr(owner, name):
+                return f"{module}.{attribute}.{name}"
+        return None
+
+    def _missing(
+        self, parent: griffe.Object, name: str
+    ) -> Found | Missing | Shimmed | Unknown:
         path = f"{parent.path}.{name}"
         members = parent.all_members if parent.is_class else parent.members
         if "__getattr__" in members:
@@ -258,6 +347,9 @@ class Surface:
             folder = parent.filepath.parent
             if any(f.suffix in COMPILED for f in folder.glob(f"{name}.*")):
                 return Unknown("compiled-module", f"{path} is a compiled extension")
+        inherited = self._standard_member(parent, name) if parent.is_class else None
+        if inherited is not None:
+            return Found(None, path, external=inherited)
         if parent.is_class and self._external_base(parent):
             return Unknown(
                 "external-base",
