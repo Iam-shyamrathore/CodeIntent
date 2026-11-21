@@ -1133,6 +1133,153 @@ def advisories(repo: RepoArg) -> AdvisoryReport:
 # ---------------------------------------------------------------- HTTP app
 
 
+class ImpactLine(BaseModel):
+    repository: str
+    file: str
+    line: int | None = None
+    code: str | None = Field(
+        None, description="The code at that place, as last scanned."
+    )
+    symbol: str
+    change: str = Field(description="What changed, e.g. 'httpx.Client(proxies=)'.")
+    kind: str
+    version: str = Field(description="The release that made the change.")
+    replacement: str | None = None
+    locked: str | None = Field(
+        None, description="The version this repository locks now."
+    )
+    confirmed: bool = Field(
+        description="True when a run compared this upgrade for this repository; false when the line was "
+        "found through the workspace graph alone (same symbol and argument, never compared there)."
+    )
+
+
+class Impact(BaseModel):
+    package: str
+    version: str | None
+    repositories: list[str]
+    lines: list[ImpactLine]
+    note: str
+
+
+class SymbolUse(BaseModel):
+    repository: str
+    file: str
+    line: int | None = None
+    code: str | None = None
+    symbol: str
+    kind: str | None = None
+    keywords: list[str] = []
+
+
+class Usages(BaseModel):
+    package: str
+    symbol: str | None
+    uses: list[SymbolUse]
+    note: str
+
+
+def _workspace() -> int:
+    installation = _installation.get()
+    if installation is None:
+        raise ToolError(
+            "this tool reads your workspace graph: connect with a workspace token from the CodeIntent "
+            "dashboard (AI agents tile)"
+        )
+    return installation
+
+
+@server.tool(
+    title="What a library change breaks across all your repositories",
+    annotations=READ_ONLY,
+)
+@_recorded("impact")
+def impact(
+    package: PackageArg,
+    version: Annotated[
+        str | None,
+        Field(
+            description="The release whose changes to check, e.g. '0.28.1'. Omit for every known change.",
+            max_length=64,
+        ),
+    ] = None,
+) -> Impact:
+    """List every line in your workspace's repositories that a known change in one Python library touches.
+
+    Answered from the workspace graph that CodeIntent builds from every PR check and daily scan: the
+    changes found anywhere in your repositories, joined to every place your default branches use the same
+    symbol (and pass the same argument, for argument changes). Lines with confirmed=false were found
+    through the graph alone: the same use in a repository whose upgrade has not been compared yet.
+    Instant: nothing is downloaded. Needs a workspace token.
+    """
+    from codeintent import graph, workspace_graph
+
+    ws = _workspace()
+    name = _package(package)
+    with (
+        _guard("impact"),
+        _timed("query the workspace graph") as note,
+        graph.driver() as db,
+    ):
+        rows = workspace_graph.impact(db, ws, name, version)
+        note["detail"] = f"{len(rows)} line(s)"
+    return Impact(
+        package=name,
+        version=version,
+        repositories=sorted({r["repository"] for r in rows}),
+        lines=[ImpactLine(**r) for r in rows],
+        note=(
+            "From the workspace graph: changes found by earlier runs, joined to every current use. "
+            "Run upgrade_brief on a repository to confirm and get exact steps."
+            if rows
+            else f"No known change in {name} touches code in your repositories. Changes are known once a "
+            "PR check or scan has compared a release; run upgrade_brief to compare one now."
+        ),
+    )
+
+
+@server.tool(title="Where your repositories use a library", annotations=READ_ONLY)
+@_recorded("who_uses")
+def who_uses(
+    package: PackageArg,
+    symbol: Annotated[
+        str | None,
+        Field(
+            description="A public name such as 'httpx.Client'; omit for every use.",
+            max_length=300,
+        ),
+    ] = None,
+) -> Usages:
+    """List where your workspace's default branches use one Python library, or one name in it.
+
+    From the workspace graph (the latest scan of each repository), with file:line, the code there, how it
+    is used (call, import, subclass, ...) and the keyword arguments passed. Needs a workspace token.
+    """
+    from codeintent import graph, workspace_graph
+
+    ws = _workspace()
+    name = _package(package)
+    with (
+        _guard("who_uses"),
+        _timed("query the workspace graph") as note,
+        graph.driver() as db,
+    ):
+        rows = workspace_graph.usages(db, ws, name, symbol)
+        note["detail"] = f"{len(rows)} use(s)"
+    return Usages(
+        package=name,
+        symbol=symbol,
+        uses=[SymbolUse(**r) for r in rows],
+        note=(
+            "From each repository's latest default-branch scan; at most 500 uses."
+            if rows
+            else f"No scanned repository uses {name}"
+            + (f" ({symbol})" if symbol else "")
+            + ". Uses are recorded for dependencies with a newer release."
+        ),
+    )
+
+
 class BearerAuth:
     """Reject HTTP requests without a valid ``Authorization: Bearer`` token (constant-time compares).
 

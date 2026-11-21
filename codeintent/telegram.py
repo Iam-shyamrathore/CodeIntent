@@ -51,6 +51,7 @@ HELP = (
     "<b>CodeIntent</b> posts dependency-upgrade verdicts on pull requests.\n\n"
     "/status: repositories and the newest breaking pull requests\n"
     "/why <i>package</i>: the latest verdict for a package\n"
+    "/impact <i>package</i> [<i>version</i>]: every line in your repositories a known change touches\n"
     "/link <i>CODE</i>: link this chat to a workspace (code from the dashboard)\n"
     "/unlink: stop alerts in this chat"
 )
@@ -533,6 +534,61 @@ def why(chat_id: int, package: str) -> str:
     return fit(blocks, report)
 
 
+def impact(chat_id: int, argument: str) -> str:
+    """Every line the linked workspaces' graphs say a known change in a package touches."""
+    parts = argument.split()
+    if not parts or len(parts) > 2:
+        return "Send <code>/impact package</code> or <code>/impact package version</code>, e.g. <code>/impact httpx 0.28.1</code>."
+    package, version = parts[0], parts[1] if len(parts) == 2 else None
+    if not PACKAGE.match(package) or (
+        version and not re.fullmatch(r"[A-Za-z0-9.+!_-]{1,64}", version)
+    ):
+        return "That is not a Python package name and version."
+    with store.connection() as conn:
+        homes = _linked(conn, chat_id)
+    if not homes:
+        return NOT_LINKED
+    from codeintent import graph, workspace_graph
+
+    if not workspace_graph.configured():
+        return "The workspace graph is not configured on this deployment."
+    try:
+        with graph.driver() as db:
+            lines = [
+                row
+                for home in homes
+                for row in workspace_graph.impact(
+                    db, home["id"], canonical(package), version
+                )
+            ]
+    except Exception as exc:
+        logger.warning("Telegram impact query failed (%s)", type(exc).__name__)
+        return "The workspace graph is unavailable right now; try again shortly."
+    what = f"<code>{esc(package, 100)}</code>" + (
+        f" {esc(version, 64)}" if version else ""
+    )
+    if not lines:
+        return f"No known change in {what} touches code in your repositories."
+    repos = sorted({r["repository"] for r in lines})
+    blocks = [
+        f"<b>Impact of {what}</b>: {len(lines)} line(s) in {len(repos)} repositor{'y' if len(repos) == 1 else 'ies'}"
+    ]
+    for repo in repos:
+        rows = [r for r in lines if r["repository"] == repo]
+        shown = "\n".join(
+            f"• <code>{esc(f'{r["file"]}:{r["line"]}', 160)}</code> {esc(r['change'], 120)}"
+            + (
+                ""
+                if r["confirmed"]
+                else " <i>(found through the graph; not compared yet)</i>"
+            )
+            for r in rows[:5]
+        )
+        more = f"\n<i>and {len(rows) - 5} more</i>" if len(rows) > 5 else ""
+        blocks.append(f"<b>{esc(repo, 200)}</b>\n{shown}{more}")
+    return fit(blocks, public_url("/dashboard/impact?package=" + canonical(package)))
+
+
 def _command(text: str) -> tuple[str, str, bool] | None:
     """``/status@CodeIntentBot arg`` -> ("status", "arg", addressed). None if it is not for this bot."""
     match = re.match(
@@ -593,6 +649,8 @@ def respond(update: dict) -> dict | None:
         reply = status(chat_id)
     elif name == "why":
         reply = why(chat_id, argument)
+    elif name == "impact":
+        reply = impact(chat_id, argument)
     elif name == "help" or chat.get("type") == "private" or addressed:
         reply = HELP
     else:

@@ -244,3 +244,37 @@ def test_run_graph_draws_the_why_chain(workspaces):
         assert conn.execute(
             "SELECT projected_at FROM ci_runs WHERE id=%s", (run_id,)
         ).fetchone()["projected_at"]
+
+
+@integration
+def test_agents_and_telegram_ask_the_same_graph(workspaces, monkeypatch):
+    from mcp.server.mcpserver.exceptions import ToolError
+
+    from codeintent import mcp_server, telegram
+
+    a, b = workspaces
+    recorded(a, "acme/app", scan_result(BREAKS, ["proxies"]))
+    recorded(a, "acme/cli", scan_result(None, ["proxies"], line=40) | {"items": []})
+    with pytest.raises(ToolError):
+        mcp_server.impact("httpx", "0.28.1")  # no workspace token
+    reset = mcp_server._installation.set(a)
+    try:
+        answer = mcp_server.impact("httpx", "0.28.1")
+        uses = mcp_server.who_uses("httpx", "httpx.Client")
+    finally:
+        mcp_server._installation.reset(reset)
+    assert answer.repositories == ["acme/app", "acme/cli"]
+    assert [line.confirmed for line in answer.lines] == [True, False]
+    assert {u.repository for u in uses.uses} == {"acme/app", "acme/cli"}
+
+    with store.connection() as conn:
+        conn.execute(
+            "INSERT INTO ci_telegram_chats(chat_id,installation_id) VALUES (555,%s)",
+            (a,),
+        )
+    monkeypatch.setenv("CODEINTENT_PUBLIC_URL", "https://codeintent.example")
+    text = telegram.impact(555, "httpx 0.28.1")
+    assert "2 line(s) in 2 repositories" in text
+    assert "weather/client.py:40" in text and "found through the graph" in text
+    assert telegram.impact(556, "httpx") == telegram.NOT_LINKED
+    assert "not a Python package" in telegram.impact(555, "httpx <script>")
