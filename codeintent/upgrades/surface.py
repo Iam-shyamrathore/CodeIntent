@@ -701,9 +701,33 @@ def warnings_in(tree: ast.AST | None) -> list[Warning_]:
     for decorator in getattr(root, "decorator_list", ()):
         if "deprecat" in ast.unparse(decorator).lower():
             found.append(Warning_(_text(decorator) or ast.unparse(decorator)))
-    for child in ast.iter_child_nodes(root):
-        if child not in getattr(root, "decorator_list", ()):
-            visit(child, frozenset())
+    if isinstance(root, (ast.FunctionDef, ast.AsyncFunctionDef)):
+        arguments = root.args
+        for arg in [*arguments.posonlyargs, *arguments.args, *arguments.kwonlyargs]:
+            marker = (
+                next(
+                    (
+                        n
+                        for n in ast.walk(arg.annotation)
+                        if isinstance(n, ast.Call)
+                        and "deprecat" in ast.unparse(n.func).lower()
+                    ),
+                    None,
+                )
+                if arg.annotation is not None
+                else None
+            )
+            if marker is not None:
+                found.append(Warning_(_text(marker) or arg.arg, frozenset({arg.arg})))
+        body = root.body
+    else:
+        body = [
+            c
+            for c in ast.iter_child_nodes(root)
+            if c not in getattr(root, "decorator_list", ())
+        ]
+    for child in body:
+        visit(child, frozenset())
     return found
 
 
@@ -817,12 +841,11 @@ def check(old: Surface, new: Surface, usage: Usage) -> UsageCheck:
         accepted_now = signature(after.obj)
         changes = [_parameter_replacement(c, accepted_now) for c in changes]
     supplied = set(usage.keywords)
-    accepted = set(getattr(signature(after.obj), "names", ()))
     for warning in _deprecations(new, after.obj):
-        triggers = (warning.parameters & accepted) or {
-            k for k in supplied if _mentions(warning.message, k)
-        }
-        if warning.parameters and not triggers & supplied:
+        # A conditional warning fires only for the names in its condition; the message may name the
+        # replacement ("use max_length instead"), so it never decides which argument is deprecated.
+        triggers = warning.parameters & supplied
+        if warning.parameters and not triggers:
             continue
         parameter = next(iter(sorted(triggers & supplied)), None)
         already = any(w.message == warning.message for w in previous or ())
