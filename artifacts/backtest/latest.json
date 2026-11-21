@@ -1,0 +1,1744 @@
+{
+ "summary": {
+  "updated": "2026-11-21T16:14:14+00:00",
+  "breaks": {
+   "total": 19,
+   "caught": 14,
+   "localised": 13,
+   "verdicts": {
+    "breaks": 14,
+    "not-checked": 5
+   }
+  },
+  "guarded": {
+   "total": 2,
+   "not_breaks": 2,
+   "verdicts": {
+    "not-checked": 2
+   }
+  },
+  "harmless": {
+   "total": 80,
+   "ran": 78,
+   "false_breaks": 0,
+   "wilson_upper": 0.0469,
+   "verdicts": {
+    "no-known-impact": 70,
+    "error": 2,
+    "needs-change": 2,
+    "not-checked": 6
+   }
+  },
+  "unchecked_reasons": {
+   "kwargs-passthrough": 8,
+   "kwargs-absorbed": 9,
+   "dynamic-attribute": 9,
+   "not-in-old-version": 10,
+   "external-base": 2,
+   "return-value": 5,
+   "signature-unknown": 6,
+   "star-import": 2,
+   "external-alias": 5
+  }
+ },
+ "cases": [
+  {
+   "id": "httpx-0.28-openai",
+   "label": "breaks",
+   "package": "httpx",
+   "from": "0.27.2",
+   "to": "0.28.0",
+   "verdict": "breaks",
+   "reason": "2 change(s) in httpx 0.28.0 break code you use, at 3 place(s)",
+   "findings": [
+    {
+     "severity": "breaks",
+     "kind": "parameter-removed",
+     "symbol": "httpx._client.AsyncClient",
+     "parameter": "proxies",
+     "locations": [
+      "src/openai/_base_client.py:1438"
+     ]
+    },
+    {
+     "severity": "breaks",
+     "kind": "parameter-removed",
+     "symbol": "httpx._client.Client",
+     "parameter": "proxies",
+     "locations": [
+      "src/openai/_base_client.py:857",
+      "src/openai/cli/_cli.py:179"
+     ]
+    }
+   ],
+   "unchecked": [],
+   "localised": true,
+   "seconds": 3.2
+  },
+  {
+   "id": "itsdangerous-2.1-flask-1.1.2",
+   "label": "breaks",
+   "package": "itsdangerous",
+   "from": "2.0.1",
+   "to": "2.1.0",
+   "verdict": "breaks",
+   "reason": "1 change(s) in itsdangerous 2.1.0 break code you use, at 12 place(s)",
+   "findings": [
+    {
+     "severity": "breaks",
+     "kind": "removed",
+     "symbol": "itsdangerous.json",
+     "parameter": null,
+     "locations": [
+      "src/flask/json/__init__.py:15",
+      "src/flask/json/__init__.py:31",
+      "src/flask/json/__init__.py:61",
+      "src/flask/json/__init__.py:61",
+      "src/flask/json/__init__.py:100"
+     ]
+    }
+   ],
+   "unchecked": [
+    "kwargs-passthrough"
+   ],
+   "localised": true,
+   "seconds": 2.1
+  },
+  {
+   "id": "markupsafe-2.1-jinja-2.11.3",
+   "label": "breaks",
+   "package": "markupsafe",
+   "from": "2.0.1",
+   "to": "2.1.0",
+   "verdict": "breaks",
+   "reason": "1 change(s) in markupsafe 2.1.0 break code you use, at 19 place(s)",
+   "findings": [
+    {
+     "severity": "breaks",
+     "kind": "removed",
+     "symbol": "markupsafe.soft_unicode",
+     "parameter": null,
+     "locations": [
+      "src/jinja2/filters.py:13",
+      "src/jinja2/filters.py:194",
+      "src/jinja2/filters.py:195",
+      "src/jinja2/filters.py:195",
+      "src/jinja2/filters.py:195"
+     ]
+    }
+   ],
+   "unchecked": [],
+   "localised": true,
+   "seconds": 1.6
+  },
+  {
+   "id": "urllib3-2.0-botocore-1.29.121",
+   "label": "breaks",
+   "package": "urllib3",
+   "from": "1.26.15",
+   "to": "2.0.0",
+   "verdict": "breaks",
+   "reason": "1 change(s) in urllib3 2.0.0 break code you use, at 2 place(s)",
+   "findings": [
+    {
+     "severity": "breaks",
+     "kind": "removed",
+     "symbol": "urllib3.util.ssl_.DEFAULT_CIPHERS",
+     "parameter": null,
+     "locations": [
+      "botocore/httpsession.py:23",
+      "botocore/httpsession.py:109"
+     ]
+    }
+   ],
+   "unchecked": [
+    "kwargs-absorbed",
+    "kwargs-passthrough"
+   ],
+   "localised": true,
+   "seconds": 22.1
+  },
+  {
+   "id": "urllib3-2.0-botocore-1.29.130",
+   "label": "guarded",
+   "package": "urllib3",
+   "from": "1.26.15",
+   "to": "2.0.0",
+   "verdict": "not-checked",
+   "reason": "3 use(s) of urllib3 could not be followed, and they touch parts that changed in 2.0.0",
+   "findings": [
+    {
+     "severity": "needs-change",
+     "kind": "removed",
+     "symbol": "urllib3.util.ssl_.DEFAULT_CIPHERS",
+     "parameter": null,
+     "locations": [
+      "botocore/httpsession.py:52",
+      "botocore/httpsession.py:118",
+      "botocore/httpsession.py:119"
+     ]
+    }
+   ],
+   "unchecked": [
+    "kwargs-absorbed",
+    "kwargs-passthrough"
+   ],
+   "seconds": 23.0
+  },
+  {
+   "id": "werkzeug-3.0-flask-2.2.2",
+   "label": "breaks",
+   "package": "werkzeug",
+   "from": "2.3.7",
+   "to": "3.0.0",
+   "verdict": "breaks",
+   "reason": "2 change(s) in werkzeug 3.0.0 break code you use, at 10 place(s)",
+   "findings": [
+    {
+     "severity": "breaks",
+     "kind": "removed",
+     "symbol": "werkzeug.urls.url_parse",
+     "parameter": null,
+     "locations": [
+      "src/flask/testing.py:10",
+      "src/flask/testing.py:71",
+      "src/flask/testing.py:73",
+      "src/flask/testing.py:73",
+      "src/flask/testing.py:76"
+     ]
+    },
+    {
+     "severity": "breaks",
+     "kind": "removed",
+     "symbol": "werkzeug.urls.url_quote",
+     "parameter": null,
+     "locations": [
+      "src/flask/app.py:30",
+      "src/flask/app.py:2034"
+     ]
+    },
+    {
+     "severity": "needs-change",
+     "kind": "deprecated",
+     "symbol": "werkzeug.__version__",
+     "parameter": null,
+     "locations": [
+      "src/flask/cli.py:250",
+      "src/flask/testing.py:117",
+      "tests/test_cli.py:231",
+      "tests/test_cli.py:246",
+      "tests/test_testing.py:54"
+     ]
+    },
+    {
+     "severity": "needs-change",
+     "kind": "default-changed",
+     "symbol": "werkzeug.security.generate_password_hash",
+     "parameter": "method",
+     "locations": [
+      "examples/tutorial/flaskr/auth.py:68"
+     ]
+    }
+   ],
+   "unchecked": [
+    "dynamic-attribute",
+    "kwargs-passthrough"
+   ],
+   "localised": true,
+   "seconds": 2.7
+  },
+  {
+   "id": "jinja2-3.1-flask-1.1.2",
+   "label": "breaks",
+   "package": "jinja2",
+   "from": "3.0.3",
+   "to": "3.1.0",
+   "verdict": "breaks",
+   "reason": "2 change(s) in jinja2 3.1.0 break code you use, at 6 place(s)",
+   "findings": [
+    {
+     "severity": "breaks",
+     "kind": "removed",
+     "symbol": "jinja2.Markup",
+     "parameter": null,
+     "locations": [
+      "src/flask/__init__.py:15",
+      "src/flask/json/__init__.py:16",
+      "src/flask/json/__init__.py:376",
+      "src/flask/json/tag.py:49",
+      "src/flask/json/tag.py:187"
+     ]
+    },
+    {
+     "severity": "breaks",
+     "kind": "removed",
+     "symbol": "jinja2.escape",
+     "parameter": null,
+     "locations": [
+      "src/flask/__init__.py:14"
+     ]
+    }
+   ],
+   "unchecked": [],
+   "localised": true,
+   "seconds": 2.3
+  },
+  {
+   "id": "werkzeug-2.1-flask-1.1.1",
+   "label": "breaks",
+   "package": "werkzeug",
+   "from": "2.0.3",
+   "to": "2.1.0",
+   "verdict": "breaks",
+   "reason": "3 change(s) in werkzeug 2.1.0 break code you use, at 8 place(s)",
+   "findings": [
+    {
+     "severity": "breaks",
+     "kind": "parameter-removed",
+     "symbol": "werkzeug.test.Client.open",
+     "parameter": "as_tuple",
+     "locations": [
+      "src/flask/testing.py:222"
+     ]
+    },
+    {
+     "severity": "breaks",
+     "kind": "removed",
+     "symbol": "werkzeug.wrappers.BaseResponse",
+     "parameter": null,
+     "locations": [
+      "src/flask/app.py:32",
+      "src/flask/app.py:2112"
+     ]
+    },
+    {
+     "severity": "breaks",
+     "kind": "removed",
+     "symbol": "werkzeug.wrappers.json",
+     "parameter": null,
+     "locations": [
+      "src/flask/wrappers.py:14",
+      "src/flask/wrappers.py:20",
+      "src/flask/wrappers.py:20",
+      "src/flask/wrappers.py:30",
+      "src/flask/wrappers.py:103"
+     ]
+    },
+    {
+     "severity": "needs-change",
+     "kind": "default-changed",
+     "symbol": "werkzeug.http.parse_options_header",
+     "parameter": "multiple",
+     "locations": [
+      "tests/test_helpers.py:655",
+      "tests/test_helpers.py:663",
+      "tests/test_helpers.py:670",
+      "tests/test_helpers.py:682"
+     ]
+    }
+   ],
+   "unchecked": [
+    "dynamic-attribute",
+    "not-in-old-version"
+   ],
+   "localised": true,
+   "seconds": 2.5
+  },
+  {
+   "id": "werkzeug-2.1-httpbin-0.7.0",
+   "label": "breaks",
+   "package": "werkzeug",
+   "from": "2.0.3",
+   "to": "2.1.0",
+   "verdict": "breaks",
+   "reason": "1 change(s) in werkzeug 2.1.0 break code you use, at 2 place(s)",
+   "findings": [
+    {
+     "severity": "breaks",
+     "kind": "removed",
+     "symbol": "werkzeug.wrappers.BaseResponse",
+     "parameter": null,
+     "locations": [
+      "httpbin/core.py:22",
+      "httpbin/core.py:51"
+     ]
+    }
+   ],
+   "unchecked": [],
+   "localised": true,
+   "seconds": 1.5
+  },
+  {
+   "id": "werkzeug-2.1-flask-login-0.5.0",
+   "label": "breaks",
+   "package": "werkzeug",
+   "from": "2.0.3",
+   "to": "2.1.0",
+   "verdict": "breaks",
+   "reason": "1 change(s) in werkzeug 2.1.0 break code you use, at 2 place(s)",
+   "findings": [
+    {
+     "severity": "breaks",
+     "kind": "removed",
+     "symbol": "werkzeug.security.safe_str_cmp",
+     "parameter": null,
+     "locations": [
+      "flask_login/utils.py:13",
+      "flask_login/utils.py:63"
+     ]
+    }
+   ],
+   "unchecked": [
+    "not-in-old-version"
+   ],
+   "localised": true,
+   "seconds": 1.4
+  },
+  {
+   "id": "click-8.1-black-22.1.0",
+   "label": "breaks",
+   "package": "click",
+   "from": "8.0.4",
+   "to": "8.1.0",
+   "verdict": "breaks",
+   "reason": "1 change(s) in click 8.1.0 break code you use, at 2 place(s)",
+   "findings": [
+    {
+     "severity": "breaks",
+     "kind": "removed",
+     "symbol": "click._unicodefun",
+     "parameter": null,
+     "locations": [
+      "src/black/__init__.py:1413",
+      "tests/test_black.py:1243"
+     ]
+    },
+    {
+     "severity": "needs-change",
+     "kind": "removed",
+     "symbol": "click._unicodefun",
+     "parameter": null,
+     "locations": [
+      "src/black/__init__.py:1409",
+      "tests/test_black.py:1240"
+     ]
+    }
+   ],
+   "unchecked": [
+    "kwargs-absorbed",
+    "not-in-old-version"
+   ],
+   "localised": true,
+   "seconds": 4.1
+  },
+  {
+   "id": "importlib-metadata-5.0-celery-5.2.7",
+   "label": "breaks",
+   "package": "importlib-metadata",
+   "from": "4.13.0",
+   "to": "5.0.0",
+   "verdict": "not-checked",
+   "reason": "2 use(s) of importlib-metadata could not be followed, and they touch parts that changed in 5.0.0",
+   "findings": [],
+   "unchecked": [
+    "external-base"
+   ],
+   "localised": false,
+   "seconds": 4.3
+  },
+  {
+   "id": "importlib-metadata-5.0-celery-5.3.0",
+   "label": "guarded",
+   "package": "importlib-metadata",
+   "from": "4.13.0",
+   "to": "5.0.0",
+   "verdict": "not-checked",
+   "reason": "10 use(s) of importlib-metadata could not be followed, and they touch parts that changed in 5.0.0",
+   "findings": [],
+   "unchecked": [
+    "external-base",
+    "kwargs-absorbed",
+    "return-value"
+   ],
+   "seconds": 5.3
+  },
+  {
+   "id": "urllib3-2.0-pytrends-4.9.1",
+   "label": "breaks",
+   "package": "urllib3",
+   "from": "1.26.15",
+   "to": "2.0.0",
+   "verdict": "breaks",
+   "reason": "1 change(s) in urllib3 2.0.0 break code you use, at 1 place(s)",
+   "findings": [
+    {
+     "severity": "breaks",
+     "kind": "parameter-removed",
+     "symbol": "urllib3.util.retry.Retry",
+     "parameter": "method_whitelist",
+     "locations": [
+      "pytrends/request.py:124"
+     ]
+    }
+   ],
+   "unchecked": [],
+   "localised": true,
+   "seconds": 1.6
+  },
+  {
+   "id": "urllib3-2.0-pyowm-3.3.0",
+   "label": "breaks",
+   "package": "urllib3",
+   "from": "1.26.15",
+   "to": "2.0.0",
+   "verdict": "breaks",
+   "reason": "1 change(s) in urllib3 2.0.0 break code you use, at 1 place(s)",
+   "findings": [
+    {
+     "severity": "breaks",
+     "kind": "parameter-removed",
+     "symbol": "urllib3.util.retry.Retry",
+     "parameter": "method_whitelist",
+     "locations": [
+      "pyowm/commons/http_client.py:127"
+     ]
+    }
+   ],
+   "unchecked": [],
+   "localised": true,
+   "seconds": 11.8
+  },
+  {
+   "id": "numpy-2.0-freqtrade-2024.6",
+   "label": "breaks",
+   "package": "numpy",
+   "from": "1.26.4",
+   "to": "2.0.0",
+   "verdict": "not-checked",
+   "reason": "88 use(s) of numpy could not be followed, and they touch parts that changed in 2.0.0",
+   "findings": [],
+   "unchecked": [
+    "dynamic-attribute",
+    "signature-unknown",
+    "star-import"
+   ],
+   "localised": false,
+   "seconds": 102.9
+  },
+  {
+   "id": "pandas-2.0-moses",
+   "label": "breaks",
+   "package": "pandas",
+   "from": "1.5.3",
+   "to": "2.0.0",
+   "verdict": "not-checked",
+   "reason": "23 use(s) of pandas could not be followed, and they touch parts that changed in 2.0.0",
+   "findings": [
+    {
+     "severity": "needs-change",
+     "kind": "default-changed",
+     "symbol": "pandas.core.generic.NDFrame.astype",
+     "parameter": "copy",
+     "locations": [
+      "scripts/print_table.py:98"
+     ]
+    },
+    {
+     "severity": "needs-change",
+     "kind": "default-changed",
+     "symbol": "pandas.core.generic.NDFrame.sum",
+     "parameter": "numeric_only",
+     "locations": [
+      "moses/baselines/combinatorial.py:77"
+     ]
+    }
+   ],
+   "unchecked": [
+    "dynamic-attribute",
+    "return-value",
+    "signature-unknown"
+   ],
+   "localised": false,
+   "seconds": 126.2
+  },
+  {
+   "id": "pydantic-2-krr-1.7.1",
+   "label": "breaks",
+   "package": "pydantic",
+   "from": "1.10.7",
+   "to": "2.0",
+   "verdict": "not-checked",
+   "reason": "26 use(s) of pydantic could not be followed, and they touch parts that changed in 2.0",
+   "findings": [
+    {
+     "severity": "needs-change",
+     "kind": "deprecated",
+     "symbol": "pydantic.deprecated.class_validators.validator",
+     "parameter": null,
+     "locations": [
+      "robusta_krr/core/models/allocations.py:47",
+      "robusta_krr/core/models/config.py:77",
+      "robusta_krr/core/models/config.py:87",
+      "robusta_krr/core/models/config.py:94",
+      "robusta_krr/core/models/config.py:101"
+     ]
+    },
+    {
+     "severity": "needs-change",
+     "kind": "default-changed",
+     "symbol": "pydantic.deprecated.class_validators.validator",
+     "parameter": "check_fields",
+     "locations": [
+      "robusta_krr/core/models/allocations.py:47",
+      "robusta_krr/core/models/config.py:77",
+      "robusta_krr/core/models/config.py:87",
+      "robusta_krr/core/models/config.py:94",
+      "robusta_krr/core/models/config.py:101"
+     ]
+    }
+   ],
+   "unchecked": [
+    "dynamic-attribute",
+    "external-alias",
+    "kwargs-absorbed",
+    "not-in-old-version"
+   ],
+   "localised": false,
+   "seconds": 10.4
+  },
+  {
+   "id": "pydantic-2-mlserver-1.4.0",
+   "label": "breaks",
+   "package": "pydantic",
+   "from": "1.10.14",
+   "to": "2.0",
+   "verdict": "not-checked",
+   "reason": "63 use(s) of pydantic could not be followed, and they touch parts that changed in 2.0",
+   "findings": [
+    {
+     "severity": "needs-change",
+     "kind": "deprecated",
+     "symbol": "pydantic.config.Extra",
+     "parameter": null,
+     "locations": [
+      "mlserver/settings.py:8",
+      "mlserver/settings.py:261",
+      "mlserver/types/dataplane.py:7",
+      "mlserver/types/dataplane.py:44",
+      "runtimes/huggingface/mlserver_huggingface/settings.py:5"
+     ]
+    },
+    {
+     "severity": "needs-change",
+     "kind": "deprecated",
+     "symbol": "pydantic.main.BaseModel.dict",
+     "parameter": null,
+     "locations": [
+      "mlserver/rest/errors.py:15"
+     ]
+    }
+   ],
+   "unchecked": [
+    "dynamic-attribute",
+    "external-alias",
+    "kwargs-absorbed",
+    "kwargs-passthrough",
+    "not-in-old-version"
+   ],
+   "localised": false,
+   "seconds": 126.6
+  },
+  {
+   "id": "sqlalchemy-2.0-dataset-1.5.2",
+   "label": "breaks",
+   "package": "sqlalchemy",
+   "from": "1.4.46",
+   "to": "2.0.0",
+   "verdict": "breaks",
+   "reason": "1 change(s) in sqlalchemy 2.0.0 break code you use, at 2 place(s)",
+   "findings": [
+    {
+     "severity": "breaks",
+     "kind": "removed",
+     "symbol": "sqlalchemy.engine.base.Engine(dialect)",
+     "parameter": null,
+     "locations": [
+      "dataset/database.py:58",
+      "dataset/database.py:59"
+     ]
+    },
+    {
+     "severity": "needs-change",
+     "kind": "deprecated",
+     "symbol": "sqlalchemy.engine.create.create_engine",
+     "parameter": null,
+     "locations": [
+      "dataset/database.py:5",
+      "dataset/database.py:57"
+     ]
+    },
+    {
+     "severity": "needs-change",
+     "kind": "deprecated",
+     "symbol": "sqlalchemy.sql.schema.Table",
+     "parameter": null,
+     "locations": [
+      "dataset/table.py:10",
+      "dataset/table.py:305",
+      "dataset/table.py:332"
+     ]
+    }
+   ],
+   "unchecked": [
+    "dynamic-attribute",
+    "external-alias",
+    "kwargs-absorbed",
+    "kwargs-passthrough",
+    "not-in-old-version",
+    "return-value",
+    "signature-unknown"
+   ],
+   "localised": false,
+   "seconds": 8.4
+  },
+  {
+   "id": "setuptools-72-requests-2.32.3",
+   "label": "breaks",
+   "package": "setuptools",
+   "from": "71.1.0",
+   "to": "72.0.0",
+   "verdict": "breaks",
+   "reason": "1 change(s) in setuptools 72.0.0 break code you use, at 5 place(s)",
+   "findings": [
+    {
+     "severity": "breaks",
+     "kind": "removed",
+     "symbol": "setuptools.command.test",
+     "parameter": null,
+     "locations": [
+      "setup.py:7",
+      "setup.py:31",
+      "setup.py:31",
+      "setup.py:35",
+      "setup.py:44"
+     ]
+    }
+   ],
+   "unchecked": [],
+   "localised": true,
+   "seconds": 5.0
+  },
+  {
+   "id": "harmless-alpacahq-alpaca-py-712",
+   "label": "harmless",
+   "package": "msgpack",
+   "from": "1.0.8",
+   "to": "1.2.1",
+   "verdict": "no-known-impact",
+   "reason": "14 of 15 use(s) of msgpack were compared in 1.0.8 and 1.2.1 and none changed; 1 could not be followed, but touch nothing this upgrade changed",
+   "findings": [],
+   "unchecked": [],
+   "seconds": 5.7
+  },
+  {
+   "id": "harmless-transmute-app-transmute-227",
+   "label": "harmless",
+   "package": "pillow-heif",
+   "from": "1.2.1",
+   "to": "1.3.0",
+   "verdict": "error",
+   "error": "ValueError: transmute-app/transmute@92b6aa5fe5e777b34207b9230829c6d9ee75aa3c is larger than 300000000 bytes",
+   "seconds": 102.6
+  },
+  {
+   "id": "harmless-transmute-app-transmute-228",
+   "label": "harmless",
+   "package": "pillow",
+   "from": "12.2.0",
+   "to": "12.3.0",
+   "verdict": "error",
+   "error": "ValueError: transmute-app/transmute@92b6aa5fe5e777b34207b9230829c6d9ee75aa3c is larger than 300000000 bytes",
+   "seconds": 126.3
+  },
+  {
+   "id": "harmless-py-why-dowhy-1703",
+   "label": "harmless",
+   "package": "jupyterlab",
+   "from": "4.5.9",
+   "to": "4.5.10",
+   "verdict": "no-known-impact",
+   "reason": "the code does not import jupyterlab directly",
+   "findings": [],
+   "unchecked": [],
+   "seconds": 12.6
+  },
+  {
+   "id": "harmless-mozilla-ai-any-llm-1209",
+   "label": "harmless",
+   "package": "pre-commit",
+   "from": "4.6.0",
+   "to": "4.6.1",
+   "verdict": "no-known-impact",
+   "reason": "the code does not import pre-commit directly",
+   "findings": [],
+   "unchecked": [],
+   "seconds": 2.6
+  },
+  {
+   "id": "harmless-mozilla-ai-any-llm-1212",
+   "label": "harmless",
+   "package": "pre-commit-uv",
+   "from": "4.2.2",
+   "to": "4.3.0",
+   "verdict": "no-known-impact",
+   "reason": "the code does not import pre-commit-uv directly",
+   "findings": [],
+   "unchecked": [],
+   "seconds": 2.6
+  },
+  {
+   "id": "harmless-doorstop-dev-doorstop-812",
+   "label": "harmless",
+   "package": "pytest-expecter",
+   "from": "3.0",
+   "to": "3.1",
+   "verdict": "no-known-impact",
+   "reason": "the code does not import pytest-expecter directly",
+   "findings": [],
+   "unchecked": [],
+   "seconds": 3.5
+  },
+  {
+   "id": "harmless-doorstop-dev-doorstop-813",
+   "label": "harmless",
+   "package": "types-requests",
+   "from": "2.33.0.20260518",
+   "to": "2.33.0.20260712",
+   "verdict": "no-known-impact",
+   "reason": "the code does not import types-requests directly",
+   "findings": [],
+   "unchecked": [],
+   "seconds": 2.8
+  },
+  {
+   "id": "harmless-ttlequals0-minuspod-613",
+   "label": "harmless",
+   "package": "huggingface-hub",
+   "from": "1.24.0",
+   "to": "1.26.0",
+   "verdict": "no-known-impact",
+   "reason": "the code does not import huggingface-hub directly",
+   "findings": [],
+   "unchecked": [],
+   "seconds": 9.4
+  },
+  {
+   "id": "harmless-ttlequals0-minuspod-614",
+   "label": "harmless",
+   "package": "openai",
+   "from": "2.48.0",
+   "to": "2.51.0",
+   "verdict": "no-known-impact",
+   "reason": "39 of 39 use(s) of openai were compared in 2.48.0 and 2.51.0 and none changed; 2 could not be followed, but touch nothing this upgrade changed",
+   "findings": [],
+   "unchecked": [],
+   "seconds": 20.2
+  },
+  {
+   "id": "harmless-freqtrade-freqtrade-13405",
+   "label": "harmless",
+   "package": "pre-commit",
+   "from": "4.6.0",
+   "to": "4.6.1",
+   "verdict": "no-known-impact",
+   "reason": "the code does not import pre-commit directly",
+   "findings": [],
+   "unchecked": [],
+   "seconds": 18.1
+  },
+  {
+   "id": "harmless-freqtrade-freqtrade-13406",
+   "label": "harmless",
+   "package": "technical",
+   "from": "1.6.0",
+   "to": "1.7.0",
+   "verdict": "no-known-impact",
+   "reason": "36 of 36 use(s) of technical were compared in 1.6.0 and 1.7.0 and none changed; 1 could not be followed, but touch nothing this upgrade changed",
+   "findings": [],
+   "unchecked": [],
+   "seconds": 22.6
+  },
+  {
+   "id": "harmless-qubvel-org-segmentation_models.pytorch-1399",
+   "label": "harmless",
+   "package": "huggingface-hub",
+   "from": "1.25.1",
+   "to": "1.26.0",
+   "verdict": "needs-change",
+   "reason": "1 change(s) in huggingface-hub 1.26.0 affect code you use but do not break it",
+   "findings": [
+    {
+     "severity": "needs-change",
+     "kind": "deprecated",
+     "symbol": "huggingface_hub.hf_api.HfApi.create_repo",
+     "parameter": null,
+     "locations": [
+      "misc/generate_test_models.py:25",
+      "scripts/models-conversions/segformer-original-decoder-to-smp.py:134",
+      "scripts/models-conversions/upernet-hf-to-smp.py:235"
+     ]
+    }
+   ],
+   "unchecked": [],
+   "seconds": 4.8
+  },
+  {
+   "id": "harmless-wemake-services-django-test-migrations-675",
+   "label": "harmless",
+   "package": "wemake-python-styleguide",
+   "from": "1.6.2",
+   "to": "1.7.0",
+   "verdict": "no-known-impact",
+   "reason": "the code does not import wemake-python-styleguide directly",
+   "findings": [],
+   "unchecked": [],
+   "seconds": 3.0
+  },
+  {
+   "id": "harmless-wemake-services-wemake-django-template-3105",
+   "label": "harmless",
+   "package": "wemake-python-styleguide",
+   "from": "1.6.2",
+   "to": "1.7.0",
+   "verdict": "no-known-impact",
+   "reason": "the code does not import wemake-python-styleguide directly",
+   "findings": [],
+   "unchecked": [],
+   "seconds": 3.1
+  },
+  {
+   "id": "harmless-pysport-kloppy-598",
+   "label": "harmless",
+   "package": "mkdocs-autorefs",
+   "from": "1.2.0",
+   "to": "1.4.4",
+   "verdict": "no-known-impact",
+   "reason": "the code does not import mkdocs-autorefs directly",
+   "findings": [],
+   "unchecked": [],
+   "seconds": 19.5
+  },
+  {
+   "id": "harmless-vndee-llm-sandbox-174",
+   "label": "harmless",
+   "package": "gitpython",
+   "from": "3.1.44",
+   "to": "3.1.54",
+   "verdict": "no-known-impact",
+   "reason": "the code does not import gitpython directly",
+   "findings": [],
+   "unchecked": [],
+   "seconds": 3.4
+  },
+  {
+   "id": "harmless-vndee-llm-sandbox-175",
+   "label": "harmless",
+   "package": "pyasn1",
+   "from": "0.6.1",
+   "to": "0.6.4",
+   "verdict": "no-known-impact",
+   "reason": "the code does not import pyasn1 directly",
+   "findings": [],
+   "unchecked": [],
+   "seconds": 2.4
+  },
+  {
+   "id": "harmless-uriyyo-fastapi-pagination-1998",
+   "label": "harmless",
+   "package": "ruff",
+   "from": "0.16.0",
+   "to": "0.16.1",
+   "verdict": "no-known-impact",
+   "reason": "the code does not import ruff directly",
+   "findings": [],
+   "unchecked": [],
+   "seconds": 13.5
+  },
+  {
+   "id": "harmless-goauthentik-authentik-24636",
+   "label": "harmless",
+   "package": "aws-cdk-lib",
+   "from": "2.262.0",
+   "to": "2.262.2",
+   "verdict": "no-known-impact",
+   "reason": "66 of 138 use(s) of aws-cdk-lib were compared in 2.262.0 and 2.262.2 and none changed; 72 could not be followed, but touch nothing this upgrade changed",
+   "findings": [],
+   "unchecked": [],
+   "seconds": 240.2
+  },
+  {
+   "id": "harmless-homeassistant-ai-ha-mcp-2121",
+   "label": "harmless",
+   "package": "openai",
+   "from": "2.48.0",
+   "to": "2.51.0",
+   "verdict": "no-known-impact",
+   "reason": "all 31 use(s) of openai were compared in 2.48.0 and 2.51.0; none changed",
+   "findings": [],
+   "unchecked": [],
+   "seconds": 11.7
+  },
+  {
+   "id": "harmless-powerdns-admin-powerdns-admin-1860",
+   "label": "harmless",
+   "package": "pytz",
+   "from": "2026.2",
+   "to": "2026.3.post1",
+   "verdict": "no-known-impact",
+   "reason": "the code does not import pytz directly",
+   "findings": [],
+   "unchecked": [],
+   "seconds": 2.3
+  },
+  {
+   "id": "harmless-bindsnet-bindsnet-776",
+   "label": "harmless",
+   "package": "gitpython",
+   "from": "3.1.52",
+   "to": "3.1.54",
+   "verdict": "no-known-impact",
+   "reason": "the code does not import gitpython directly",
+   "findings": [],
+   "unchecked": [],
+   "seconds": 6.4
+  },
+  {
+   "id": "harmless-cowrie-cowrie-40435",
+   "label": "harmless",
+   "package": "tox",
+   "from": "4.57.2",
+   "to": "4.58.0",
+   "verdict": "no-known-impact",
+   "reason": "the code does not import tox directly",
+   "findings": [],
+   "unchecked": [],
+   "seconds": 2.9
+  },
+  {
+   "id": "harmless-cowrie-cowrie-40437",
+   "label": "harmless",
+   "package": "pre-commit",
+   "from": "4.6.0",
+   "to": "4.6.1",
+   "verdict": "no-known-impact",
+   "reason": "the code does not import pre-commit directly",
+   "findings": [],
+   "unchecked": [],
+   "seconds": 1.9
+  },
+  {
+   "id": "harmless-cert-polska-artemis-2991",
+   "label": "harmless",
+   "package": "aiohttp",
+   "from": "3.14.1",
+   "to": "3.14.3",
+   "verdict": "needs-change",
+   "reason": "1 change(s) in aiohttp 3.14.3 affect code you use but do not break it",
+   "findings": [
+    {
+     "severity": "needs-change",
+     "kind": "deprecated",
+     "symbol": "aiohttp.client.ClientSession",
+     "parameter": "timeout",
+     "locations": [
+      "artemis/api.py:286"
+     ]
+    }
+   ],
+   "unchecked": [],
+   "seconds": 4.7
+  },
+  {
+   "id": "harmless-alpacahq-alpaca-py-760",
+   "label": "harmless",
+   "package": "urllib3",
+   "from": "2.2.2",
+   "to": "2.7.0",
+   "verdict": "no-known-impact",
+   "reason": "the code does not import urllib3 directly",
+   "findings": [],
+   "unchecked": [],
+   "seconds": 1.9
+  },
+  {
+   "id": "harmless-mandarons-icloud-docker-496",
+   "label": "harmless",
+   "package": "ruff",
+   "from": "0.16.0",
+   "to": "0.16.1",
+   "verdict": "no-known-impact",
+   "reason": "the code does not import ruff directly",
+   "findings": [],
+   "unchecked": [],
+   "seconds": 1.8
+  },
+  {
+   "id": "harmless-django-hijack-django-hijack-930",
+   "label": "harmless",
+   "package": "ruff",
+   "from": "0.16.0",
+   "to": "0.16.1",
+   "verdict": "no-known-impact",
+   "reason": "the code does not import ruff directly",
+   "findings": [],
+   "unchecked": [],
+   "seconds": 1.2
+  },
+  {
+   "id": "harmless-bindsnet-bindsnet-778",
+   "label": "harmless",
+   "package": "gitpython",
+   "from": "3.1.54",
+   "to": "3.1.57",
+   "verdict": "no-known-impact",
+   "reason": "the code does not import gitpython directly",
+   "findings": [],
+   "unchecked": [],
+   "seconds": 8.9
+  },
+  {
+   "id": "harmless-flosell-trailscraper-899",
+   "label": "harmless",
+   "package": "pytz",
+   "from": "2026.2",
+   "to": "2026.3.post1",
+   "verdict": "no-known-impact",
+   "reason": "all 59 use(s) of pytz were compared in 2026.2 and 2026.3.post1; none changed",
+   "findings": [],
+   "unchecked": [],
+   "seconds": 2.4
+  },
+  {
+   "id": "harmless-flosell-trailscraper-900",
+   "label": "harmless",
+   "package": "boto3",
+   "from": "1.43.52",
+   "to": "1.43.57",
+   "verdict": "no-known-impact",
+   "reason": "6 of 11 use(s) of boto3 were compared in 1.43.52 and 1.43.57 and none changed; 5 could not be followed, but touch nothing this upgrade changed",
+   "findings": [],
+   "unchecked": [],
+   "seconds": 1.8
+  },
+  {
+   "id": "harmless-sissbruecker-linkding-1414",
+   "label": "harmless",
+   "package": "soupsieve",
+   "from": "2.8.1",
+   "to": "2.8.4",
+   "verdict": "no-known-impact",
+   "reason": "the code does not import soupsieve directly",
+   "findings": [],
+   "unchecked": [],
+   "seconds": 2.5
+  },
+  {
+   "id": "harmless-sissbruecker-linkding-1417",
+   "label": "harmless",
+   "package": "django",
+   "from": "6.0.5",
+   "to": "6.0.6",
+   "verdict": "not-checked",
+   "reason": "407 use(s) of django could not be followed, and they touch parts that changed in 6.0.6",
+   "findings": [],
+   "unchecked": [
+    "external-alias",
+    "kwargs-absorbed",
+    "kwargs-passthrough",
+    "not-in-old-version",
+    "return-value",
+    "signature-unknown"
+   ],
+   "seconds": 42.4
+  },
+  {
+   "id": "harmless-mozilla-bugbug-6328",
+   "label": "harmless",
+   "package": "mcp",
+   "from": "1.27.2",
+   "to": "1.28.1",
+   "verdict": "no-known-impact",
+   "reason": "39 of 45 use(s) of mcp were compared in 1.27.2 and 1.28.1 and none changed; 6 could not be followed, but touch nothing this upgrade changed",
+   "findings": [],
+   "unchecked": [],
+   "seconds": 5.5
+  },
+  {
+   "id": "harmless-mozilla-bugbug-6340",
+   "label": "harmless",
+   "package": "rq",
+   "from": "2.7.0",
+   "to": "2.10.0",
+   "verdict": "no-known-impact",
+   "reason": "25 of 26 use(s) of rq were compared in 2.7.0 and 2.10.0 and none changed; 1 could not be followed, but touch nothing this upgrade changed",
+   "findings": [],
+   "unchecked": [],
+   "seconds": 5.7
+  },
+  {
+   "id": "harmless-imageio-imageio-1198",
+   "label": "harmless",
+   "package": "pillow",
+   "from": "12.2.0",
+   "to": "12.3.0",
+   "verdict": "not-checked",
+   "reason": "1 use(s) of pillow could not be followed, and they touch parts that changed in 12.3.0",
+   "findings": [
+    {
+     "severity": "needs-change",
+     "kind": "deprecated",
+     "symbol": "PIL.Image.fromarray",
+     "parameter": "mode",
+     "locations": [
+      "imageio/plugins/pillow.py:448"
+     ]
+    }
+   ],
+   "unchecked": [
+    "dynamic-attribute"
+   ],
+   "seconds": 10.5
+  },
+  {
+   "id": "harmless-furglitch-modorganizer2-linux-installer-1056",
+   "label": "harmless",
+   "package": "pillow",
+   "from": "12.2.0",
+   "to": "12.3.0",
+   "verdict": "no-known-impact",
+   "reason": "the code does not import pillow directly",
+   "findings": [],
+   "unchecked": [],
+   "seconds": 1.7
+  },
+  {
+   "id": "harmless-aws-aws-sdk-pandas-3419",
+   "label": "harmless",
+   "package": "aws-cdk-lib",
+   "from": "2.190.0",
+   "to": "2.253.0",
+   "verdict": "not-checked",
+   "reason": "131 use(s) of aws-cdk-lib could not be followed, and they touch parts that changed in 2.253.0",
+   "findings": [],
+   "unchecked": [
+    "kwargs-passthrough",
+    "not-in-old-version",
+    "signature-unknown"
+   ],
+   "seconds": 198.0
+  },
+  {
+   "id": "harmless-furglitch-modorganizer2-linux-installer-1058",
+   "label": "harmless",
+   "package": "certifi",
+   "from": "2026.6.17",
+   "to": "2026.7.22",
+   "verdict": "no-known-impact",
+   "reason": "all 11 use(s) of certifi were compared in 2026.6.17 and 2026.7.22; none changed",
+   "findings": [],
+   "unchecked": [],
+   "seconds": 1.8
+  },
+  {
+   "id": "harmless-kalanakt-all-url-uploader-188",
+   "label": "harmless",
+   "package": "yt-dlp",
+   "from": "2026.6.9",
+   "to": "2026.7.4",
+   "verdict": "no-known-impact",
+   "reason": "the code does not import yt-dlp directly",
+   "findings": [],
+   "unchecked": [],
+   "seconds": 9.1
+  },
+  {
+   "id": "harmless-agilerl-agilerl-625",
+   "label": "harmless",
+   "package": "hydra-core",
+   "from": "1.3.2",
+   "to": "1.3.4",
+   "verdict": "no-known-impact",
+   "reason": "2 of 4 use(s) of hydra-core were compared in 1.3.2 and 1.3.4 and none changed; 2 could not be followed, but touch nothing this upgrade changed",
+   "findings": [],
+   "unchecked": [],
+   "seconds": 11.4
+  },
+  {
+   "id": "harmless-agilerl-agilerl-627",
+   "label": "harmless",
+   "package": "datasets",
+   "from": "5.0.0",
+   "to": "5.0.1",
+   "verdict": "no-known-impact",
+   "reason": "84 of 94 use(s) of datasets were compared in 5.0.0 and 5.0.1 and none changed; 12 could not be followed, but touch nothing this upgrade changed",
+   "findings": [],
+   "unchecked": [],
+   "seconds": 17.5
+  },
+  {
+   "id": "harmless-saleor-saleor-19590",
+   "label": "harmless",
+   "package": "pre-commit",
+   "from": "4.3.0",
+   "to": "4.6.0",
+   "verdict": "no-known-impact",
+   "reason": "the code does not import pre-commit directly",
+   "findings": [],
+   "unchecked": [],
+   "seconds": 9.2
+  },
+  {
+   "id": "harmless-saleor-saleor-19591",
+   "label": "harmless",
+   "package": "botocore",
+   "from": "1.43.14",
+   "to": "1.43.46",
+   "verdict": "no-known-impact",
+   "reason": "8 of 11 use(s) of botocore were compared in 1.43.14 and 1.43.46 and none changed; 5 could not be followed, but touch nothing this upgrade changed",
+   "findings": [],
+   "unchecked": [],
+   "seconds": 27.6
+  },
+  {
+   "id": "harmless-torchgeo-torchgeo-3937",
+   "label": "harmless",
+   "package": "pandas-stubs",
+   "from": "3.0.3.260530",
+   "to": "3.0.5.260730",
+   "verdict": "no-known-impact",
+   "reason": "the code does not import pandas-stubs directly",
+   "findings": [],
+   "unchecked": [],
+   "seconds": 64.3
+  },
+  {
+   "id": "harmless-goauthentik-authentik-24712",
+   "label": "harmless",
+   "package": "aiohttp",
+   "from": "3.14.1",
+   "to": "3.14.3",
+   "verdict": "no-known-impact",
+   "reason": "the code does not import aiohttp directly",
+   "findings": [],
+   "unchecked": [],
+   "seconds": 14.4
+  },
+  {
+   "id": "harmless-langchain-ai-deepagents-5272",
+   "label": "harmless",
+   "package": "aiohttp",
+   "from": "3.14.2",
+   "to": "3.14.3",
+   "verdict": "no-known-impact",
+   "reason": "all 4 use(s) of aiohttp were compared in 3.14.2 and 3.14.3; none changed",
+   "findings": [],
+   "unchecked": [],
+   "seconds": 8.9
+  },
+  {
+   "id": "harmless-langchain-ai-deepagents-5275",
+   "label": "harmless",
+   "package": "aiohttp",
+   "from": "3.14.2",
+   "to": "3.14.3",
+   "verdict": "no-known-impact",
+   "reason": "all 4 use(s) of aiohttp were compared in 3.14.2 and 3.14.3; none changed",
+   "findings": [],
+   "unchecked": [],
+   "seconds": 7.1
+  },
+  {
+   "id": "harmless-torchgeo-torchgeo-3939",
+   "label": "harmless",
+   "package": "aiohttp",
+   "from": "3.14.1",
+   "to": "3.14.3",
+   "verdict": "no-known-impact",
+   "reason": "the code does not import aiohttp directly",
+   "findings": [],
+   "unchecked": [],
+   "seconds": 57.5
+  },
+  {
+   "id": "harmless-maa1999-m9a-868",
+   "label": "harmless",
+   "package": "ruff",
+   "from": "0.16.0",
+   "to": "0.16.1",
+   "verdict": "no-known-impact",
+   "reason": "the code does not import ruff directly",
+   "findings": [],
+   "unchecked": [],
+   "seconds": 16.1
+  },
+  {
+   "id": "harmless-uriyyo-fastapi-pagination-1999",
+   "label": "harmless",
+   "package": "peewee",
+   "from": "4.2.6",
+   "to": "4.3.0",
+   "verdict": "not-checked",
+   "reason": "1 use(s) of peewee could not be followed, and they touch parts that changed in 4.3.0",
+   "findings": [],
+   "unchecked": [
+    "not-in-old-version"
+   ],
+   "seconds": 6.7
+  },
+  {
+   "id": "harmless-duriantaco-skylos-688",
+   "label": "harmless",
+   "package": "aiohttp",
+   "from": "3.14.1",
+   "to": "3.14.3",
+   "verdict": "no-known-impact",
+   "reason": "all 5 use(s) of aiohttp were compared in 3.14.1 and 3.14.3; none changed",
+   "findings": [],
+   "unchecked": [],
+   "seconds": 13.3
+  },
+  {
+   "id": "harmless-ag2ai-ag2-3132",
+   "label": "harmless",
+   "package": "aiohttp",
+   "from": "3.14.1",
+   "to": "3.14.3",
+   "verdict": "no-known-impact",
+   "reason": "the code does not import aiohttp directly",
+   "findings": [],
+   "unchecked": [],
+   "seconds": 2.9
+  },
+  {
+   "id": "harmless-pydantic-pydantic-13577",
+   "label": "harmless",
+   "package": "aiohttp",
+   "from": "3.14.1",
+   "to": "3.14.3",
+   "verdict": "no-known-impact",
+   "reason": "the code does not import aiohttp directly",
+   "findings": [],
+   "unchecked": [],
+   "seconds": 2.3
+  },
+  {
+   "id": "harmless-langchain-ai-langchain-39236",
+   "label": "harmless",
+   "package": "aiohttp",
+   "from": "3.14.1",
+   "to": "3.14.3",
+   "verdict": "no-known-impact",
+   "reason": "4 of 5 use(s) of aiohttp were compared in 3.14.1 and 3.14.3 and none changed; 1 could not be followed, but touch nothing this upgrade changed",
+   "findings": [],
+   "unchecked": [],
+   "seconds": 7.6
+  },
+  {
+   "id": "harmless-langchain-ai-langchain-39237",
+   "label": "harmless",
+   "package": "aiohttp",
+   "from": "3.14.1",
+   "to": "3.14.3",
+   "verdict": "no-known-impact",
+   "reason": "4 of 5 use(s) of aiohttp were compared in 3.14.1 and 3.14.3 and none changed; 1 could not be followed, but touch nothing this upgrade changed",
+   "findings": [],
+   "unchecked": [],
+   "seconds": 6.8
+  },
+  {
+   "id": "harmless-pypsa-pypsa-1862",
+   "label": "harmless",
+   "package": "gitpython",
+   "from": "3.1.52",
+   "to": "3.1.57",
+   "verdict": "no-known-impact",
+   "reason": "the code does not import gitpython directly",
+   "findings": [],
+   "unchecked": [],
+   "seconds": 11.8
+  },
+  {
+   "id": "harmless-kz26-pyexcelerate-275",
+   "label": "harmless",
+   "package": "black",
+   "from": "26.3.1",
+   "to": "26.5.1",
+   "verdict": "no-known-impact",
+   "reason": "the code does not import black directly",
+   "findings": [],
+   "unchecked": [],
+   "seconds": 2.1
+  },
+  {
+   "id": "harmless-kz26-pyexcelerate-277",
+   "label": "harmless",
+   "package": "numpy",
+   "from": "2.4.4",
+   "to": "2.5.1",
+   "verdict": "not-checked",
+   "reason": "2 use(s) of numpy could not be followed, and they touch parts that changed in 2.5.1",
+   "findings": [],
+   "unchecked": [
+    "signature-unknown",
+    "star-import"
+   ],
+   "seconds": 11.9
+  },
+  {
+   "id": "harmless-jacebrowning-memegen-1048",
+   "label": "harmless",
+   "package": "locust",
+   "from": "2.44.3",
+   "to": "2.46.3",
+   "verdict": "no-known-impact",
+   "reason": "all 9 use(s) of locust were compared in 2.44.3 and 2.46.3; none changed",
+   "findings": [],
+   "unchecked": [],
+   "seconds": 38.0
+  },
+  {
+   "id": "harmless-mandiant-capa-3137",
+   "label": "harmless",
+   "package": "bump-my-version",
+   "from": "1.4.1",
+   "to": "1.5.0",
+   "verdict": "no-known-impact",
+   "reason": "the code does not import bump-my-version directly",
+   "findings": [],
+   "unchecked": [],
+   "seconds": 9.9
+  },
+  {
+   "id": "harmless-fkie-cad-fact_core-1524",
+   "label": "harmless",
+   "package": "aiohttp",
+   "from": "3.14.1",
+   "to": "3.14.3",
+   "verdict": "no-known-impact",
+   "reason": "the code does not import aiohttp directly",
+   "findings": [],
+   "unchecked": [],
+   "seconds": 3.5
+  },
+  {
+   "id": "harmless-jacebrowning-memegen-1050",
+   "label": "harmless",
+   "package": "markdown",
+   "from": "3.10.2",
+   "to": "3.10.3",
+   "verdict": "no-known-impact",
+   "reason": "the code does not import markdown directly",
+   "findings": [],
+   "unchecked": [],
+   "seconds": 38.3
+  },
+  {
+   "id": "harmless-leyckers-moondownloader-137",
+   "label": "harmless",
+   "package": "playwright",
+   "from": "1.61.0",
+   "to": "1.62.0",
+   "verdict": "no-known-impact",
+   "reason": "30 of 33 use(s) of playwright were compared in 1.61.0 and 1.62.0 and none changed; 3 could not be followed, but touch nothing this upgrade changed",
+   "findings": [],
+   "unchecked": [],
+   "seconds": 40.2
+  },
+  {
+   "id": "harmless-leyckers-moondownloader-138",
+   "label": "harmless",
+   "package": "greenlet",
+   "from": "3.5.3",
+   "to": "3.5.4",
+   "verdict": "no-known-impact",
+   "reason": "the code does not import greenlet directly",
+   "findings": [],
+   "unchecked": [],
+   "seconds": 2.8
+  },
+  {
+   "id": "harmless-mozilla-fx-private-relay-6774",
+   "label": "harmless",
+   "package": "sentry-sdk",
+   "from": "2.65.0",
+   "to": "2.66.1",
+   "verdict": "no-known-impact",
+   "reason": "26 of 39 use(s) of sentry-sdk were compared in 2.65.0 and 2.66.1 and none changed; 13 could not be followed, but touch nothing this upgrade changed",
+   "findings": [],
+   "unchecked": [],
+   "seconds": 10.8
+  },
+  {
+   "id": "harmless-mozilla-fx-private-relay-6776",
+   "label": "harmless",
+   "package": "phonenumbers",
+   "from": "9.0.34",
+   "to": "9.0.35",
+   "verdict": "no-known-impact",
+   "reason": "all 21 use(s) of phonenumbers were compared in 9.0.34 and 9.0.35; none changed",
+   "findings": [],
+   "unchecked": [],
+   "seconds": 40.6
+  },
+  {
+   "id": "harmless-wemake-services-django-test-migrations-677",
+   "label": "harmless",
+   "package": "django",
+   "from": "5.2.16",
+   "to": "5.2.17",
+   "verdict": "not-checked",
+   "reason": "58 use(s) of django could not be followed, and they touch parts that changed in 5.2.17",
+   "findings": [],
+   "unchecked": [
+    "dynamic-attribute",
+    "external-alias",
+    "kwargs-absorbed",
+    "not-in-old-version",
+    "return-value"
+   ],
+   "seconds": 13.2
+  },
+  {
+   "id": "harmless-rasbt-mlxtend-1181",
+   "label": "harmless",
+   "package": "tornado",
+   "from": "6.5.5",
+   "to": "6.5.7",
+   "verdict": "no-known-impact",
+   "reason": "the code does not import tornado directly",
+   "findings": [],
+   "unchecked": [],
+   "seconds": 7.9
+  },
+  {
+   "id": "harmless-rasbt-mlxtend-1183",
+   "label": "harmless",
+   "package": "bleach",
+   "from": "6.3.0",
+   "to": "6.4.0",
+   "verdict": "no-known-impact",
+   "reason": "the code does not import bleach directly",
+   "findings": [],
+   "unchecked": [],
+   "seconds": 7.5
+  },
+  {
+   "id": "harmless-linkml-linkml-3789",
+   "label": "harmless",
+   "package": "pyasn1",
+   "from": "0.6.3",
+   "to": "0.6.4",
+   "verdict": "no-known-impact",
+   "reason": "the code does not import pyasn1 directly",
+   "findings": [],
+   "unchecked": [],
+   "seconds": 15.9
+  },
+  {
+   "id": "harmless-sysid-sse-starlette-203",
+   "label": "harmless",
+   "package": "pyasn1",
+   "from": "0.6.3",
+   "to": "0.6.4",
+   "verdict": "no-known-impact",
+   "reason": "the code does not import pyasn1 directly",
+   "findings": [],
+   "unchecked": [],
+   "seconds": 1.5
+  },
+  {
+   "id": "harmless-kiln-ai-kiln-1624",
+   "label": "harmless",
+   "package": "pypdf",
+   "from": "6.13.0",
+   "to": "6.14.2",
+   "verdict": "no-known-impact",
+   "reason": "all 9 use(s) of pypdf were compared in 6.13.0 and 6.14.2; none changed",
+   "findings": [],
+   "unchecked": [],
+   "seconds": 4.8
+  },
+  {
+   "id": "harmless-aisecuritylab-hackagent-545",
+   "label": "harmless",
+   "package": "commitizen",
+   "from": "4.16.5",
+   "to": "4.17.0",
+   "verdict": "no-known-impact",
+   "reason": "the code does not import commitizen directly",
+   "findings": [],
+   "unchecked": [],
+   "seconds": 8.1
+  },
+  {
+   "id": "harmless-kiln-ai-kiln-1639",
+   "label": "harmless",
+   "package": "nltk",
+   "from": "3.9.4",
+   "to": "3.10.0",
+   "verdict": "no-known-impact",
+   "reason": "the code does not import nltk directly",
+   "findings": [],
+   "unchecked": [],
+   "seconds": 9.3
+  },
+  {
+   "id": "harmless-langchain-ai-langgraph-8502",
+   "label": "harmless",
+   "package": "types-requests",
+   "from": "2.33.0.20260518",
+   "to": "2.33.0.20260712",
+   "verdict": "no-known-impact",
+   "reason": "the code does not import types-requests directly",
+   "findings": [],
+   "unchecked": [],
+   "seconds": 2.5
+  },
+  {
+   "id": "harmless-blacklanternsecurity-bbot-3360",
+   "label": "harmless",
+   "package": "pip",
+   "from": "26.1.2",
+   "to": "26.2",
+   "verdict": "no-known-impact",
+   "reason": "the code does not import pip directly",
+   "findings": [],
+   "unchecked": [],
+   "seconds": 10.2
+  },
+  {
+   "id": "harmless-blacklanternsecurity-bbot-3362",
+   "label": "harmless",
+   "package": "lxml",
+   "from": "6.1.0",
+   "to": "6.1.1",
+   "verdict": "no-known-impact",
+   "reason": "the code does not import lxml directly",
+   "findings": [],
+   "unchecked": [],
+   "seconds": 9.1
+  },
+  {
+   "id": "harmless-rimsort-rimsort-2350",
+   "label": "harmless",
+   "package": "ruff",
+   "from": "0.16.0",
+   "to": "0.16.1",
+   "verdict": "no-known-impact",
+   "reason": "the code does not import ruff directly",
+   "findings": [],
+   "unchecked": [],
+   "seconds": 5.2
+  }
+ ]
+}

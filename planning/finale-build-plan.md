@@ -48,10 +48,10 @@ Full diagram: `docs/architecture.md`.
 | MCP server for AI agents | Built | `mcp_server.py` (`c6e927c`): `upgrade_brief`, `why_pinned`, `list_dependencies`, `advisories` over streamable HTTP with a bearer token; `docs/mcp.md`. |
 | Telegram bot `@codeintent_alerts_bot` | Built, deployed | `telegram.py` (`c085bef`): one-time link codes, alerts per reported PR, `/status`, `/why`, `/unlink`; webhook registered. |
 | Web setup, dashboard and verdict report | Built, deployed | `/setup` with the install link, `/dashboard`, `/dashboard/[owner]/[name]`, `/pulls/[id]` (`3a330d1`). |
-| Sign in with GitHub | In progress | GitHub App user authorization, dashboard scoped to the user's installations. |
-| Product landing page | In progress | Replaces the investigation-workbench landing page. |
+| Sign in with GitHub | Built, deployed | GitHub App user authorization with PKCE; dashboard, reports and Telegram scoped to the user's installations (`b1f6ee2`). |
+| Product landing page and bento dashboard | Built, deployed | One-screen landing with a Three.js halftone hero and the three steps (install, connect Telegram, automatic); bento dashboard (`2fbd623`, `6eaaa7f`). |
 | Labelled backtest set | Built | `evals/upgrades.json` (`c6cc913`): 101 cases, 19 breaks, 2 guarded controls, 80 harmless sampled from merged Dependabot PRs with passing checks. |
-| Backtest harness and published numbers | Not built | T9: runs every labelled case and writes `artifacts/backtest/latest.json`. |
+| Backtest harness and published numbers | Built, run on all 101 cases | `scripts/backtest.py`, `artifacts/backtest/latest.json`: 14 of 19 breaks caught (13 at the expected lines, 5 Not checked, none missed as No known impact); both guarded controls not Breaks you; 0 false Breaks you on 78 harmless upgrades (95% upper bound 4.7%), 70 No known impact. |
 | Pin explainer | Partial | Every pin with file, line and kind (`why_pinned`); the introducing commit is not looked up yet. |
 | Investigation workbench (previous product) | Built, kept | Evidence graph, decision extraction with reversal detection and cited answers (`temporal.py`, `investigate.py`); reachable from the footer. |
 | ArgosX scan | Planned | One Pro scan of the dashboard with two test workspaces; `docs/security/remediation-log.md` records it. |
@@ -107,7 +107,8 @@ Advisories are reported next to the verdict, never folded into it: "Known adviso
 - **Further real breaks caught** (Flask 1.1.2): jinja2 3.1 `Markup`/`escape` (`__init__.py:14–15`), werkzeug 2.1 `BaseResponse` (`app.py:32`) and test-client `as_tuple=`, werkzeug 3.0 `url_quote` → `urllib.parse.quote`. Every one of the 7 breaking upgrades run so far returns Breaks you.
 - **Early warning:** on the release before each break, the verdict is already Needs a change for the deprecation that later broke the project (httpx 0.26 `proxies`, itsdangerous 2.0 `json`, MarkupSafe 2.0 `soft_unicode`).
 - **Full labelled set:** `evals/upgrades.json` adds urllib3 2.0 `method_whitelist`, click 8.1, importlib-metadata 5, numpy 2.0, pandas 2.0, pydantic 2, SQLAlchemy 2.0 and setuptools 72 consumers at their breaking tags; cases that could not be verified are listed as dropped in `evals/README.md`.
-- **Harmless set:** 80 patch and minor bumps merged with passing checks in repositories with 500+ stars, sampled mechanically (`scripts/sample_harmless.py`). Every harmless upgrade run so far returns something other than Breaks you. Target 0 false "Breaks you"; with 0 of 80 the 95% Wilson upper bound is about 4.6%, and we publish that bound, not "0%".
+- **Backtest result (all 101 cases, `artifacts/backtest/latest.json`):** 14 of 19 real breaks are Breaks you, 13 at the expected lines; the other 5 (numpy 2.0, pandas 2.0, pydantic 2 twice, importlib-metadata 5.0 on celery 5.2.7) are Not checked, never No known impact. Both guarded controls are not Breaks you.
+- **Harmless set:** 80 patch and minor bumps merged with passing checks in repositories with 500+ stars, sampled mechanically (`scripts/sample_harmless.py`). 78 ran (2 consumer commits could no longer be downloaded): **0 false Breaks you**, 95% Wilson upper bound 4.7%; 70 No known impact, 2 Needs a change, 6 Not checked.
 - **Reported:** recall on breaks, line-localisation accuracy, false-alarm rate with its interval, coverage, and the distribution of "Not checked" reasons. "Not checked" is never counted as correct. Results go to `artifacts/backtest/latest.json` and CI replays them offline.
 
 ### Reliability
