@@ -111,6 +111,7 @@ class Unchecked(Record):
     reason: UncheckedReason
     detail: str
     location: Location
+    symbol: str | None = None
 
 
 class UsageScan(Record):

@@ -35,7 +35,7 @@ Standard checks: `uv run pytest -q`, `uv run ruff check . && uv run ruff format 
 - [x] **T29 Reduce static blind spots** (M). Skills: `fp-check`, `variant-analysis`
   - Accept: (a) names defined under `try: import / except ImportError: fallback` resolve to the `try` side; (b) attributes of return values follow declared return types; (c) library `**kwargs` is followed to the function that receives it, a few hops deep; (d) removals name the replacement from the old alias target, quoted names in the deprecation message that exist in the new release, or a same-signature object marked "likely renamed"; (e) usage scans are cached per file content hash, run in parallel, and PyPI metadata is cached. Re-run on every real case so far: "Not checked" counts fall, true findings unchanged, no new false findings; openai first check under 3 s, repeat under 1 s.
   - Files: `codeintent/upgrades/surface.py`, `codeintent/upgrades/usage/extractor.py`, `codeintent/upgrades/artifacts.py`. Deps: T7.
-- [ ] **T8 Verdict engine and CLI** (M)
+- [x] **T8 Verdict engine and CLI** (M)
   - Accept: usage × API changes → `Breaks you | Needs a change | No known impact | Not checked`, with affected lines and the reasons anything wasn't checked. `python -m scripts.verdict --repo owner/name@ref --package P --from A --to B` prints JSON.
   - Files: `codeintent/upgrades/verdict.py`, `scripts/verdict.py`, `tests/upgrades/test_verdict.py`. Deps: T4, T5, T7.
 - [ ] **T9 Backtest harness** (M). Skills: `fp-check`, `regression-hunt`

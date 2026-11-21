@@ -31,7 +31,7 @@ from codeintent.upgrades.models import Location, Unchecked, Usage, UsageScan
 
 # Bump whenever anything that changes extracted records changes (FileScan, _Prepass, helpers, models):
 # it is part of every per-file cache key, so old cached results stop being used.
-EXTRACTOR_VERSION = 2
+EXTRACTOR_VERSION = 3
 LIBCST_VERSION = _package_version("libcst")
 # Below this many files to parse, a process pool costs more to start than it saves.
 MIN_PARALLEL_FILES = 8
@@ -185,9 +185,14 @@ class FileScan(cst.CSTVisitor):
             (symbol, kind, location.line, location.column, usage.via), usage
         )
 
-    def skip(self, node, reason: str, detail: str):
+    def skip(self, node, reason: str, detail: str, symbol: str | None = None):
         self.unchecked.append(
-            Unchecked(reason=reason, detail=detail, location=self.location(node))
+            Unchecked(
+                reason=reason,
+                detail=detail,
+                location=self.location(node),
+                symbol=symbol,
+            )
         )
 
     def collect(self, body, type_checking: bool):
@@ -319,6 +324,7 @@ class FileScan(cst.CSTVisitor):
                 node,
                 "kwargs-passthrough",
                 f"keyword arguments reach {symbol} through ** unpacking",
+                symbol,
             )
 
     def visit_Import(self, node: cst.Import):

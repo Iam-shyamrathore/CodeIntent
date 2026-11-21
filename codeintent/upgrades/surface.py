@@ -29,9 +29,11 @@ logging.getLogger("griffe").setLevel(logging.ERROR)
 COMPILED = (".so", ".pyd")
 BENIGN_DECORATORS = {
     "abstractmethod",
+    "asynccontextmanager",
     "cache",
     "cached_property",
     "classmethod",
+    "contextmanager",
     "final",
     "lru_cache",
     "override",
@@ -97,6 +99,8 @@ class Surface:
         self._collection = griffe.ModulesCollection()
         self._loaded: dict[str, griffe.Module | None] = {}
         self._tries: dict[str, dict[str, list]] = {}
+        self.absent: frozenset[str] = frozenset()
+        """Import roots the consumer is known not to install; their ``try`` imports fall back."""
 
     @classmethod
     def fetch(cls, package: str, version: str, client: httpx.Client) -> Surface:
@@ -183,6 +187,9 @@ class Surface:
         for attributes read from a call's result, the function's declared return type."""
         if depth > 4:
             return Found(obj, obj.path, rest=rest)
+        shim = self._warning_proxy(obj) if obj.is_attribute else None
+        if shim is not None:
+            return shim
         if obj.is_function and rest:
             target = self._annotation_class(obj.returns, obj.parent)
             if target is None and obj.returns is None:
@@ -196,6 +203,26 @@ class Surface:
         if self._inside(target):
             return self.lookup(".".join((target, *rest)), depth + 1)
         return Found(None, obj.path, external=target, rest=rest)
+
+    def _warning_proxy(self, obj: griffe.Object) -> Shimmed | None:
+        """``json = DeprecatedJSON("json")``: an instance of a class in this release whose attribute
+        hooks warn that it is deprecated (itsdangerous 2.0)."""
+        value = obj.value
+        if not isinstance(value, griffe.ExprCall) or not self._inside(
+            value.canonical_path
+        ):
+            return None
+        found = self.lookup(value.canonical_path, 5)
+        cls = found.obj if isinstance(found, Found) else None
+        if cls is None or not cls.is_class:
+            return None
+        for hook in ("__getattribute__", "__getattr__"):
+            method = cls.members.get(hook)
+            if method is not None and not method.is_alias and method.is_function:
+                warned = warnings_in(self.source(method))
+                if warned:
+                    return Shimmed(obj.path, warned[0].message, method)
+        return None
 
     def _returned_class(self, function: griffe.Object) -> str | None:
         """For an unannotated function whose every ``return`` constructs the same class in this
@@ -364,6 +391,8 @@ class Surface:
                 continue
             if target.split(".")[0] in sys.stdlib_module_names or self._inside(target):
                 return target
+            if target.split(".")[0] in self.absent:
+                return None
             return Unknown(
                 "environment-dependent",
                 f"{module.path}.{name} is {target} when {target.split('.')[0]} is installed, otherwise a fallback",
