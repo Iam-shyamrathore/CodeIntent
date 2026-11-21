@@ -173,6 +173,22 @@ def _touches(anchor: str, changed: dict[str, bool]) -> bool:
     )
 
 
+def _reshaped(old: Surface, new: Surface, anchor: str) -> bool:
+    """The object an unfollowed use stops at has a different return type, parameters or members now."""
+    before, after = old.lookup(anchor), new.lookup(anchor)
+    a = before.obj if isinstance(before, Found) else None
+    b = after.obj if isinstance(after, Found) else None
+    if a is None or b is None or a.kind != b.kind:
+        return a is not None
+    if a.is_function:
+        return str(a.returns) != str(b.returns) or [p.name for p in a.parameters] != [
+            p.name for p in b.parameters
+        ]
+    if a.is_class:
+        return set(a.all_members) != set(b.all_members)
+    return False
+
+
 def _absent(root: Path) -> frozenset[str]:
     """Optional imports the consumer can't have: names not among its declared or locked dependencies."""
     declared = {canonicalize_name(d.name) for d in manifests.scan(root).dependencies}
@@ -194,7 +210,8 @@ def decide(
     for result in checks:
         if not result.unchecked:
             continue
-        touched = _touches(_anchor(old, result.usage.symbol), changed)
+        anchor = _anchor(old, result.usage.symbol)
+        touched = _touches(anchor, changed) or _reshaped(old, new, anchor)
         (relevant if touched else limits).extend(result.unchecked)
     for item in usages.unchecked:
         if item.reason in GLOBAL_LIMITS:

@@ -1166,7 +1166,11 @@ def _arguments(old, new, usage, before, after, changes, problems):
             )
         )
     for index in range(min(count, len(was.positional), len(now.positional))):
-        if was.positional[index] != now.positional[index]:
+        old_name, new_name = was.positional[index], now.positional[index]
+        # A pure rename keeps positional calls working; only a real reorder moves an argument.
+        if old_name != new_name and (
+            old_name in now.positional or new_name in was.positional
+        ):
             changes.append(
                 APIChange(
                     kind="parameter-moved",

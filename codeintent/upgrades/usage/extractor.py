@@ -639,7 +639,44 @@ def _records(result) -> Records | None:
         return None
 
 
+VENDORED = {
+    "urllib3": ("requests.packages.urllib3",),
+    "idna": ("requests.packages.idna",),
+    "chardet": ("requests.packages.chardet",),
+}
+"""Import paths that alias another distribution at run time (requests re-exports these in sys.modules)."""
+
+
 def scan(root: Path, modules: tuple[str, ...]) -> UsageScan:
+    """Usages of ``modules``, including through vendored aliases such as ``requests.packages.urllib3``."""
+    aliases = {
+        alias: module for module in modules for alias in VENDORED.get(module, ())
+    }
+    result = _scan(root, modules + tuple(aliases))
+    if not aliases:
+        return result
+
+    def real(symbol: str) -> str:
+        for alias, module in aliases.items():
+            if symbol == alias or symbol.startswith(alias + "."):
+                return module + symbol[len(alias) :]
+        return symbol
+
+    return result.model_copy(
+        update={
+            "modules": modules,
+            "usages": tuple(
+                u.model_copy(update={"symbol": real(u.symbol)}) for u in result.usages
+            ),
+            "unchecked": tuple(
+                u.model_copy(update={"symbol": real(u.symbol)}) if u.symbol else u
+                for u in result.unchecked
+            ),
+        }
+    )
+
+
+def _scan(root: Path, modules: tuple[str, ...]) -> UsageScan:
     """Usages of ``modules`` (top-level import names of one distribution) in the repository at ``root``.
 
     Per-file results are cached on disk by content, so unchanged files are not parsed again; files that do
