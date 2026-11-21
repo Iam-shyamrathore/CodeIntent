@@ -32,17 +32,22 @@ hackFront India Grand Finale · 21–22 November 2026
 
 Python ecosystem only, done properly.
 
+**The GitHub App is the product.** Its findings appear where developers already work: a check and a comment on the PR. Telegram pushes those findings to the team, and the MCP server lets the team's AI agent pull them to write the fix. The web app supports all of this: installing, connecting Telegram, and a dashboard of every repository. Developers should get full value without opening it.
+
 1. **GitHub App and accounts.** Install on an organisation or repository (public or private). Sign in with GitHub. All data, reports and alerts are scoped to the installing workspace.
-2. **Dependency map.** Parse `pyproject.toml`, `requirements*.txt`, `uv.lock` and `poetry.lock`. Tree-sitter finds every imported library symbol and keyword argument the code uses, with file and line.
+2. **Dependency map.** Parse `pyproject.toml`, `requirements*.txt`, `uv.lock`, `poetry.lock`, `setup.cfg` and `setup.py`. LibCST finds every imported library symbol and keyword argument the code uses, with file and line.
 3. **Upstream decision index.** For a library and a version range, import the PRs, reviews, issues and changelog between the two release tags, then extract removals, deprecations, restorations and replacements. Each library range is indexed once and shared across every workspace.
-4. **Upgrade verdict on every Dependabot/Renovate PR.** A GitHub check plus one comment:
+4. **Upgrade verdict on every PR that changes a dependency**, whether Dependabot, Renovate or a developer opened it. A GitHub check plus one comment:
    - **Breaks you**, **Needs a change**, **No known impact**, or **Not checked** (with the reason).
    - The affected lines, the upstream decision, its cited PR, the recommended replacement, and any later reversal.
    - It never says "safe". Anything it could not analyse is shown as not checked.
+   - A newly added dependency has no earlier version to compare, so it gets the pin and vulnerability checks instead.
 5. **Pin explainer.** For every upper bound or exclusion (e.g. `httpx<0.28`): the commit/PR that added it and why. When upstream has fixed or restored the cause, it says "this pin can be lifted".
 6. **Telegram bot.** Link a workspace with a one-time code. It alerts on breaking upgrades and liftable pins, supports `/status` and `/why <package>`, and links to the full report.
 7. **MCP server for AI agents.** Claude Code, Cursor, Codex or Devin call `upgrade_brief(package, to_version)` and `why_pinned(package)`, get back the exact lines, reason and recommended replacement, and write the fix.
-8. **Web app.** Install flow, a repository overview (dependencies, verdicts, pins) and a verdict report built on the existing evidence UI.
+8. **Web app (setup and dashboard).** Install flow, Telegram linking, a repository overview (dependencies, verdicts, pins, advisories, upcoming breakage) and a verdict report built on the existing evidence UI.
+9. **Known-vulnerability check.** Every dependency a PR adds or changes, and every dependency already in the map, is looked up in OSV.dev (the database `pip-audit` uses, aggregating the PyPA and GitHub advisory databases). It shows the advisory IDs for that exact version and the lowest version that fixes them, with the advisory source credited. It says "No known advisories", never "secure", and it does not claim the vulnerable code is reachable.
+10. **Upcoming breakage.** For every existing dependency, compare the locked version with the latest release using the verdict engine, before any upgrade PR exists: "you're on Jinja 3.0 and still use `jinja2.Markup`, which 3.1 removes, at `app.py:14`". Shown on the overview, in `/status` and through MCP.
 
 **Production bar (verified before submission)**
 
@@ -57,7 +62,7 @@ Python ecosystem only, done properly.
 - **Security.** Least-privilege App permissions, secrets kept in the environment only, tenant-isolation tests, two ArgosX scans with a remediation log, and the Next.js advisory resolved.
 - **Self-serve.** A live HTTPS URL; a public demo repository with the App installed and an open Dependabot PR; a Telegram bot link; setup docs. An evaluator can use all of it without us.
 
-**Deliberately out of scope** (the architecture extends to them later): other ecosystems such as npm, vulnerability reachability, library health scores, audit export, fleet dashboard, Slack and Linear.
+**Deliberately out of scope** (the architecture extends to them later): other ecosystems such as npm, vulnerability reachability (whether the vulnerable function is actually called), library health scores, audit export, fleet dashboard, Slack and Linear.
 
 ## 3. User segments
 
@@ -80,4 +85,4 @@ Every verdict and pin explanation is a bounded traversal of this graph, and the 
 
 ## 5. Definition of done
 
-A team installs the CodeIntent GitHub App. From then on, every dependency PR on a Python repository gets a verdict tied to the exact lines it affects and the upstream decision behind it, and every pin is explained. Alerts arrive in Telegram, and the fix brief goes to the team's AI agent. All four real historical breakages are caught, with no false alarms on the known-harmless set.
+A team installs the CodeIntent GitHub App. From then on, every PR that changes a dependency on a Python repository gets a verdict tied to the exact lines it affects and the upstream decision behind it, known advisories are shown for every dependency, upcoming breakage is listed before upgrades arrive, and every pin is explained. Alerts arrive in Telegram, and the fix brief goes to the team's AI agent. All four real historical breakages are caught, with no false alarms on the known-harmless set.
