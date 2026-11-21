@@ -4,6 +4,7 @@ export const KIND: Record<RunKind, string> = {
   pull: "Pull request check",
   scan: "Repository scan",
   mcp: "Agent call",
+  agent: "Agent work",
 };
 export const STATUS: Record<RunStatus, string> = {
   running: "Running",
@@ -70,9 +71,11 @@ export function failure(run: RunSummary): {
     next:
       run.kind === "mcp"
         ? "The agent got this error back and can retry with corrected arguments."
-        : run.final
-          ? "It will not be retried automatically. Push a commit, or use Scan now, to run it again."
-          : "It will be retried automatically within a few minutes.",
+        : run.kind === "agent"
+          ? "Agent work is advice on top of the check; verdicts and alerts are unaffected. It is retried once."
+          : run.final
+            ? "It will not be retried automatically. Push a commit, or use Scan now, to run it again."
+            : "It will be retried automatically within a few minutes.",
   };
 }
 

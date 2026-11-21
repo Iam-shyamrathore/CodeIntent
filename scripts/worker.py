@@ -1,4 +1,6 @@
-"""The worker: one Procrastinate worker for checks, scans and maintenance, and one for the ecosystem graph.
+"""The worker: Procrastinate workers for checks, scans and maintenance, for agents, and for the ecosystem graph.
+
+Agent jobs wait on Gemini and Serper over HTTP, so they get slots of their own and never hold up a check.
 
 Ecosystem jobs only call deps.dev, OSV.dev and Neo4j over HTTP, so they run four at a time without slowing
 pull request checks, which keep their own two slots.
@@ -17,6 +19,13 @@ async def main() -> None:
                 name="main",
                 concurrency=2,
                 queues=["investigations", "imports", "pulls", "scans", "maintenance"],
+                install_signal_handlers=False,
+            ),
+            app.run_worker_async(
+                name="agents",
+                # Each review runs in a child process; one at a time keeps the dyno within its memory.
+                concurrency=1,
+                queues=["agents"],
                 install_signal_handlers=False,
             ),
             app.run_worker_async(

@@ -2,7 +2,8 @@
 
 Every tool downloads a public GitHub repository as a source tarball (never executed), reads its
 manifests and lock files, and answers from the same engine as the GitHub App's PR comments. Nothing
-here generates text with a model: briefs and steps are derived by fixed rules from the findings.
+here generates text with a model: briefs and steps are derived by fixed rules from the findings. The
+``agent_*`` fields of ``fix_brief`` are read from reviews CodeIntent's agents stored earlier, and say so.
 
 Serve it with ``python -m scripts.mcp_server`` (streamable HTTP at ``/mcp``). Every HTTP request
 must carry ``Authorization: Bearer $CODEINTENT_MCP_TOKEN``.
@@ -1398,6 +1399,13 @@ class Affected(BaseModel):
     )
 
 
+class AgentPatch(BaseModel):
+    before: str
+    after: str
+    explanation: str
+    verified: bool
+
+
 class Edit(BaseModel):
     file: str
     line: int | None = None
@@ -1421,6 +1429,11 @@ class Edit(BaseModel):
     tests: list[str] = Field(
         [], description="Test files that reach this line: run them."
     )
+    agent_patch: AgentPatch | None = Field(
+        None,
+        description="An edit drafted by CodeIntent's agent. `verified` means CodeIntent applied it to a "
+        "copy and its analysis no longer finds the break; still review it.",
+    )
 
 
 class UpgradeFix(BaseModel):
@@ -1438,6 +1451,20 @@ class UpgradeFix(BaseModel):
         None,
         description="Where the package reaches the code: its own uses, and chains through other dependencies.",
     )
+    agent_assessments: list[dict] = Field(
+        [],
+        description="CodeIntent's agent on each use static analysis could not follow: likely-breaks, "
+        "likely-fine or unclear, with quoted evidence.",
+    )
+    agent_behaviour: list[dict] = Field(
+        [],
+        description="Behaviour changes in the library's release notes that touch names this code uses, "
+        "found by CodeIntent's agent, each with the quoted note.",
+    )
+    security_news: list[dict] = Field(
+        [],
+        description="Security reports found on the web for this package by CodeIntent's agent.",
+    )
 
 
 class FixBrief(BaseModel):
@@ -1449,6 +1476,11 @@ class FixBrief(BaseModel):
     upgrades: list[UpgradeFix]
     tests_to_run: list[str]
     steps: list[str] = Field(description="Every edit as one ordered checklist.")
+    agent: str | None = Field(
+        None,
+        description="Which agent model added the agent_* fields, or why there are none. Agent output is "
+        "advice: the verdict and edits come from CodeIntent's static analysis.",
+    )
     then: str
 
 
@@ -1504,9 +1536,25 @@ def fix_brief(
                 f"CodeIntent has not checked {name}#{pull} yet (or it is not in your workspace); "
                 "it checks dependency PRs when they open or change"
             )
-        note["detail"] = f"run {run['id']}"
+        with store.connection() as conn:
+            review = conn.execute(
+                "SELECT model,result FROM ci_agent_reviews WHERE run_id=%s",
+                (run["id"],),
+            ).fetchone()
+            news = conn.execute(
+                """SELECT package,item,affects,in_osv FROM ci_security_news WHERE installation_id=%s
+                AND affects<>'no' ORDER BY last_seen DESC LIMIT 50""",
+                (ws,),
+            ).fetchall()
+        note["detail"] = f"run {run['id']}" + (
+            ", with the agent review" if review else ""
+        )
     result = run["result"] or {}
     graph = result.get("graph") or {}
+    agent = {
+        u["package"]: u
+        for u in ((review or {}).get("result") or {}).get("upgrades") or []
+    }
     upgrades, steps, tests = [], [], set()
     for raw in result.get("verdicts") or []:
         # Only what the brief reads: stored runs may predate fields elsewhere in the record.
@@ -1514,6 +1562,8 @@ def fix_brief(
             {k: raw[k] for k in FIX_FIELDS if k in raw}
         )
         traced = graph.get(verdict.package) or {}
+        drafted = agent.get(verdict.package) or {}
+        patches = {(p["file"], p["line"]): p for p in drafted.get("patches") or []}
         blast = {(b["file"], b["line"]): b for b in traced.get("blast") or []}
         edits = []
         for index, finding in enumerate(verdict.findings):
@@ -1564,9 +1614,20 @@ def fix_brief(
                         ],
                         importers=[i["file"] for i in where.get("importers") or []],
                         entry_points=sorted(
-                            {e["name"] for e in where.get("entry_points") or []}
+                            {
+                                e["file"] if e["name"] == "script" else e["name"]
+                                for e in where.get("entry_points") or []
+                            }
                         ),
                         tests=where.get("tests") or [],
+                        agent_patch=AgentPatch(
+                            **{
+                                k: patches[(loc.file, loc.line)][k]
+                                for k in ("before", "after", "explanation", "verified")
+                            }
+                        )
+                        if (loc.file, loc.line) in patches
+                        else None,
                     )
                 )
         for item in verdict.unchecked:
@@ -1592,6 +1653,17 @@ def fix_brief(
                     for u in verdict.unchecked[:MAX_LISTED]
                 ],
                 reach=traced.get("reach"),
+                agent_assessments=drafted.get("assessments") or [],
+                agent_behaviour=drafted.get("behaviour") or [],
+                security_news=[
+                    {
+                        **n["item"],
+                        "affects_your_version": n["affects"],
+                        "in_osv": n["in_osv"],
+                    }
+                    for n in news
+                    if n["package"] == canonicalize_name(verdict.package)
+                ],
             )
         )
     tested = sorted(tests)
@@ -1606,6 +1678,9 @@ def fix_brief(
         upgrades=upgrades,
         tests_to_run=tested,
         steps=list(dict.fromkeys(steps))[:MAX_STEPS],
+        agent=review["model"]
+        if review
+        else "No agent review for this check yet; it runs a minute or two after the check.",
         then="Commit the edits to the PR's branch and push; CodeIntent checks the PR again and marks "
         "each fixed break as fixed.",
     )

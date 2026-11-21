@@ -331,6 +331,7 @@ def analyze_pull_request(context, analysis_id: str):
                     "graph": traced,
                 },
             )
+        _queue_review(run.id, verdicts)
         try:
             notify_telegram.defer(analysis_id=analysis_id)
         except Exception as exc:
@@ -372,6 +373,77 @@ def analyze_pull_request(context, analysis_id: str):
         raise RuntimeError(type(exc).__name__) from None
     finally:
         client.close()
+
+
+def _queue_review(run_id: str, verdicts) -> None:
+    """Queue the agents' review of a finished check; best effort, like the Telegram alert."""
+    from codeintent.agent import harness
+
+    if not (
+        harness.configured()
+        and any(v.findings or v.unchecked or v.release for v in verdicts)
+    ):
+        return
+    try:
+        review_pull.defer(run_id=run_id)
+    except Exception as exc:
+        logger.warning("Could not queue the agent review (%s)", type(exc).__name__)
+
+
+@app.task(
+    name="review_pull",
+    queue="agents",
+    retry=procrastinate.RetryStrategy(max_attempts=2, wait=120),
+)
+def review_pull(run_id: str):
+    """The agents' review of one pull request check, in a fresh process."""
+    from codeintent.agent import review
+
+    review.run_isolated(run_id)
+
+
+@app.task(
+    name="security_news",
+    queue="agents",
+    queueing_lock="security_news",
+    retry=procrastinate.RetryStrategy(max_attempts=2, wait=600),
+)
+def security_news(installation_id: int):
+    """Search the web for security reports about one workspace's locked packages."""
+    from codeintent.agent import news
+
+    try:
+        found = news.scan(installation_id)
+    except Exception as exc:
+        logger.warning("Security news failed (%s)", type(exc).__name__)
+        raise RuntimeError(type(exc).__name__) from None
+    logger.info("Security news for %s: %s", installation_id, found)
+
+
+@app.periodic(cron="41 6 * * *")
+@app.task(name="security_news_all", queue="maintenance")
+def security_news_all(timestamp: int):
+    from codeintent.agent import harness
+    from codeintent.agent.tools import search_configured
+
+    if not (harness.configured() and search_configured()):
+        return
+    with store.connection() as conn:
+        ids = [
+            r["installation_id"]
+            for r in conn.execute(
+                """SELECT DISTINCT s.installation_id FROM ci_repository_scans s
+                JOIN ci_installations i ON i.id=s.installation_id AND i.deleted_at IS NULL
+                WHERE s.status='done'"""
+            ).fetchall()
+        ]
+    for ident in ids:
+        try:
+            security_news.configure(queueing_lock=f"news:{ident}").defer(
+                installation_id=ident
+            )
+        except procrastinate.exceptions.AlreadyEnqueued:
+            pass
 
 
 def _trace(run, installation_id: int, repo: str, head: str, root, pypi, verdicts):

@@ -947,7 +947,7 @@ def _run_row(row: dict) -> dict:
 @app.get("/app/runs", dependencies=[Depends(authenticated)])
 def app_runs(
     installations: list[int] | None = Query(default=None),
-    kind: Literal["pull", "scan", "mcp"] | None = None,
+    kind: Literal["pull", "scan", "mcp", "agent"] | None = None,
     problems: bool = False,
     repository: str | None = Query(default=None, max_length=201),
     limit: int = Query(default=30, ge=1, le=100),
@@ -985,7 +985,7 @@ def app_run(run_id: UUID, installations: list[int] | None = Query(default=None))
         ).fetchall()
         attempts = (
             conn.execute(
-                f"SELECT {RUN_COLUMNS} FROM ci_runs WHERE analysis_id=%s ORDER BY started_at",
+                f"SELECT {RUN_COLUMNS} FROM ci_runs WHERE analysis_id=%s AND kind='pull' ORDER BY started_at",
                 (row["analysis_id"],),
             ).fetchall()
             if row["analysis_id"]
@@ -997,14 +997,39 @@ def app_run(run_id: UUID, installations: list[int] | None = Query(default=None))
             FROM ci_breaks WHERE first_run=%s OR last_run=%s ORDER BY severity,package""",
             (run_id, run_id),
         ).fetchall()
+        review = conn.execute(
+            """SELECT a.model,a.result,a.created_at,a.trace->>'run' AS agent_run FROM ci_agent_reviews a
+            WHERE a.run_id=%s""",
+            (run_id,),
+        ).fetchone()
     return {
         **_run_row(row),
         "input": row["input"],
         "result": row["result"],
         "steps": steps,
-        "attempts": [_run_row(a) for a in attempts],
+        "attempts": [_run_row(a) for a in attempts if a["kind"] == row["kind"]]
+        if row["kind"] == "pull"
+        else [],
         "breaks": found,
+        "review": review,
     }
+
+
+@app.get("/app/news", dependencies=[Depends(authenticated)])
+def app_news(
+    installations: list[int] | None = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=200),
+):
+    """Security reports CodeIntent's agent found on the web for the workspace's locked packages."""
+    scope = _installation_scope(installations)
+    with store.connection() as conn:
+        rows = conn.execute(
+            """SELECT installation_id,package,key,item,affects,in_osv,repositories,first_seen,last_seen,alerted_at
+            FROM ci_security_news WHERE (%s::bigint[] IS NULL OR installation_id=ANY(%s::bigint[]))
+            ORDER BY affects='no',in_osv,first_seen DESC LIMIT %s""",
+            (scope, scope, limit),
+        ).fetchall()
+    return {"news": rows}
 
 
 @app.get("/app/breaks", dependencies=[Depends(authenticated)])

@@ -285,7 +285,7 @@ export type Ops = {
   mcp: { active: number; used_24h: number };
 };
 
-export type RunKind = "pull" | "scan" | "mcp";
+export type RunKind = "pull" | "scan" | "mcp" | "agent";
 export type RunStatus =
   "running" | "succeeded" | "partial" | "failed" | "skipped";
 export type RunSummary = {
@@ -361,7 +361,76 @@ export type Traced = {
     entry_points: { name: string; function: string | null; file: string }[];
   }[];
 };
+/** What CodeIntent's agents added to one pull request check; advice, never part of the verdict. */
+export type AgentReview = {
+  model: string;
+  created_at: string;
+  agent_run: string | null;
+  result: {
+    upgrades: {
+      package: string;
+      start: string;
+      end: string;
+      patches?: {
+        file: string;
+        line: number;
+        before: string;
+        after: string;
+        explanation: string;
+        verified: boolean;
+      }[];
+      assessments?: {
+        file: string;
+        line: number;
+        assessment: "likely-breaks" | "likely-fine" | "unclear";
+        reason: string;
+        check?: string;
+        evidence: { file: string; line: number; quote: string }[];
+      }[];
+      behaviour?: {
+        symbol: string;
+        version: string;
+        what_changed: string;
+        why_it_matters: string;
+        quote: string;
+        severity: "likely-breaks" | "review";
+      }[];
+    }[];
+  };
+};
+export type AgentTrace = {
+  agent: string;
+  model: string;
+  prompt: string;
+  turns: number;
+  tokens: number;
+  calls: { tool: string; ms: number; error?: string }[];
+  rejected: string[];
+  ms: number;
+  outcome: string;
+};
+export type SecurityNews = {
+  installation_id: number;
+  package: string;
+  key: string;
+  item: {
+    title: string;
+    summary: string;
+    ids: string[];
+    affected: string;
+    fixed_in: string;
+    severity: string;
+    published: string;
+    url: string;
+  };
+  affects: "yes" | "maybe" | "no";
+  in_osv: boolean;
+  repositories: string[];
+  first_seen: string;
+  alerted_at: string | null;
+};
 export type RunDetail = RunSummary & {
+  review?: AgentReview | null;
   input: Record<string, unknown> | null;
   result: Record<string, unknown> | null;
   steps: RunStep[];

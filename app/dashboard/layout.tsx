@@ -56,6 +56,7 @@ export default async function DashboardLayout({
             count: openBreaks,
             alarm: true,
           },
+          { href: "/dashboard/news", label: "Security news" },
           {
             href: "/dashboard/repositories",
             label: "Repositories",

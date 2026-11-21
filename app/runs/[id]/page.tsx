@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { SignInPanel } from "@/components/auth-panel";
+import { AgentReviewSection, AgentTraces } from "@/components/agent-review";
 import { BreakCard } from "@/components/break-card";
 import { ConsoleHeader } from "@/components/console-header";
 import { RunGraphLazy } from "@/components/run-graph-lazy";
@@ -13,6 +14,7 @@ import {
   read,
   UUID,
   type RunDetail,
+  type AgentTrace,
   type RunGraph,
   type Traced,
 } from "@/lib/dashboard";
@@ -249,6 +251,11 @@ export default async function RunPage({ params }: Props) {
 
       {run.kind === "pull" && run.result?.graph ? (
         <Trace graph={run.result.graph as Record<string, Traced>} />
+      ) : null}
+
+      {run.review ? <AgentReviewSection review={run.review} /> : null}
+      {run.kind === "agent" && Array.isArray(run.result?.agents) ? (
+        <AgentTraces traces={run.result.agents as AgentTrace[]} />
       ) : null}
 
       <section aria-labelledby="graph" className="ci-run-section">

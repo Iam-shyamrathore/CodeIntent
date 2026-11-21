@@ -456,7 +456,7 @@ def test_fix_brief_hands_the_agent_every_edit_with_what_depends_on_it(
     assert (edit.file, edit.line, edit.function) == ("src/app/client.py", 5, "make")
     assert edit.change.replacement == "proxy= or mounts="
     assert edit.upstream_pr == "https://github.com/encode/httpx/pull/3319"
-    assert "GET /users" in edit.entry_points
+    assert {"GET /users", "scripts/run.py"} <= set(edit.entry_points)
     assert brief.tests_to_run == ["tests/test_client.py"]
     assert brief.steps[-1] == "Run tests/test_client.py"
     reset = mcp_server._installation.set(b)

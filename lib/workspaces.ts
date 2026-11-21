@@ -3,6 +3,7 @@ import { cache } from "react";
 import {
   read,
   type Break,
+  type SecurityNews,
   type Installation,
   type RunKind,
   type RunSummary,
@@ -180,6 +181,14 @@ export const loadBreaks = cache(
     return result.state === "ok" ? result.data.breaks : null;
   },
 );
+
+export const loadNews = cache(async (): Promise<SecurityNews[] | null> => {
+  const q = await scope();
+  const result = await read<{ news: SecurityNews[] }>(
+    `/app/news${q ? `?${q}` : ""}`,
+  );
+  return result.state === "ok" ? result.data.news : null;
+});
 
 export const loadRuns = cache(
   async (
