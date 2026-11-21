@@ -748,14 +748,17 @@ def check(old: Surface, new: Surface, usage: Usage) -> UsageCheck:
     if isinstance(after, Unknown):
         return unchecked(after.reason, after.detail)
     if isinstance(after, Shimmed):
+        found = _replacement(old, new, after.path, None, after.message)
         return UsageCheck(
             usage=usage,
             changes=(
                 APIChange(
                     kind="deprecated",
                     symbol=after.path,
-                    detail=f"{after.path} is only provided by a deprecated module __getattr__ in {new.version}",
+                    detail=f"{after.path} is only provided by a deprecated shim in {new.version}",
                     message=after.message,
+                    replacement=found[0] if found else None,
+                    replacement_source=found[1] if found else None,
                     after=new.location(after.shim),
                 ),
             ),
@@ -866,16 +869,18 @@ def _replacement(
     """What replaces a removed symbol: a name the old deprecation message quotes that exists, or else a
     new object in the same module with the same parameters ("likely renamed")."""
     parent, _, name = removed.rpartition(".")
-    skip = {removed, name, getattr(before, "path", None)}
+    skip = {removed, getattr(before, "path", None)}
     for token in QUOTED.findall(message or ""):
         if token in skip:
             continue
-        candidates = (
-            [token]
-            if "." in token
-            else [f"{parent}.{token}", f"{parent.split('.')[0]}.{token}"]
-        )
+        if "." in token or token == name:
+            # The bare old name can only point elsewhere: "Use Python's 'json' module instead."
+            candidates = [token]
+        else:
+            candidates = [f"{parent}.{token}", f"{parent.split('.')[0]}.{token}", token]
         for candidate in candidates:
+            if candidate in skip:
+                continue
             if new._inside(candidate):
                 if isinstance(new.lookup(candidate), Found):
                     return candidate, "message"

@@ -141,6 +141,15 @@ class Client:
             )
         return response
 
+    def request(self, method: str, path: str, *, json: dict) -> httpx.Response:
+        """A write call. Errors are returned, not raised, so callers can fall back (edit -> create)."""
+        response = self.http.request(
+            method, path, json=json, headers=_headers(self.token())
+        )
+        if response.status_code in (403, 429) and "rate limit" in response.text.lower():
+            raise GitHubAppError(f"GitHub rate limit on {method} {path}")
+        return response
+
     def json(self, path: str, params=None):
         response = self.get(path, params=params)
         if response.status_code != 200:
@@ -492,3 +501,99 @@ def handle_webhook(event: str, delivery: str, payload: dict) -> tuple[int, dict]
             )
             return finish("queued", 202, {"status": "queued", "analysis_id": ident})
         return finish("ignored", 202, {"status": "ignored", "reason": f"event {event}"})
+
+
+# --- Verdicts, check run and comment ------------------------------------------------------------
+
+
+def _version(state: dict | None) -> str | None:
+    """The exact version a manifest entry resolves to: the locked version, else an ``==`` pin."""
+    if not state:
+        return None
+    locked = state.get("locked_version")
+    if locked and "," not in locked:
+        return locked
+    specifier = (state.get("specifier") or "").strip()
+    if specifier.startswith("==") and "," not in specifier and "*" not in specifier:
+        return specifier[2:].strip()
+    return None
+
+
+def upgrades(
+    diff: dict,
+) -> tuple[list[tuple[str, str, str]], list[tuple[str, str | None]]]:
+    """(name, from, to) for each changed package with exact versions on both sides, and added packages."""
+    changed = {
+        (c["name"], _version(c.get("old")), _version(c.get("new")))
+        for c in diff.get("changed", [])
+    }
+    pairs = sorted((n, a, b) for n, a, b in changed if a and b and a != b)
+    added = sorted({(a["name"], _version(a.get("new"))) for a in diff.get("added", [])})
+    return pairs, added
+
+
+def unresolved(diff: dict) -> list[str]:
+    """Changed packages whose versions are ranges on one side, so there is no exact pair to compare."""
+    names = []
+    for c in diff.get("changed", []):
+        a, b = _version(c.get("old")), _version(c.get("new"))
+        if not (a and b) and c["name"] not in names:
+            names.append(c["name"])
+    return names
+
+
+def create_check(client: Client, repository: str, head_sha: str) -> int | None:
+    from codeintent.upgrades.report import CHECK_NAME
+
+    response = client.request(
+        "POST",
+        f"/repos/{repository}/check-runs",
+        json={"name": CHECK_NAME, "head_sha": head_sha, "status": "in_progress"},
+    )
+    return response.json().get("id") if response.status_code == 201 else None
+
+
+def complete_check(
+    client: Client,
+    repository: str,
+    head_sha: str,
+    check_id: int | None,
+    conclusion: str,
+    output: dict,
+    details_url: str | None,
+) -> int | None:
+    from codeintent.upgrades.report import CHECK_NAME
+
+    body = {"status": "completed", "conclusion": conclusion, "output": output}
+    if details_url:
+        body["details_url"] = details_url
+    if check_id:
+        response = client.request(
+            "PATCH", f"/repos/{repository}/check-runs/{check_id}", json=body
+        )
+        if response.status_code == 200:
+            return check_id
+    response = client.request(
+        "POST",
+        f"/repos/{repository}/check-runs",
+        json={"name": CHECK_NAME, "head_sha": head_sha, **body},
+    )
+    return response.json().get("id") if response.status_code == 201 else None
+
+
+def upsert_comment(
+    client: Client, repository: str, number: int, body: str, comment_id: int | None
+) -> int | None:
+    """Edit our earlier comment on the PR if it still exists, else post a new one."""
+    if comment_id:
+        response = client.request(
+            "PATCH",
+            f"/repos/{repository}/issues/comments/{comment_id}",
+            json={"body": body},
+        )
+        if response.status_code == 200:
+            return comment_id
+    response = client.request(
+        "POST", f"/repos/{repository}/issues/{number}/comments", json={"body": body}
+    )
+    return response.json().get("id") if response.status_code == 201 else None

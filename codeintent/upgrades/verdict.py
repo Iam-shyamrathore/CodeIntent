@@ -226,7 +226,13 @@ def decide(
         reason = f"the code does not import {package} directly"
     else:
         verdict = "no-known-impact"
-        reason = f"all {len(checks)} use(s) of {package} were compared in {start} and {end}; none changed"
+        compared = len(checks) - unchecked_usages
+        reason = (
+            f"all {len(checks)} use(s) of {package} were compared in {start} and {end}; none changed"
+            if not limits
+            else f"{compared} of {len(checks)} use(s) of {package} were compared in {start} and {end} "
+            f"and none changed; {len(limits)} could not be followed, but touch nothing this upgrade changed"
+        )
     return UpgradeVerdict(
         package=package,
         start=start,

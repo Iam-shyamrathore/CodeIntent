@@ -154,9 +154,15 @@ def investigate_question(context, question_id: str):
     retry=procrastinate.RetryStrategy(max_attempts=3, wait=30),
 )
 def analyze_pull_request(context, analysis_id: str):
+    import os
+    from pathlib import Path
+
+    import httpx
     from psycopg.types.json import Jsonb
 
-    from codeintent.github_app import Client, dependency_changes
+    from codeintent import github_app as gh
+    from codeintent.upgrades import advisories, report, repository
+    from codeintent.upgrades.verdict import evaluate
 
     with store.connection() as conn:
         row = conn.execute(
@@ -165,27 +171,102 @@ def analyze_pull_request(context, analysis_id: str):
         ).fetchone()
     if not row:
         return
-    client = Client.for_installation(row["installation_id"])
+    repo, number, head = row["repository"], row["number"], row["head_sha"]
+    public = os.getenv("CODEINTENT_PUBLIC_URL", "").rstrip("/")
+    report_url = f"{public}/pulls/{analysis_id}" if public else None
+    client = gh.Client.for_installation(row["installation_id"])
+    check_id = row.get("check_run_id")
     try:
-        diff = dependency_changes(
-            client, row["repository"], row["number"], row["base_sha"], row["head_sha"]
+        diff = gh.dependency_changes(client, repo, number, row["base_sha"], head)
+        if not diff["files"]:
+            with store.connection() as conn:
+                conn.execute(
+                    "UPDATE ci_pull_analyses SET status='skipped',diff=%s,updated_at=now() WHERE id=%s",
+                    (Jsonb(diff), analysis_id),
+                )
+            return
+        title = client.json(f"/repos/{repo}/pulls/{number}").get("title")
+        check_id = check_id or gh.create_check(client, repo, head)
+        with store.connection() as conn:
+            conn.execute(
+                "UPDATE ci_pull_analyses SET status='diffed',diff=%s,title=%s,check_run_id=%s,updated_at=now() WHERE id=%s",
+                (Jsonb(diff), title, check_id, analysis_id),
+            )
+        pairs, added = gh.upgrades(diff)
+        verdicts, new_packages = [], []
+        with httpx.Client(timeout=60, follow_redirects=True) as pypi:
+            if pairs:
+                with repository.temporary() as folder:
+                    root = repository.download(repo, head, Path(folder), client.token())
+                    verdicts = [
+                        evaluate(name, a, b, root, pypi) for name, a, b in pairs[:20]
+                    ]
+            for name, version in added[:20]:
+                checks = advisories.check([(name, version)], pypi) if version else []
+                new_packages.append((name, version, checks))
+        notes = [
+            f"{name}: one side is a version range, not an exact version, so there is no pair to compare."
+            for name in gh.unresolved(diff)
+        ]
+        body = report.comment(verdicts, new_packages, report_url, notes)
+        with store.connection() as conn:
+            previous = conn.execute(
+                "SELECT comment_id FROM ci_pull_analyses WHERE repository=%s AND number=%s AND comment_id IS NOT NULL ORDER BY updated_at DESC LIMIT 1",
+                (repo, number),
+            ).fetchone()
+        comment_id = gh.upsert_comment(
+            client, repo, number, body, previous["comment_id"] if previous else None
+        )
+        result = report.check_output(verdicts, body)
+        check_id = gh.complete_check(
+            client,
+            repo,
+            head,
+            check_id,
+            result["conclusion"],
+            result["output"],
+            report_url,
         )
         with store.connection() as conn:
             conn.execute(
-                "UPDATE ci_pull_analyses SET status=%s,diff=%s,updated_at=now() WHERE id=%s",
-                ("diffed" if diff["files"] else "skipped", Jsonb(diff), analysis_id),
+                "UPDATE ci_pull_analyses SET status='reported',verdicts=%s,verdict=%s,check_run_id=%s,comment_id=%s,updated_at=now() WHERE id=%s",
+                (
+                    Jsonb([v.model_dump(mode="json") for v in verdicts]),
+                    report.worst(verdicts) if verdicts else None,
+                    check_id,
+                    comment_id,
+                    analysis_id,
+                ),
             )
     except Exception as exc:
         # Exception text may echo upstream responses; store and log only the category.
         logger.warning("Pull analysis %s failed (%s)", analysis_id, type(exc).__name__)
+        final = context.job.attempts >= 3
+        if check_id:
+            try:
+                gh.complete_check(
+                    client,
+                    repo,
+                    head,
+                    check_id,
+                    "neutral",
+                    {
+                        "title": "CodeIntent could not finish this check",
+                        "summary": f"The analysis stopped ({type(exc).__name__}). "
+                        + (
+                            "It will not be retried."
+                            if final
+                            else "It will be retried."
+                        ),
+                    },
+                    report_url,
+                )
+            except Exception:
+                logger.warning("Could not update check run for %s", analysis_id)
         with store.connection() as conn:
             conn.execute(
                 "UPDATE ci_pull_analyses SET status=%s,error=%s,updated_at=now() WHERE id=%s",
-                (
-                    "retrying" if context.job.attempts < 3 else "failed",
-                    type(exc).__name__,
-                    analysis_id,
-                ),
+                ("failed" if final else "retrying", type(exc).__name__, analysis_id),
             )
         raise RuntimeError(type(exc).__name__) from None
     finally:
