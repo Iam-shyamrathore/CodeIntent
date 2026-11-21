@@ -22,6 +22,8 @@ def driver():
     return GraphDatabase.driver(
         os.environ["NEO4J_URI"],
         auth=(os.environ["NEO4J_USERNAME"], os.environ["NEO4J_PASSWORD"]),
+        # Queries name relationship types a young workspace may not have yet; that is expected.
+        notifications_disabled_classifications=["UNRECOGNIZED"],
     )
 
 
