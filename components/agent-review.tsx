@@ -55,8 +55,8 @@ export function AgentReviewSection({ review }: { review: AgentReview }) {
                   data-verified={p.verified ? "yes" : "no"}
                 >
                   {p.verified
-                    ? "checked by CodeIntent: the break is gone"
-                    : "not confirmed by CodeIntent"}
+                    ? "CodeIntent re-analysed the edit: break no longer found"
+                    : "CodeIntent still finds the break with this edit"}
                 </span>
               </p>
               <pre className="ci-break-code ci-diff">

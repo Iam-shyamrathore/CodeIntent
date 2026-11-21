@@ -166,6 +166,25 @@ def apply(text: str, patch: Patch) -> str | None:
     return None
 
 
+def _as_applied(root: Path, patch: Patch) -> dict:
+    """``before`` and ``after`` as they are in the file, with its own indentation."""
+    text = _text(root, patch.file)
+    patched = apply(text, patch) if text is not None else None
+    if patched is None:
+        return {}
+    old, new = text.splitlines(), patched.splitlines()
+    head = 0
+    while head < min(len(old), len(new)) and old[head] == new[head]:
+        head += 1
+    tail = 0
+    while tail < min(len(old), len(new)) - head and old[-1 - tail] == new[-1 - tail]:
+        tail += 1
+    return {
+        "before": "\n".join(old[head : len(old) - tail]),
+        "after": "\n".join(new[head : len(new) - tail]),
+    }
+
+
 def _around(text: str, line: int) -> str:
     rows = text.splitlines()
     low, high = max(1, line - 3), min(len(rows), line + 4)
@@ -253,6 +272,64 @@ def check_behaviour(session: Session, used: set[str]):
     return check
 
 
+# --- What the patcher is told about the new release ----------------------------------------------
+
+
+def describe(package: str, version: str, symbols: list[str], http) -> str:
+    """Each symbol's call signature in ``version`` (parameters, annotations, defaults), read statically,
+    with the definitions of type aliases its annotations name, so a replacement gets the right type."""
+    import griffe
+
+    from codeintent.upgrades import artifacts
+    from codeintent.upgrades.surface import Found, Surface, signature
+
+    try:
+        surface = Surface.fetch(package, version, http)
+    except artifacts.ArtifactError:
+        return ""
+    out, aliases = [], {}
+    for symbol in dict.fromkeys(symbols):
+        found = surface.lookup(symbol)
+        if not isinstance(found, Found) or found.obj is None:
+            continue
+        sig = signature(found.obj)
+        if sig is None:
+            continue
+        params = []
+        for param in sig.owner.parameters:
+            if param.name in ("self", "cls"):
+                continue
+            text = {
+                griffe.ParameterKind.var_positional: f"*{param.name}",
+                griffe.ParameterKind.var_keyword: f"**{param.name}",
+            }.get(param.kind, param.name)
+            if param.annotation is not None:
+                text += f": {param.annotation}"
+                if isinstance(param.annotation, griffe.Expr):
+                    for part in param.annotation.iterate(flat=True):
+                        path = getattr(part, "canonical_path", None)
+                        if (
+                            isinstance(path, str)
+                            and path.startswith(package)
+                            and path not in aliases
+                        ):
+                            obj = getattr(surface.lookup(path), "obj", None)
+                            if (
+                                obj is not None
+                                and obj.is_attribute
+                                and obj.value is not None
+                            ):
+                                aliases[path] = str(obj.value)[:300]
+            if param.default is not None:
+                text += f" = {param.default}"
+            params.append(text)
+        out.append(f"{symbol}({', '.join(params)})")
+    if aliases:
+        out.append("Type aliases used above:")
+        out += [f"{name} = {value}" for name, value in list(aliases.items())[:12]]
+    return "\n".join(out)
+
+
 # --- CodeIntent checks the patcher's work ---------------------------------------------------------
 
 
@@ -328,9 +405,9 @@ def section(review: dict, model: str) -> str:
         name = upgrade["package"]
         for p in upgrade.get("patches") or []:
             status = (
-                "checked by CodeIntent: the break is gone"
+                "CodeIntent re-analysed the edited code and no longer finds this break; review it"
                 if p.get("verified")
-                else "not confirmed by CodeIntent: review it"
+                else "CodeIntent still finds the break with this edit; review it"
             )
             lines += [
                 f"**Suggested fix for `{p['file']}:{p['line']}`** ({status})",
@@ -616,12 +693,28 @@ def _patch(verdict, header, root, ws, repo, traces):
         for f in verdict.findings
         for loc in dict.fromkeys(f.locations)
     )
+    import httpx
+
+    with httpx.Client(timeout=60, follow_redirects=True) as http:
+        signatures = describe(
+            verdict.package,
+            verdict.end,
+            [f.change.symbol for f in verdict.findings],
+            http,
+        )
     session = Session(root=root, ws=ws, repo=repo)
     answer, trace = harness.run(
         "patcher",
         _task(
             header,
-            f"Places CodeIntent found:\n{listed}\n\nDraft the edit for each place.",
+            f"Places CodeIntent found:\n{listed}\n\n"
+            + (
+                f"Signatures in {verdict.package} {verdict.end}, read from the release:\n"
+                f"{signatures}\n\n"
+                if signatures
+                else ""
+            )
+            + "Draft the edit for each place.",
         ),
         tools=toolbox(session, "code", "graph"),
         answer=Patches,
@@ -637,11 +730,12 @@ def _patch(verdict, header, root, ws, repo, traces):
         else []
     )
     patches = [
-        {**p.model_dump(), "verified": good} for p, good in zip(answer.patches, ok)
+        {**p.model_dump(), **_as_applied(root, p), "verified": good}
+        for p, good in zip(answer.patches, ok)
     ]
     return (
         patches,
-        f"{len(patches)} edit(s), {sum(ok)} checked by CodeIntent, {len(answer.skipped)} left out",
+        f"{len(patches)} edit(s), {sum(ok)} no longer break in CodeIntent's re-analysis, {len(answer.skipped)} left out",
     )
 
 

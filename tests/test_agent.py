@@ -334,8 +334,32 @@ def test_the_section_says_whether_codeintent_confirmed_a_fix():
         "gemini-2.5-flash",
     )
     assert "#### Agent review (gemini-2.5-flash; not part of the verdict)" in block
-    assert "checked by CodeIntent: the break is gone" in block
+    assert (
+        "CodeIntent re-analysed the edited code and no longer finds this break" in block
+    )
     assert "-         proxies=proxy," in block and "+         proxy=proxy," in block
+
+
+@network
+def test_the_patcher_is_told_the_new_signature_with_its_types(tmp_path, monkeypatch):
+    import httpx
+
+    monkeypatch.setenv("CODEINTENT_ARTIFACT_CACHE", str(tmp_path / "cache"))
+    with httpx.Client(timeout=60, follow_redirects=True) as http:
+        text = review.describe("httpx", "0.28.1", ["httpx._client.Client"], http)
+    assert "proxy: ProxyTypes | None = None" in text
+    assert "mounts:" in text and "proxies" not in text
+    assert "httpx._types.ProxyTypes = " in text
+
+
+def test_the_stored_edit_has_the_files_own_indentation(repo):
+    sloppy = PATCH.model_copy(
+        update={"before": "proxies=proxy,", "after": "proxy=proxy,"}
+    )
+    assert review._as_applied(repo, sloppy) == {
+        "before": "        proxies=proxy,",
+        "after": "        proxy=proxy,",
+    }
 
 
 @network

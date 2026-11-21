@@ -3,12 +3,12 @@
 CodeIntent's verdicts come from static analysis and never from a model. Agents add what static analysis
 cannot see, on top of those facts and the code graph, and are always shown as an agent's, beside the verdict.
 
-| Agent | When | Reads | Adds |
-| --- | --- | --- | --- |
-| `patcher` | After a PR check with breaks | the repository, the code graph | An edit per break. CodeIntent applies the edits to a copy, checks it parses and runs its analysis again: only an edit that removes the break is marked "checked by CodeIntent". |
-| `investigator` | After a PR check with uses it could not follow | the repository, the code graph | `likely-breaks`, `likely-fine` or `unclear` per use, with quotes checked against the file. |
-| `behaviour` | After a PR check | the library's GitHub release notes, the code graph | Behaviour changes that touch names the repository uses, with the release note quoted exactly. |
-| `news` | Daily, per workspace | the web, through Serper | Security reports for locked packages, from pages it read. CodeIntent decides whether the locked version is in range, whether OSV.dev lists it, and alerts Telegram. |
+| Agent          | When                                           | Reads                                              | Adds                                                                                                                                                                                                                                                           |
+| -------------- | ---------------------------------------------- | -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `patcher`      | After a PR check with breaks                   | the repository, the code graph                     | An edit per break. The patcher is given the new signature with its types. CodeIntent applies the edits to a copy, checks it parses and runs its analysis again; that confirms the call fits the new API, not that the values are right, and the label says so. |
+| `investigator` | After a PR check with uses it could not follow | the repository, the code graph                     | `likely-breaks`, `likely-fine` or `unclear` per use, with quotes checked against the file.                                                                                                                                                                     |
+| `behaviour`    | After a PR check                               | the library's GitHub release notes, the code graph | Behaviour changes that touch names the repository uses, with the release note quoted exactly.                                                                                                                                                                  |
+| `news`         | Daily, per workspace                           | the web, through Serper                            | Security reports for locked packages, from pages it read. CodeIntent decides whether the locked version is in range, whether OSV.dev lists it, and alerts Telegram.                                                                                            |
 
 Their output goes to the PR comment (its own section), the run page, the **Security news** page, and the
 MCP tool `fix_brief` (`agent_patch`, `agent_assessments`, `agent_behaviour`, `security_news`).
@@ -40,8 +40,7 @@ MCP tool `fix_brief` (`agent_patch`, `agent_assessments`, `agent_behaviour`, `se
 
 ## Untrusted input
 
-Following "Design Patterns for Securing LLM Agents against Prompt Injections" (Beurer-Kellner et al.,
-2025) and CaMeL (Debenedetti et al., 2025): once an agent has read untrusted text it must not be able to
+Following "Design Patterns for Securing LLM Agents against Prompt Injections" (Beurer-Kellner et al., 2025) and CaMeL (Debenedetti et al., 2025): once an agent has read untrusted text it must not be able to
 cause anything with consequences.
 
 - Every tool only reads; there is no tool to write, post or call out with data.
