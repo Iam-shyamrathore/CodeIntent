@@ -1,0 +1,39 @@
+node {
+  diameter: 46px;
+  color: #3a3a36;
+  border-color: #77746c;
+  border-width: 2px;
+  text-color-internal: #edebe4;
+  font-size: 9px;
+  caption: '{name}';
+}
+relationship {
+  color: #77746c;
+  shaft-width: 1.5px;
+  font-size: 8px;
+  padding: 3px;
+  text-color-external: #a3a097;
+  text-color-internal: #0b0b0a;
+  caption: '<type>';
+}
+node.Workspace { color: #edebe4; border-color: #ffffff; text-color-internal: #0b0b0a; diameter: 64px; caption: '{name}'; }
+node.Repository { color: #2b5d6b; border-color: #6be4ff; diameter: 60px; caption: '{name}'; }
+node.Run { color: #0e3a44; border-color: #6be4ff; diameter: 54px; caption: '{kind}'; }
+node.Step { color: #22221f; border-color: #4a4944; diameter: 34px; caption: '{name}'; }
+node.Upgrade { color: #4a3e1c; border-color: #d9b44a; diameter: 56px; caption: '{name}'; }
+node.Finding { color: #5c1813; border-color: #ff4b3e; diameter: 50px; caption: '{severity}'; }
+node.APIChange { color: #7a1d16; border-color: #ff6a5f; diameter: 58px; caption: '{name}'; }
+node.CodeLine { color: #1b1a17; border-color: #edebe4; diameter: 48px; caption: '{name}'; }
+node.File { color: #1b1a17; border-color: #77746c; diameter: 40px; caption: '{path}'; }
+node.Symbol { color: #26343a; border-color: #8fd8ea; diameter: 46px; caption: '{name}'; }
+node.Package { color: #3b2f52; border-color: #b49cff; diameter: 52px; caption: '{name}'; }
+node.Release { color: #2d2640; border-color: #8f7ad6; diameter: 42px; caption: '{version}'; }
+node.PullRequest { color: #1d3a24; border-color: #5fd47f; diameter: 52px; caption: '{name}'; }
+node.Advisory { color: #5a4210; border-color: #ffb020; diameter: 48px; caption: '{name}'; }
+node.Pin { color: #3d2a12; border-color: #e08a3c; diameter: 46px; caption: '{name}'; }
+node.Commit { color: #1d3a24; border-color: #3fa35f; diameter: 40px; caption: '{name}'; }
+node.AgentToken { color: #edebe4; border-color: #6be4ff; text-color-internal: #0b0b0a; diameter: 44px; caption: '{name}'; }
+relationship.CAUSED_BY { color: #ff4b3e; shaft-width: 2.5px; }
+relationship.AT { color: #ff6a5f; shaft-width: 2.5px; }
+relationship.CHANGED_IN { color: #5fd47f; shaft-width: 2.5px; }
+relationship.USES { color: #6be4ff; }
