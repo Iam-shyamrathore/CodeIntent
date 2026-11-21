@@ -78,7 +78,8 @@ FILTERS = [
     "checks_not_green",  # head statusCheckRollup missing / not SUCCESS / no check actually succeeded
 ]
 
-SEARCH_GQL = """
+SEARCH_GQL = (
+    """
 query($q: String!, $after: String) {
   search(query: $q, type: ISSUE, first: %d, after: $after) {
     issueCount
@@ -91,7 +92,9 @@ query($q: String!, $after: String) {
     }
   }
 }
-""" % PAGE_SIZE
+"""
+    % PAGE_SIZE
+)
 
 DETAIL_GQL = """
 query($id: ID!) {
@@ -127,7 +130,9 @@ def token() -> str:
     tok = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
     if tok:
         return tok
-    return subprocess.run(["gh", "auth", "token"], capture_output=True, text=True, check=True).stdout.strip()
+    return subprocess.run(
+        ["gh", "auth", "token"], capture_output=True, text=True, check=True
+    ).stdout.strip()
 
 
 class GitHub:
@@ -165,7 +170,9 @@ class PyPI:
         name = re.sub(r"\[.*\]$", "", pkg).lower()
         if name not in self.cache:
             r = self.http.get(f"https://pypi.org/pypi/{name}/json")
-            self.cache[name] = set(r.json()["releases"]) if r.status_code == 200 else None
+            self.cache[name] = (
+                set(r.json()["releases"]) if r.status_code == 200 else None
+            )
         return self.cache[name]
 
 
@@ -197,7 +204,9 @@ def check_summary(rollup: dict | None) -> tuple[str | None, str]:
             counts[(node["state"] or "unknown").lower()] += 1
     parts = ", ".join(f"{n} {k}" for k, n in sorted(counts.items()))
     total = rollup["contexts"]["totalCount"]
-    return rollup["state"], f"statusCheckRollup={rollup['state']} ({total} checks/statuses: {parts})"
+    return rollup[
+        "state"
+    ], f"statusCheckRollup={rollup['state']} ({total} checks/statuses: {parts})"
 
 
 def is_dependabot(commit: dict) -> bool:
@@ -247,7 +256,9 @@ def sample(target: int, log) -> tuple[list[dict], Counter, int, list[str]]:
     return accepted, rejected, seen, queries
 
 
-def evaluate(gh: GitHub, pypi: PyPI, pr: dict, per_repo, query: str) -> tuple[str | None, dict | None]:
+def evaluate(
+    gh: GitHub, pypi: PyPI, pr: dict, per_repo, query: str
+) -> tuple[str | None, dict | None]:
     repo = pr["repository"]
     name = repo["nameWithOwner"]
     if repo["stargazerCount"] < MIN_STARS or repo["isFork"] or repo["isArchived"]:
@@ -270,10 +281,16 @@ def evaluate(gh: GitHub, pypi: PyPI, pr: dict, per_repo, query: str) -> tuple[st
         return "not_on_pypi", None
     detail = gh.gql(DETAIL_GQL, {"id": pr["id"]})["node"]
     commits = [n["commit"] for n in detail["commits"]["nodes"]]
-    if detail["commits"]["totalCount"] > len(commits) or not all(map(is_dependabot, commits)):
+    if detail["commits"]["totalCount"] > len(commits) or not all(
+        map(is_dependabot, commits)
+    ):
         return "extra_commits", None
     files = [n["path"] for n in detail["files"]["nodes"]]
-    if not files or detail["files"]["totalCount"] > len(files) or not all(MANIFEST_RE.search(f) for f in files):
+    if (
+        not files
+        or detail["files"]["totalCount"] > len(files)
+        or not all(MANIFEST_RE.search(f) for f in files)
+    ):
         return "non_manifest_files", None
     if all(DOCS_CI_RE.search(f) for f in files):
         return "docs_or_ci_only", None
@@ -285,7 +302,11 @@ def evaluate(gh: GitHub, pypi: PyPI, pr: dict, per_repo, query: str) -> tuple[st
     case = {
         "id": f"harmless-{owner_repo}-{pr['number']}",
         "label": "harmless",
-        "consumer": {"repo": name, "ref": detail["baseRefOid"], "commit": detail["baseRefOid"]},
+        "consumer": {
+            "repo": name,
+            "ref": detail["baseRefOid"],
+            "commit": detail["baseRefOid"],
+        },
         "package": re.sub(r"\[.*\]$", "", pkg).lower(),
         "from": old,
         "to": new,
@@ -308,14 +329,18 @@ def evaluate(gh: GitHub, pypi: PyPI, pr: dict, per_repo, query: str) -> tuple[st
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("--target", type=int, default=80)
-    parser.add_argument("--write", type=Path, help="merge harmless cases into this upgrades.json")
+    parser.add_argument(
+        "--write", type=Path, help="merge harmless cases into this upgrades.json"
+    )
     args = parser.parse_args()
 
     def log(msg: str) -> None:
         print(msg, file=sys.stderr, flush=True)
 
     log("Query template: " + QUERY_TEMPLATE)
-    log(f"Heads: {', '.join(HEADS)}; days: {FIRST_DAY} + up to {MAX_DAYS} days; sort created-asc; <= {MAX_PAGES_PER_QUERY} pages x {PAGE_SIZE}")
+    log(
+        f"Heads: {', '.join(HEADS)}; days: {FIRST_DAY} + up to {MAX_DAYS} days; sort created-asc; <= {MAX_PAGES_PER_QUERY} pages x {PAGE_SIZE}"
+    )
     log(
         f"Filters (in order): stars>={MIN_STARS}, not fork/archived; head ref in {HEAD_PREFIXES}; "
         f"title matches single 'Bump X from A to B'; same major and not 0.x-minor, no prerelease; "
@@ -324,7 +349,9 @@ def main() -> None:
         f"head statusCheckRollup == SUCCESS with >= 1 successful check"
     )
     accepted, rejected, seen, queries = sample(args.target, log)
-    log(f"\nRan {len(queries)} queries (last: {queries[-1]!r}); {seen} PR search results; accepted {len(accepted)}.")
+    log(
+        f"\nRan {len(queries)} queries (last: {queries[-1]!r}); {seen} PR search results; accepted {len(accepted)}."
+    )
     for f in FILTERS:
         log(f"  rejected by {f}: {rejected.get(f, 0)}")
 
@@ -332,7 +359,9 @@ def main() -> None:
         existing = json.loads(args.write.read_text()) if args.write.exists() else []
         kept = [c for c in existing if c.get("label") != "harmless"]
         args.write.write_text(json.dumps(kept + accepted, indent=2) + "\n")
-        log(f"Wrote {len(kept)} curated + {len(accepted)} harmless cases to {args.write}")
+        log(
+            f"Wrote {len(kept)} curated + {len(accepted)} harmless cases to {args.write}"
+        )
     else:
         print(json.dumps(accepted, indent=2))
 

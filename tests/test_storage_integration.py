@@ -5,6 +5,7 @@ Run with CODEINTENT_RUN_INTEGRATION=1 uv run pytest tests/test_storage_integrati
 import hashlib
 import os
 import uuid
+from pathlib import Path
 from types import SimpleNamespace
 
 import psycopg
@@ -68,11 +69,10 @@ def corpus():
 def test_migrations_are_repeatable(isolated):
     store.migrate()
     with store.connection() as conn:
-        assert (
-            conn.execute("SELECT count(*) AS count FROM ci_schema_versions").fetchone()[
-                "count"
-            ]
-            == 4
+        assert conn.execute(
+            "SELECT count(*) AS count FROM ci_schema_versions"
+        ).fetchone()["count"] == len(
+            list((Path(store.__file__).parents[1] / "migrations").glob("*.sql"))
         )
 
 
