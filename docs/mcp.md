@@ -1,0 +1,149 @@
+# CodeIntent MCP server
+
+AI coding agents (Claude Code, Codex, Cursor, Devin, anything that speaks MCP) can ask CodeIntent
+the same question the GitHub App answers on pull requests: *what breaks in this repository if
+dependency X moves to version Y, and what exactly do I change?* The answers are deterministic.
+Both releases are compared statically against the repository's own code. Nothing is executed, and
+no model writes the brief.
+
+- Transport: MCP **streamable HTTP**, endpoint `/mcp` (stateless, so any worker can serve any
+  request).
+- Auth: every request needs `Authorization: Bearer $CODEINTENT_MCP_TOKEN`. A missing or wrong
+  token gets `401`. The token is compared in constant time.
+- Scope: public GitHub repositories only. Each call downloads the repository tarball for the
+  requested ref (300 MB cap) into a temporary folder and deletes it afterwards.
+
+## Tools
+
+All four tools are read-only (`readOnlyHint: true`). Each one returns structured JSON and declares
+an output schema. A failure comes back as a tool error (`isError: true`) with a short message the
+agent can act on, never a stack trace.
+
+| Tool | Arguments | Returns |
+| --- | --- | --- |
+| `upgrade_brief` | `repo` (`owner/name` or `owner/name@ref`), `package`, `to_version` (exact or `latest`), optional `from_version` | `verdict` (`breaks` / `needs-change` / `not-checked` / `no-known-impact`), `reason`, ordered `steps`, `findings` (consumer `file:line` locations, what changed, the replacement and the library's own deprecation message), `unchecked` uses with reasons, OSV `advisories` for both versions, `declarations`, `release`, `coverage` |
+| `why_pinned` | `repo`, `package` | Every declaration of the package with `file:line`, specifier, pins (`exact`, `upper_bound`, `exclusion`, ...), group, and locked version. `introducing_commit` is always `null` because the commit that introduced a pin is not looked up yet. |
+| `list_dependencies` | `repo` | Direct dependencies: current (locked or `==`) version, declarations, latest non-yanked PyPI release, `newer_available`, and `blocked_by` (declarations whose specifier excludes the latest). Capped at 300. |
+| `advisories` | `repo` | OSV.dev advisories for every locked or exactly pinned package (direct and transitive, up to 300), split into `affected`, `not_checked` (with reason), `none_known`, and `unpinned` |
+
+`upgrade_brief` reads the current version from a lock file, or else from a single exact `==` pin.
+If neither exists, or several versions are found, it returns an error that asks for
+`from_version`. A `no-known-impact` verdict never means "safe". It means every use was compared in
+both releases and nothing relevant changed.
+
+Example (abridged), `upgrade_brief` with `openai/openai-python@v1.54.4`, `httpx`, `0.27.2` →
+`0.28.0`:
+
+```json
+{
+  "verdict": "breaks",
+  "reason": "2 change(s) in httpx 0.28.0 break code you use, at 3 place(s)",
+  "steps": [
+    "In src/openai/_base_client.py:1438, replace proxies= with proxy= or mounts= in the call to `httpx._client.AsyncClient`; library says: \"The 'proxies' argument is now deprecated. Use 'proxy' or 'mounts' instead.\"",
+    "In src/openai/_base_client.py:857, replace proxies= with proxy= or mounts= in the call to `httpx._client.Client`; library says: \"...\"",
+    "In src/openai/cli/_cli.py:179, replace proxies= with proxy= or mounts= in the call to `httpx._client.Client`; library says: \"...\"",
+    "Change `httpx==0.25.2` at requirements.lock:28 to `httpx==0.28.0`"
+  ]
+}
+```
+
+## Running it
+
+```bash
+export CODEINTENT_MCP_TOKEN="$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))')"
+uv run python -m scripts.mcp_server          # http://127.0.0.1:8220/mcp, plus an open GET /healthz
+```
+
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `CODEINTENT_MCP_TOKEN` | none | Bearer token clients must send. Required when `CODEINTENT_ENV=production`, where the server refuses to start without it. Elsewhere a missing token logs a warning and leaves the endpoint open (development only). |
+| `PORT` / `HOST` | `8220` / `127.0.0.1` | Listen address. Use `HOST=0.0.0.0` in containers and on Heroku. |
+| `CODEINTENT_MCP_ALLOWED_HOSTS` | none | Comma-separated public hostnames (for example `mcp.example.com`). When set, requests whose `Host` header is not on the list get `421`. When unset and a token is configured, the Host check is off, because every request already needs the token. |
+| `CODEINTENT_MCP_CONCURRENCY` | `2` | Repository analyses that may run at once. A caller that waits more than 60 s for a free slot gets a "busy, retry" tool error. |
+| `FORWARDED_ALLOW_IPS` | `127.0.0.1` | Proxies whose `X-Forwarded-*` headers uvicorn trusts. Set it to `*` behind the Heroku router. |
+| `GITHUB_TOKEN` | none | Optional. Raises GitHub's anonymous rate limit for tarball downloads. |
+
+A long analysis keeps its response stream open with SSE keepalive pings every 15 s, so proxies that
+drop idle connections (such as the Heroku router's 55 s idle window) do not cut it off. A first run
+for a package takes about 10 to 60 s. Release files are cached afterwards
+(`CODEINTENT_ARTIFACT_CACHE`).
+
+## Connecting an agent
+
+Use your deployed URL in place of `http://127.0.0.1:8220/mcp`. Keep the token in an environment
+variable, not in a committed file.
+
+### Claude Code
+
+```bash
+claude mcp add --transport http codeintent https://YOUR-HOST/mcp \
+  --header "Authorization: Bearer ${CODEINTENT_MCP_TOKEN}"
+```
+
+Or commit a project `.mcp.json`. Claude Code expands `${VAR}` when it connects, so the token stays
+out of the file:
+
+```json
+{
+  "mcpServers": {
+    "codeintent": {
+      "type": "http",
+      "url": "https://YOUR-HOST/mcp",
+      "headers": { "Authorization": "Bearer ${CODEINTENT_MCP_TOKEN}" }
+    }
+  }
+}
+```
+
+A first-time `upgrade_brief` can take longer than a minute. If Claude Code times out, raise its
+limit with `MCP_TOOL_TIMEOUT=300000` (milliseconds).
+
+### Cursor
+
+`.cursor/mcp.json` in the project, or `~/.cursor/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "codeintent": {
+      "url": "https://YOUR-HOST/mcp",
+      "headers": { "Authorization": "Bearer ${env:CODEINTENT_MCP_TOKEN}" }
+    }
+  }
+}
+```
+
+Some Cursor builds do not interpolate `${env:...}` in remote headers. If the server answers `401`,
+put the literal token in your global `~/.cursor/mcp.json` instead of a committed file.
+
+### Codex
+
+`~/.codex/config.toml` (or `.codex/config.toml` in a trusted project):
+
+```toml
+[mcp_servers.codeintent]
+url = "https://YOUR-HOST/mcp"
+bearer_token_env_var = "CODEINTENT_MCP_TOKEN"
+tool_timeout_sec = 300
+```
+
+The CLI equivalent is
+`codex mcp add codeintent --url https://YOUR-HOST/mcp --bearer-token-env-var CODEINTENT_MCP_TOKEN`.
+
+### Devin and other clients
+
+Add a custom MCP server with transport **streamable HTTP** (sometimes labelled "HTTP"), URL
+`https://YOUR-HOST/mcp`, and the header `Authorization: Bearer <token>`.
+
+### Python (MCP SDK)
+
+```python
+import httpx2
+from mcp import Client
+from mcp.client.streamable_http import streamable_http_client
+
+async with httpx2.AsyncClient(headers={"Authorization": f"Bearer {token}"}, timeout=httpx2.Timeout(30, read=600)) as http:
+    async with Client(streamable_http_client("https://YOUR-HOST/mcp", http_client=http)) as client:
+        brief = await client.call_tool("upgrade_brief", {"repo": "pallets/flask@1.1.4", "package": "itsdangerous", "to_version": "2.1.0", "from_version": "1.1.0"})
+        print(brief.structured_content["steps"])
+```

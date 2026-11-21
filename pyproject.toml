@@ -22,6 +22,7 @@ dependencies = [
   "libcst==1.9.0",
   "griffelib==2.4.1",
   "pyjwt[crypto]==2.15.1",
+  "mcp==2.3.0",
 ]
 
 [dependency-groups]
