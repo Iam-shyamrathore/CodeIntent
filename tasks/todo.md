@@ -23,21 +23,21 @@ Standard checks: `uv run pytest -q`, `uv run ruff check . && uv run ruff format 
 - [ ] **T4 Manifest and lockfile parser** (M). Skills: `modern-python`, `property-based-testing`
   - Accept: `pyproject.toml` (PEP 621 + uv/poetry groups), `requirements*.txt` (incl. `-r`, markers, hashes), `uv.lock` and `poetry.lock` all parse to `{name, specifier, locked_version, direct, source_line}`; names normalised per PEP 503; pins (upper bounds, `!=`, `==`) are flagged.
   - Verify: property tests for specifier round-trips; fixtures from real repos.
-  - Files: `codeintent/manifests.py`, `tests/test_manifests.py`.
+  - Files: `codeintent/upgrades/manifests/*`, `codeintent/upgrades/models.py`, `tests/upgrades/test_manifests.py`.
 - [ ] **T5 Usage extractor** (M). Skills: `test-driven-development`
-  - Accept: Tree-sitter finds imports (aliases, `from x import y`), attribute chains rooted at imported names, and call keyword arguments, each with file and line. Import names map to distributions (e.g. `yaml` → PyYAML). Dynamic access (`getattr`, `**kwargs` pass-through, star imports) is recorded as an *unknown* with a reason.
-  - Files: `codeintent/usage.py`, `codeintent/parsing.py` (shared helpers), `tests/test_usage.py`.
+  - Accept: LibCST finds imports (aliases, `from x import y`), attribute chains rooted at imported names, call keyword arguments, module-level aliases, local subclasses of library classes and `**kwargs` forwarding to `super().__init__`, each with file and line. Import names map to distributions (e.g. `yaml` → PyYAML). Dynamic access (`getattr`, `**kwargs` pass-through, star imports) is recorded as an *unknown* with a reason.
+  - Files: `codeintent/upgrades/usage/extractor.py`, `codeintent/upgrades/usage/distributions.py`, `tests/upgrades/test_usage.py`.
 - [ ] **T6 Release locator** (S)
   - Accept: given `package, from, to`, return the repository from PyPI `project_urls`, the release artifacts for both versions, and the matching git tags or commits. When it can't, it returns an explicit "not located" reason.
-  - Files: `codeintent/releases.py`, `tests/test_releases.py`.
-- [ ] **T7 Library API diff between versions** (M). Skills: `differential-review`
-  - Accept: extract the public API from each version's released source (modules, classes, functions, parameters, kw-only args, `**kwargs`, literal defaults, `__all__`, `warnings.warn(Deprecation…)` sites) and diff it into `APIChange{kind: removed|param_removed|renamed|default_changed|deprecated, symbol, detail}`. httpx 0.27.2 → 0.28.0 must include `Client(proxies=)` removed.
-  - Files: `codeintent/apidiff.py`, `tests/test_apidiff.py`. Deps: T6.
+  - Files: `codeintent/upgrades/releases.py`, `codeintent/upgrades/artifacts.py`, `tests/upgrades/test_releases.py`.
+- [ ] **T7 Library API surface and consumer-driven diff** (M). Skills: `differential-review`
+  - Accept: load each version statically with griffe (`allow_inspection=False`); resolve every used symbol (including non-public aliases) in both versions; compare parameters for used keyword arguments; add DeprecationWarning detection. Extract the API from each version's released source (modules, classes, functions, parameters, kw-only args, `**kwargs`, literal defaults, `__all__`, `warnings.warn(Deprecation…)` sites) and diff it into `APIChange{kind: removed|param_removed|renamed|default_changed|deprecated, symbol, detail}`. httpx 0.27.2 → 0.28.0 must include `Client(proxies=)` removed.
+  - Files: `codeintent/upgrades/surface.py`, `tests/upgrades/test_surface.py`. Deps: T6.
 - [ ] **T8 Verdict engine and CLI** (M)
   - Accept: usage × API changes → `Breaks you | Needs a change | No known impact | Not checked`, with affected lines and the reasons anything wasn't checked. `python -m scripts.verdict --repo owner/name@ref --package P --from A --to B` prints JSON.
-  - Files: `codeintent/verdict.py`, `scripts/verdict.py`, `tests/test_verdict.py`. Deps: T4, T5, T7.
+  - Files: `codeintent/upgrades/verdict.py`, `scripts/verdict.py`, `tests/upgrades/test_verdict.py`. Deps: T4, T5, T7.
 - [ ] **T9 Backtest harness** (M). Skills: `fp-check`, `regression-hunt`
-  - Accept: all 4 breakages return "Breaks you" with the right line: httpx 0.28 → `openai-python`, itsdangerous 2.1 → Flask 1.1.x, MarkupSafe 2.1 → Jinja2 2.11.x, urllib3 2.0 → botocore. A labelled set of ≥10 known-harmless upgrades produces 0 false "Breaks you". Results go to `artifacts/backtest/latest.json`; CI replays recorded fixtures offline.
+  - Accept: all 4 breakages return "Breaks you" with the right line: httpx 0.28 → `openai-python`, itsdangerous 2.1 → Flask 1.1.x, MarkupSafe 2.1 → Jinja2 2.11.x, urllib3 2.0 → botocore. The 14 additional verified cases from the research record are labelled too, and a mechanically sampled set of ≥50 harmless upgrades produces 0 false "Breaks you" (Wilson 95% upper bound reported). Results go to `artifacts/backtest/latest.json`; CI replays recorded fixtures offline.
   - Files: `evals/upgrades.json`, `scripts/backtest.py`, `tests/test_backtest.py`, `.github/workflows/*`. Deps: T8.
 
 ### Checkpoint 1: is the core real?

@@ -8,6 +8,9 @@ CodeIntent tells a team whether a Python dependency upgrade breaks their code an
 
 ## Architecture decisions
 
+- **Research record:** [docs/research/phase-1-verdict-engine.md](../docs/research/phase-1-verdict-engine.md) holds the reuse decisions, experiments and sources behind this plan.
+- **Verdicts are consumer-driven.** For every symbol and keyword argument the consumer uses, resolve it in both library versions using griffe's static model (`allow_inspection=False`), including non-public aliases. griffe's own breakage list alone caught only 2 of the 4 real outages; consumer-driven resolution caught 4 of 4.
+- **Usage extraction uses LibCST** (scope and qualified-name metadata), following module-level aliases, local subclasses of library classes and `**kwargs` forwarding to `super().__init__` (needed for the real openai-python break).
 - **Verdicts are deterministic. The model only explains.** "Breaks you" comes from static facts: the symbols and arguments your code uses, intersected with the API difference between the two library versions. The model links each difference to the upstream PR that explains it and drafts the replacement text, and every quote goes through the existing citation validation. A verdict never depends on model judgement alone.
 - **Unknown means "Not checked", never "safe".** Dynamic access (`getattr`, `**kwargs` pass-through, star imports), transitive dependencies and anything we cannot parse are reported as not checked, with the reason.
 - **Python first, direct dependencies first.** Manifests: `pyproject.toml`, `requirements*.txt`, `uv.lock`, `poetry.lock`. Transitive dependencies are listed but marked not checked in v1.
@@ -18,6 +21,22 @@ CodeIntent tells a team whether a Python dependency upgrade breaks their code an
 - **MCP** runs on FastMCP over streamable HTTP, authenticated with a per-workspace token.
 - **Telegram** runs as an async bot library inside the API process (webhook mode in production, long polling locally).
 - **Neo4j holds the connected model:** `Repository → File → Usage → LibrarySymbol ← APIChange → Decision → Source`, plus `Pin → IntroducedBy → Source`. PostgreSQL holds the ledger, jobs, workspaces, webhook deliveries and verdict records.
+
+## Code layout
+
+```
+codeintent/upgrades/
+  models.py           typed records: Dependency, Pin, Usage, ApiChange, Verdict, NotChecked
+  manifests/          requirements.py, pyproject.py, uvlock.py, poetrylock.py, toml_lines.py
+  usage/              extractor.py (LibCST), distributions.py (import name -> distribution)
+  artifacts.py        PyPI download, SHA-256 check, safe extraction, cache
+  surface.py          griffe static loading and symbol resolution
+  releases.py         package -> repository, versions -> tags
+  verdict.py          usage x surface diff -> verdict
+scripts/verdict.py    CLI
+tests/upgrades/       unit tests; tests/fixtures/upgrades/ for manifests and code samples
+evals/upgrades.json   labelled backtest cases
+```
 
 ## Phases
 
