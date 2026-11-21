@@ -12,7 +12,7 @@ from codeintent.settings import required
 logger = logging.getLogger(__name__)
 app = procrastinate.App(
     connector=procrastinate.PsycopgConnector(
-        conninfo=required("DATABASE_URL"), min_size=1, max_size=4
+        conninfo=required("DATABASE_URL"), min_size=1, max_size=6
     )
 )
 
