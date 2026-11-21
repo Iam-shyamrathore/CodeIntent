@@ -39,6 +39,7 @@ BENIGN_DECORATORS = {
     "setter",
     "staticmethod",
 }
+QUOTED = re.compile(r"['`\"]([A-Za-z_][\w.]*)['`\"]")
 DEPRECATION = re.compile(r"Deprecat|FutureWarning|Removed\w*Warning")
 
 
@@ -617,7 +618,11 @@ def check(old: Surface, new: Surface, usage: Usage) -> UsageCheck:
         )
     previous = before.obj and _deprecations(old, before.obj)
     if isinstance(after, Missing):
-        hint = next((w.message for w in previous or ()), None)
+        gone = old.lookup(after.path) if after.path != before.path else before
+        origin = gone.obj if isinstance(gone, Found) else None
+        warned = (_deprecations(old, origin) if origin is not None else []) or previous
+        hint = next((w.message for w in warned or ()), None)
+        found = _replacement(old, new, after.path, origin, hint)
         return UsageCheck(
             usage=usage,
             changes=(
@@ -626,7 +631,9 @@ def check(old: Surface, new: Surface, usage: Usage) -> UsageCheck:
                     symbol=after.path,
                     detail=f"{after.path} exists in {old.version} but not in {new.version}",
                     message=hint,
-                    before=old.location(before.obj) if before.obj else None,
+                    replacement=found[0] if found else None,
+                    replacement_source=found[1] if found else None,
+                    before=old.location(origin) if origin is not None else None,
                 ),
             ),
         )
@@ -660,6 +667,8 @@ def check(old: Surface, new: Surface, usage: Usage) -> UsageCheck:
     if usage.kind == "call":
         _arguments(old, new, usage, before.obj, after.obj, changes, problems)
         changes = [_hinted(c, previous or ()) for c in changes]
+        accepted_now = signature(after.obj)
+        changes = [_parameter_replacement(c, accepted_now) for c in changes]
     supplied = set(usage.keywords)
     accepted = set(getattr(signature(after.obj), "names", ()))
     for warning in _deprecations(new, after.obj):
@@ -686,6 +695,92 @@ def check(old: Surface, new: Surface, usage: Usage) -> UsageCheck:
             )
         )
     return UsageCheck(usage=usage, changes=tuple(changes), unchecked=tuple(problems))
+
+
+def _stdlib_has(path: str) -> bool:
+    """Whether a standard-library dotted name exists; only the standard library is imported."""
+    parts = path.split(".")
+    if parts[0] not in sys.stdlib_module_names:
+        return False
+    for split in range(len(parts), 0, -1):
+        try:
+            obj = importlib.import_module(".".join(parts[:split]))
+        except ImportError:
+            continue
+        try:
+            for attribute in parts[split:]:
+                obj = getattr(obj, attribute)
+        except AttributeError:
+            return False
+        return True
+    return False
+
+
+def _replacement(
+    old: Surface, new: Surface, removed: str, before, message: str | None
+) -> tuple[str, str] | None:
+    """What replaces a removed symbol: a name the old deprecation message quotes that exists, or else a
+    new object in the same module with the same parameters ("likely renamed")."""
+    parent, _, name = removed.rpartition(".")
+    skip = {removed, name, getattr(before, "path", None)}
+    for token in QUOTED.findall(message or ""):
+        if token in skip:
+            continue
+        candidates = (
+            [token]
+            if "." in token
+            else [f"{parent}.{token}", f"{parent.split('.')[0]}.{token}"]
+        )
+        for candidate in candidates:
+            if new._inside(candidate):
+                if isinstance(new.lookup(candidate), Found):
+                    return candidate, "message"
+            elif _stdlib_has(candidate):
+                return candidate, "message"
+            elif (
+                "." in token and candidate.split(".")[0] not in sys.stdlib_module_names
+            ):
+                return candidate, "message-unverified"
+    was = (
+        signature(before)
+        if before is not None and (before.is_function or before.is_class)
+        else None
+    )
+    module, earlier = new.lookup(parent), old.lookup(parent)
+    if (
+        was is None
+        or not was.names
+        or not isinstance(module, Found)
+        or module.obj is None
+    ):
+        return None
+    existing = set(getattr(getattr(earlier, "obj", None), "members", {}))
+    for member in module.obj.members.values():
+        if member.is_alias or member.name in existing or member.kind != before.kind:
+            continue
+        now = signature(member)
+        if now is not None and list(now.names) == list(was.names):
+            return member.path, "signature"
+    return None
+
+
+def _parameter_replacement(change: APIChange, now: Signature | None) -> APIChange:
+    """For a removed keyword, the parameters the deprecation message names that the new release accepts."""
+    if change.kind != "parameter-removed" or not change.message or now is None:
+        return change
+    named = [
+        t
+        for t in QUOTED.findall(change.message)
+        if t != change.parameter and t in now.names
+    ]
+    if not named:
+        return change
+    return change.model_copy(
+        update={
+            "replacement": " or ".join(f"{t}=" for t in named),
+            "replacement_source": "message",
+        }
+    )
 
 
 def _hinted(change: APIChange, warnings: list[Warning_] | tuple) -> APIChange:

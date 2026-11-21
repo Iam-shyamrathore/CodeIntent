@@ -152,6 +152,9 @@ ChangeKind = Literal[
 ]
 
 
+ReplacementSource = Literal["message", "message-unverified", "signature"]
+
+
 class APIChange(Record):
     """A difference between two releases that touches something the consumer uses."""
 
@@ -160,6 +163,8 @@ class APIChange(Record):
     parameter: str | None = None
     detail: str
     message: str | None = None
+    replacement: str | None = None
+    replacement_source: ReplacementSource | None = None
     before: Location | None = None
     after: Location | None = None
 
