@@ -1280,6 +1280,111 @@ def who_uses(
     )
 
 
+class DependencyPath(BaseModel):
+    repo: str
+    package: str
+    chains: list[list[str]] = Field(
+        description="Shortest chains 'package@version' from a direct dependency to the package, shortest first."
+    )
+    note: str
+
+
+class Dependent(BaseModel):
+    kind: str = Field(
+        description="Repository (yours) or SourceRepo (a public open-source project)."
+    )
+    name: str
+    stars: int | None = None
+    hops: int = Field(
+        description="0 = depends on it directly; 1+ = through that many other packages."
+    )
+    via: list[str] = []
+
+
+class Dependents(BaseModel):
+    package: str
+    known: bool
+    source: dict | None = None
+    needs: list[str] = []
+    needed_by: list[str] = []
+    advisories: list[dict] = []
+    dependents: list[Dependent] = []
+    note: str
+
+
+@server.tool(
+    title="Why a package is in a repository's dependency tree", annotations=READ_ONLY
+)
+@_recorded("dependency_path")
+def dependency_path(repo: RepoArg, package: PackageArg) -> DependencyPath:
+    """Explain why a Python package is installed in one of your repositories: the shortest chains of
+    dependencies from what the repository declares to that package, from the ecosystem graph (resolved
+    dependency trees of every release your repositories lock). Needs a workspace token.
+    """
+    from codeintent import ecosystem, graph, mcp_tokens
+
+    ws = _workspace()
+    name, _ = _parse_repo(repo)
+    target = _package(package)
+    if not mcp_tokens.watches(ws, name):
+        raise ToolError(f"{name} is not a repository of this workspace")
+    with (
+        _guard("dependency_path"),
+        _timed("query the ecosystem graph") as note,
+        graph.driver() as db,
+    ):
+        chains = ecosystem.why(db, ws, name, target)
+        note["detail"] = f"{len(chains)} chain(s)"
+    return DependencyPath(
+        repo=name,
+        package=target,
+        chains=chains,
+        note=(
+            "Each chain starts at a dependency the repository declares; a one-element chain means it is declared directly."
+            if chains
+            else f"{target} is not in the known dependency tree of {name}. Trees are known after the repository's first scan."
+        ),
+    )
+
+
+@server.tool(
+    title="Who depends on a package, across the ecosystem graph", annotations=READ_ONLY
+)
+@_recorded("dependents")
+def dependents(package: PackageArg) -> Dependents:
+    """Describe one Python package from the ecosystem graph: its source repository (stars, licence, OpenSSF
+    Scorecard), what it depends on, which packages depend on it, known advisories, and every one of your
+    repositories and indexed open-source projects that depend on it, directly or transitively.
+    """
+    from codeintent import ecosystem, graph
+
+    ws = _installation.get() or 0
+    name = _package(package)
+    with (
+        _guard("dependents"),
+        _timed("query the ecosystem graph") as note,
+        graph.driver() as db,
+    ):
+        found = ecosystem.package(db, ws, name)
+        note["detail"] = f"{len(found.get('dependents') or [])} dependent(s)"
+    if not found.get("known"):
+        return Dependents(
+            package=name,
+            known=False,
+            note=f"{name} is not in the ecosystem graph yet; it is added when a watched or indexed project uses it.",
+        )
+    return Dependents(
+        package=name,
+        known=True,
+        source=found.get("source"),
+        needs=sorted(found.get("needs") or []),
+        needed_by=sorted(found.get("needed_by") or []),
+        advisories=found.get("advisories") or [],
+        dependents=[Dependent(**d) for d in found.get("dependents") or []],
+        note="From the public ecosystem graph (deps.dev, OSV.dev and indexed GitHub projects) and your workspace.",
+    )
+
+
 class BearerAuth:
     """Reject HTTP requests without a valid ``Authorization: Bearer`` token (constant-time compares).
 

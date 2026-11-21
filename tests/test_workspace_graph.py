@@ -126,7 +126,8 @@ def test_a_scan_becomes_usage_change_and_upstream_nodes():
     assert names["APIChange"] == ["httpx.Client(proxies=)"]
     assert names["Symbol"] == ["httpx.Client"]
     assert names["CodeLine"] == ["weather/client.py:12"]
-    assert names["PullRequest"] == ["encode/httpx#2879", "encode/httpx#3319"]
+    assert names["UpstreamPR"] == ["encode/httpx#2879", "encode/httpx#3319"]
+    assert names["SourceRepo"] == ["encode/httpx"]
     kinds = {kind for (_, kind, _) in batch.rels}
     assert {
         "USES",
@@ -138,7 +139,10 @@ def test_a_scan_becomes_usage_change_and_upstream_nodes():
         "LOCKS",
         "DEPENDS_ON",
     } <= kinds
-    assert all(uid.startswith("7|") for rows in batch.nodes.values() for uid in rows)
+    for label, rows in batch.nodes.items():
+        prefix = "pub|" if label in workspace_graph.PUBLIC else "7|"
+        assert all(uid.startswith(prefix) for uid in rows), label
+    assert "ws" not in next(iter(batch.nodes["APIChange"].values()))
     uses = next(iter(batch.rels[("CodeLine", "USES", "Symbol")].values()))["props"]
     assert uses["keywords"] == ["timeout", "proxies"]
 
@@ -235,7 +239,7 @@ def test_run_graph_draws_the_why_chain(workspaces):
         "Finding",
         "CodeLine",
         "APIChange",
-        "PullRequest",
+        "UpstreamPR",
     } <= labels
     assert {"CHECKED", "FOUND", "AT", "CAUSED_BY", "CHANGED_IN"} <= {
         e["type"] for e in drawn["edges"]

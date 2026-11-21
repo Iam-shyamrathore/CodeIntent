@@ -209,7 +209,7 @@ def _scan(installation_id: int, repository: str, client, pypi, previous, run) ->
     with source.temporary() as folder:
         with run.step("download the repository"):
             root = source.download(repository, sha, Path(folder), client.token())
-        items = []
+        items, locked = [], []
         for project in found:
             with run.step(
                 f"compare dependencies of {'the root project' if project == '.' else project}"
@@ -227,6 +227,7 @@ def _scan(installation_id: int, repository: str, client, pypi, previous, run) ->
                     f"{sum(1 for i in compared if i.verdict.verdict == 'breaks')} breaking"
                 )
             items += found_items
+            locked += _locked(root if project == "." else root / project)
         dumped = [i.model_dump(mode="json") for i in items]
         usages: dict[str, list] = {}
         for item in items:
@@ -270,7 +271,7 @@ def _scan(installation_id: int, repository: str, client, pypi, previous, run) ->
             "liftable_pins": sum(1 for i in dumped if i.get("lift") == "can-be-lifted"),
             "unreadable": unreadable,
         },
-        result={"items": dumped, "usages": usages},
+        result={"items": dumped, "usages": usages, "locked": locked},
     )
     return "done"
 
@@ -312,6 +313,28 @@ def run_isolated(installation_id: int, repository: str) -> str:
         max_workers=1, mp_context=multiprocessing.get_context("spawn")
     ) as pool:
         return pool.submit(run_installation, installation_id, repository).result()
+
+
+def _locked(root: Path) -> list[dict]:
+    """Every registry package the project pins to one version (lock files list the transitive ones too)."""
+    from packaging.utils import canonicalize_name
+
+    from codeintent.upgrades import manifests
+    from codeintent.upgrades.upcoming import _exact
+
+    seen: dict[str, dict] = {}
+    for dep in manifests.scan(root).dependencies:
+        version = _exact(dep)
+        if dep.source != "registry" or not version:
+            continue
+        name = canonicalize_name(dep.name)
+        entry = seen.setdefault(
+            name, {"package": name, "version": version, "direct": False}
+        )
+        entry["direct"] = entry["direct"] or bool(
+            dep.direct and not dep.constraint_only
+        )
+    return sorted(seen.values(), key=lambda e: e["package"])
 
 
 def fail(installation_id: int, repository: str, error: str) -> None:

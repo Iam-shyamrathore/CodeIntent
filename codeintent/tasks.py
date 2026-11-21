@@ -490,6 +490,65 @@ def project_run(run_id: str):
         )
 
 
+@app.task(
+    name="index_release",
+    queue="ecosystem",
+    retry=procrastinate.RetryStrategy(max_attempts=3, wait=120),
+)
+def index_release(package: str, version: str):
+    """Add one public release, its resolved dependency tree, source repository and advisories to the graph."""
+    import httpx
+
+    from codeintent import ecosystem, workspace_graph
+
+    if not workspace_graph.configured():
+        return
+    try:
+        with httpx.Client(timeout=30, follow_redirects=True) as http:
+            ecosystem.index_release(package, version, http)
+    except Exception as exc:
+        logger.warning(
+            "Indexing %s %s failed (%s)", package, version, type(exc).__name__
+        )
+        ecosystem._mark(package, version, "failed", error=type(exc).__name__)
+        raise RuntimeError(type(exc).__name__) from None
+
+
+@app.task(
+    name="seed_project",
+    queue="ecosystem",
+    retry=procrastinate.RetryStrategy(max_attempts=2, wait=300),
+)
+def seed_project(full_name: str):
+    """Add a public open-source project and everything it depends on to the ecosystem graph."""
+    import httpx
+
+    from codeintent import ecosystem
+    from codeintent import github_app as gh
+
+    with store.connection() as conn:
+        installation = conn.execute(
+            "SELECT id FROM ci_installations WHERE deleted_at IS NULL AND NOT suspended ORDER BY id LIMIT 1"
+        ).fetchone()
+    if not installation:
+        return
+    client = gh.Client.for_installation(installation["id"])
+    try:
+        with httpx.Client(timeout=30, follow_redirects=True) as http:
+            ecosystem.seed_project(full_name, client, http)
+    except Exception as exc:
+        logger.warning("Seeding %s failed (%s)", full_name, type(exc).__name__)
+        with store.connection() as conn:
+            conn.execute(
+                """INSERT INTO ci_ecosystem_projects(full_name,status,error) VALUES (%s,'failed',%s)
+                ON CONFLICT(full_name) DO UPDATE SET status='failed',error=EXCLUDED.error""",
+                (full_name, type(exc).__name__),
+            )
+        raise RuntimeError(type(exc).__name__) from None
+    finally:
+        client.close()
+
+
 @app.periodic(cron="*/5 * * * *")
 @app.task(name="project_pending_runs", queue="maintenance")
 def project_pending_runs(timestamp: int):

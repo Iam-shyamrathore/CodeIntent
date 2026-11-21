@@ -1127,6 +1127,126 @@ def app_graph_usages(
     return {"usages": rows}
 
 
+def _ecosystem_call(work):
+    try:
+        with _graph() as db:
+            return work(db)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.warning("Ecosystem graph query failed (%s)", type(exc).__name__)
+        raise HTTPException(503, "The ecosystem graph is unavailable") from None
+
+
+@app.get(
+    "/app/graph/dependencies/{owner}/{name}", dependencies=[Depends(authenticated)]
+)
+def app_graph_dependencies(
+    owner: str = Path(pattern=GITHUB_NAME, max_length=100),
+    name: str = Path(pattern=GITHUB_NAME, max_length=100),
+    depth: int = Query(default=3, ge=1, le=6),
+    why: str | None = Query(default=None, pattern=PACKAGE_NAME, max_length=100),
+    installations: list[int] | None = Query(default=None),
+):
+    """A repository's dependency graph from the ecosystem graph, and optionally why one package is in it."""
+    from codeintent import ecosystem
+
+    scope = _installation_scope(installations)
+    with store.connection() as conn:
+        home = _homes(conn, owner, name, None, scope)[0]
+    ws, full = home["installation_id"], home["full_name"]
+
+    def work(db):
+        found = ecosystem.tree(db, ws, full, depth)
+        if why:
+            found["why"] = {"package": why, "chains": ecosystem.why(db, ws, full, why)}
+        return found
+
+    return _ecosystem_call(work)
+
+
+@app.get("/app/graph/exposure", dependencies=[Depends(authenticated)])
+def app_graph_exposure(installations: list[int] | None = Query(default=None)):
+    """Known advisories on any release your repositories lock, direct or transitive, and what pulls it in."""
+    from codeintent import ecosystem
+
+    scope = _installation_scope(installations)
+    return _ecosystem_call(
+        lambda db: {
+            "advisories": [
+                {**row, "installation_id": ws}
+                for ws in _workspaces(scope)
+                for row in ecosystem.exposure(db, ws)
+            ]
+        }
+    )
+
+
+@app.get("/app/graph/packages/{package}", dependencies=[Depends(authenticated)])
+def app_graph_package(
+    package: str = Path(pattern=PACKAGE_NAME, max_length=100),
+    installations: list[int] | None = Query(default=None),
+):
+    """One package in the ecosystem graph, with the projects and repositories that depend on it."""
+    from codeintent import ecosystem
+
+    scope = _installation_scope(installations)
+    spaces = _workspaces(scope) or [0]
+
+    def work(db):
+        first = ecosystem.package(db, spaces[0], package)
+        seen = {(d["kind"], d["name"]) for d in first.get("dependents", [])}
+        for ws in spaces[1:]:
+            for d in ecosystem.package(db, ws, package).get("dependents", []):
+                if (d["kind"], d["name"]) not in seen:
+                    first["dependents"].append(d)
+                    seen.add((d["kind"], d["name"]))
+        return first
+
+    return _ecosystem_call(work)
+
+
+@app.get("/app/graph/ecosystem", dependencies=[Depends(authenticated)])
+def app_graph_ecosystem():
+    """How big the public ecosystem graph is, and how far indexing has got."""
+    from codeintent.graph import run_query
+
+    def work(db):
+        counts = {
+            label: run_query(
+                db,
+                f"MATCH (n:{label}) WHERE n.uid STARTS WITH 'pub|' RETURN count(n) AS n",
+            ).records[0]["n"]
+            for label in (
+                "Package",
+                "Release",
+                "SourceRepo",
+                "Advisory",
+                "APIChange",
+                "UpstreamPR",
+                "Module",
+            )
+        }
+        edges = run_query(
+            db, "MATCH (:Release)-[d:DEPENDS_ON]->(:Release) RETURN count(d) AS n"
+        ).records[0]["n"]
+        return {"nodes": counts, "dependency_edges": edges}
+
+    found = _ecosystem_call(work)
+    with store.connection() as conn:
+        found["releases"] = {
+            r["status"]: r["n"]
+            for r in conn.execute(
+                "SELECT status,count(*) AS n FROM ci_ecosystem_releases GROUP BY 1"
+            ).fetchall()
+        }
+        found["projects"] = conn.execute(
+            """SELECT full_name,status,dependencies,indexed_at FROM ci_ecosystem_projects
+            ORDER BY status<>'indexed',full_name"""
+        ).fetchall()
+    return found
+
+
 @app.get("/app/runs/{run_id}/graph", dependencies=[Depends(authenticated)])
 def app_run_graph(run_id: UUID, installations: list[int] | None = Query(default=None)):
     """The run's part of the workspace graph, for drawing: nodes and edges."""

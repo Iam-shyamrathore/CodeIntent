@@ -1,7 +1,9 @@
 """The workspace graph in Neo4j: what your code uses, what libraries changed, and why, across every run.
 
-Each GitHub App installation has its own graph: every node carries ``ws`` (the installation id, ``0`` for the
-deployment's own MCP token) and a ``uid`` that starts with it, so no node is shared between workspaces.
+Workspace data (repositories, code, runs, findings, pins) carries ``ws`` (the installation id, ``0`` for the
+deployment's own MCP token) and a ``uid`` that starts with it. Facts about public libraries (packages,
+releases, symbols, API changes, upstream PRs, advisories, source repositories, files) are shared ``pub|``
+nodes every workspace links into: what one run learns about a library answers questions in every workspace.
 PostgreSQL stays the ledger; this graph is a projection of finished runs and can be rebuilt from it.
 
     (:Workspace)-[:WATCHES]->(:Repository)-[:CONTAINS]->(:File)-[:HAS_LINE]->(:CodeLine)-[:USES]->(:Symbol)
@@ -28,7 +30,24 @@ from codeintent import store
 
 logger = logging.getLogger(__name__)
 
+PUBLIC = frozenset(
+    {
+        "Package",
+        "Release",
+        "Symbol",
+        "APIChange",
+        "UpstreamPR",
+        "Advisory",
+        "SourceRepo",
+        "Module",
+    }
+)
+"""Facts about public open-source libraries: one shared node each, with no ``ws``. Everything else is
+workspace data and carries its installation's ``ws``."""
 LABELS = (
+    "UpstreamPR",
+    "SourceRepo",
+    "Module",
     "Workspace",
     "Repository",
     "File",
@@ -84,8 +103,12 @@ class Batch:
         self.rels: dict[tuple[str, str, str], dict[tuple, dict]] = defaultdict(dict)
 
     def node(self, kind: str, key: str, /, **props) -> str:
-        uid = f"{self.ws}|{kind}|{key}"
-        merged = self.nodes[kind].setdefault(uid, {"uid": uid, "ws": self.ws})
+        if kind in PUBLIC:
+            uid = f"pub|{kind}|{key}"
+            merged = self.nodes[kind].setdefault(uid, {"uid": uid})
+        else:
+            uid = f"{self.ws}|{kind}|{key}"
+            merged = self.nodes[kind].setdefault(uid, {"uid": uid, "ws": self.ws})
         merged.update({k: v for k, v in props.items() if v is not None})
         return uid
 
@@ -160,6 +183,52 @@ class Batch:
             ),
         )
 
+    def upstream_pr(
+        self, repo: str, number: int, title=None, url=None
+    ) -> tuple[str, str]:
+        """A pull request in a library's public repository, linked to that repository."""
+        pr = (
+            "UpstreamPR",
+            self.node(
+                "UpstreamPR",
+                f"{repo.lower()}#{number}",
+                repo=repo,
+                number=number,
+                title=_clip(title),
+                url=url,
+                name=f"{repo}#{number}",
+            ),
+        )
+        self.rel("IN_REPO", pr, self.source_repo(repo))
+        return pr
+
+    def source_repo(self, name: str, **props) -> tuple[str, str]:
+        return (
+            "SourceRepo",
+            self.node(
+                "SourceRepo",
+                name.lower(),
+                name=name,
+                url=f"https://github.com/{name}",
+                **props,
+            ),
+        )
+
+    def module(self, package: str, version: str, path: str) -> tuple[str, str]:
+        m = (
+            "Module",
+            self.node(
+                "Module",
+                f"{package}@{version}|{path}",
+                package=package,
+                version=version,
+                path=path,
+                name=path,
+            ),
+        )
+        self.rel("SHIPS", self.release(package, version), m)
+        return m
+
     def upgrade(
         self,
         run: tuple[str, str],
@@ -210,6 +279,16 @@ class Batch:
             )
             self.rel("AFFECTS", c, self.symbol(package, symbol))
             self.rel("IN_RELEASE", c, self.release(package, end))
+            for side, at in (("before", start), ("after", end)):
+                where = change.get(side) or {}
+                if where.get("file"):
+                    self.rel(
+                        "IN_FILE",
+                        c,
+                        self.module(package, at, where["file"]),
+                        side=side,
+                        line=where.get("line"),
+                    )
             f = (
                 "Finding",
                 self.node(
@@ -245,7 +324,7 @@ class Batch:
                 self.rel(
                     "CHANGED_IN",
                     c,
-                    self.pull_request(
+                    self.upstream_pr(
                         upstream,
                         decision["pr_number"],
                         decision.get("pr_title"),
@@ -253,12 +332,17 @@ class Batch:
                     ),
                     quote=_clip(quote),
                 )
+                self.rel(
+                    "PUBLISHES",
+                    self.source_repo(upstream),
+                    ("Package", self.node("Package", package, name=package)),
+                )
                 origin = decision.get("deprecation") or {}
                 if origin.get("pr_number") and origin.get("pr_url"):
                     self.rel(
                         "DEPRECATED_IN",
                         c,
-                        self.pull_request(
+                        self.upstream_pr(
                             _repo_of(origin["pr_url"]),
                             origin["pr_number"],
                             origin.get("pr_title"),
@@ -438,7 +522,13 @@ def _scan(
             seen=seen,
         )
         if item.get("current"):
-            b.rel("LOCKS", repository, b.release(package, item["current"]), seen=seen)
+            b.rel(
+                "LOCKS",
+                repository,
+                b.release(package, item["current"]),
+                direct=True,
+                seen=seen,
+            )
         if item.get("latest"):
             b.rel("LATEST", pkg, b.release(package, item["latest"]))
         if item.get("verdict"):
@@ -494,6 +584,14 @@ def _scan(
                             origin["pr_url"],
                         ),
                     )
+    for entry in result.get("locked") or []:
+        b.rel(
+            "LOCKS",
+            repository,
+            b.release(entry["package"], entry["version"]),
+            direct=entry.get("direct", False),
+            seen=seen,
+        )
     for package, uses in (result.get("usages") or {}).items():
         for use in uses:
             if not use.get("file"):
@@ -634,6 +732,20 @@ def project(run_id: str) -> dict | None:
         )
     with store.connection() as conn:
         conn.execute("UPDATE ci_runs SET projected_at=now() WHERE id=%s", (run_id,))
+    if scan:
+        from codeintent import ecosystem
+
+        # Every locked release joins the public ecosystem graph, with its resolved tree.
+        result = run.get("result") or {}
+        ecosystem.queue(
+            [(e["package"], e["version"]) for e in result.get("locked") or []]
+            + [
+                (i["package"], i[k])
+                for i in result.get("items") or []
+                for k in ("current", "latest")
+                if i.get(k)
+            ]
+        )
     return counts
 
 
@@ -679,9 +791,9 @@ def impact(db, ws: int, package: str, version: str | None = None) -> list[dict]:
 
     records = run_query(
         db,
-        """MATCH (c:APIChange {ws: $ws, package: $package})
+        """MATCH (c:APIChange {package: $package})
         WHERE $version IS NULL OR c.version = $version
-        MATCH (c)-[:AFFECTS]->(s:Symbol)<-[u:USES]-(l:CodeLine)<-[:HAS_LINE]-(:File)<-[:CONTAINS]-(r:Repository)
+        MATCH (c)-[:AFFECTS]->(s:Symbol)<-[u:USES]-(l:CodeLine {ws: $ws})<-[:HAS_LINE]-(:File)<-[:CONTAINS]-(r:Repository)
         WHERE c.parameter IS NULL OR NOT c.kind IN $parameter_kinds OR c.parameter IN u.keywords
         OPTIONAL MATCH (r)-[:LOCKS]->(locked:Release {package: $package})
         OPTIONAL MATCH (f:Finding)-[:AT]->(l)
@@ -704,9 +816,9 @@ def usages(db, ws: int, package: str, symbol: str | None = None) -> list[dict]:
 
     records = run_query(
         db,
-        """MATCH (s:Symbol {ws: $ws, package: $package})
+        """MATCH (s:Symbol {package: $package})
         WHERE $symbol IS NULL OR s.name = $symbol OR s.name STARTS WITH $symbol + '.'
-        MATCH (s)<-[u:USES]-(l:CodeLine)<-[:HAS_LINE]-(:File)<-[:CONTAINS]-(r:Repository)
+        MATCH (s)<-[u:USES]-(l:CodeLine {ws: $ws})<-[:HAS_LINE]-(:File)<-[:CONTAINS]-(r:Repository)
         RETURN r.name AS repository, l.file AS file, l.line AS line, l.code AS code, s.name AS symbol,
           u.kind AS kind, u.keywords AS keywords
         ORDER BY repository, file, line LIMIT 500""",
@@ -735,7 +847,10 @@ def run_graph(db, ws: int, run_id: str) -> dict:
           MATCH p = (run)-[:CHECKED]->(:Upgrade)-[:FOUND]->(:Finding)-[:AT]->(:CodeLine) RETURN p
           UNION
           MATCH p = (run)-[:CHECKED]->(:Upgrade)-[:FOUND]->(:Finding)-[:CAUSED_BY]->(:APIChange)
-            -[:CHANGED_IN|DEPRECATED_IN]->(:PullRequest) RETURN p
+            -[:CHANGED_IN|DEPRECATED_IN]->(:UpstreamPR) RETURN p
+          UNION
+          MATCH p = (run)-[:CHECKED]->(:Upgrade)-[:FOUND]->(:Finding)-[:CAUSED_BY]->(:APIChange)
+            -[:IN_FILE]->(:Module) RETURN p
           UNION
           MATCH p = (run)-[:CHECKED]->(:Upgrade)-[:TO]->(:Release)<-[:AFFECTS]-(:Advisory) RETURN p
         }

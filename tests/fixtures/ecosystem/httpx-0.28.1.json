@@ -1,0 +1,25 @@
+{
+ "versionKey": {
+  "system": "PYPI",
+  "name": "httpx",
+  "version": "0.28.1"
+ },
+ "publishedAt": "2024-12-06T15:37:21Z",
+ "licenses": [
+  "BSD-3-Clause"
+ ],
+ "links": [
+  {
+   "label": "DOCUMENTATION",
+   "url": "https://www.python-httpx.org"
+  },
+  {
+   "label": "HOMEPAGE",
+   "url": "https://github.com/encode/httpx"
+  },
+  {
+   "label": "SOURCE_REPO",
+   "url": "https://github.com/encode/httpx"
+  }
+ ]
+}
