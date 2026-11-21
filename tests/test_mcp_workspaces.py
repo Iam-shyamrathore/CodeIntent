@@ -141,6 +141,27 @@ def test_a_workspace_token_reads_its_own_repositories_with_the_installation_toke
     structured = result_of(response)["result"]["structuredContent"]
     assert structured["declarations"][0]["specifier"] == "==0.27.2"
     assert used and set(used) == {31}
+    with store.connection() as conn:
+        run = conn.execute(
+            "SELECT * FROM ci_runs WHERE kind='mcp' ORDER BY started_at DESC LIMIT 1"
+        ).fetchone()
+        steps = conn.execute(
+            "SELECT name,status FROM ci_run_steps WHERE run_id=%s ORDER BY seq",
+            (run["id"],),
+        ).fetchall()
+    assert (run["installation_id"], run["subject"], run["status"]) == (
+        31,
+        "why_pinned",
+        "succeeded",
+    )
+    assert run["repository"] == "Iam-shyamrathore/codeintent-demo" and run["token_id"]
+    assert run["input"] == {
+        "repo": "Iam-shyamrathore/codeintent-demo",
+        "package": "httpx",
+    }
+    assert run["result"]["declarations"][0]["specifier"] == "==0.27.2"
+    assert run["summary"]["declarations"] == 1
+    assert steps[0] == {"name": "download the repository", "status": "ok"}
 
     used.clear()
     other = {
@@ -152,3 +173,17 @@ def test_a_workspace_token_reads_its_own_repositories_with_the_installation_toke
     }
     assert mcp(client, token, other).status_code == 200
     assert used == []  # not this workspace's repository: fetched as the public sees it
+
+    bad = {
+        **call,
+        "params": {
+            **call["params"],
+            "arguments": {"repo": "not a repo", "package": "httpx"},
+        },
+    }
+    assert result_of(mcp(client, token, bad))["result"]["isError"] is True
+    with store.connection() as conn:
+        failed = conn.execute(
+            "SELECT status,error FROM ci_runs WHERE kind='mcp' AND status='failed'"
+        ).fetchone()
+    assert failed["error"].startswith("ToolError: ")

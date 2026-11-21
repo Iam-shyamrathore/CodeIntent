@@ -10,7 +10,9 @@ must carry ``Authorization: Bearer $CODEINTENT_MCP_TOKEN``.
 
 from __future__ import annotations
 
+import functools
 import hmac
+import inspect
 import logging
 import os
 import re
@@ -18,7 +20,7 @@ import threading
 import time
 from collections.abc import AsyncIterator, Iterator
 from concurrent.futures import ThreadPoolExecutor
-from contextlib import asynccontextmanager, contextmanager, nullcontext
+from contextlib import ExitStack, asynccontextmanager, contextmanager, nullcontext
 from contextvars import ContextVar
 from pathlib import Path
 from typing import Annotated, Any, Literal
@@ -49,6 +51,9 @@ from codeintent.upgrades.verdict import Finding, UpgradeVerdict, evaluate
 logger = logging.getLogger("codeintent.mcp")
 _installation: ContextVar[int | None] = ContextVar("mcp_installation", default=None)
 """The GitHub App installation whose workspace token authenticated this request, if any."""
+_token_id: ContextVar[str | None] = ContextVar("mcp_token", default=None)
+_run: ContextVar[Any] = ContextVar("mcp_run", default=None)
+"""The ``runs.Run`` recording the current tool call, if recording is available."""
 
 PYPI = "https://pypi.org/pypi"
 MAX_DEPENDENCIES = 300
@@ -382,7 +387,9 @@ def _source(repo: str, ref: str) -> Iterator[Path]:
             )
     with _slot(), repository.temporary() as folder, scoped:
         try:
-            yield repository.download(repo, ref, Path(folder), repository.token())
+            with _timed("download the repository", f"{repo}@{ref}"):
+                root = repository.download(repo, ref, Path(folder), repository.token())
+            yield root
         except httpx.HTTPStatusError as error:
             status = error.response.status_code
             if status == 404:
@@ -401,6 +408,103 @@ def _source(repo: str, ref: str) -> Iterator[Path]:
             ) from None
         except ValueError as error:  # size cap
             raise ToolError(str(error)) from None
+
+
+@contextmanager
+def _timed(name: str, detail: str | None = None) -> Iterator[dict]:
+    """A timed step of the recorded tool call; a no-op when the call is not recorded."""
+    run = _run.get()
+    if run is None:
+        yield {"detail": detail}
+        return
+    with run.step(name, detail) as note:
+        yield note
+
+
+def _summary(result: BaseModel) -> dict:
+    """The headline of a tool's result, for listing calls without loading the full result."""
+    data = result.model_dump(mode="json")
+    keys = (
+        "verdict",
+        "reason",
+        "package",
+        "from_version",
+        "to_version",
+        "declared",
+        "pinned",
+    )
+    summary = {k: data[k] for k in keys if k in data}
+    for name in (
+        "findings",
+        "steps",
+        "declarations",
+        "dependencies",
+        "affected",
+        "unchecked",
+    ):
+        if isinstance(data.get(name), list):
+            summary[name] = len(data[name])
+    return summary
+
+
+def _recorded(tool: str):
+    """Record each call of a tool as an ``mcp`` run with its arguments, steps and full result.
+
+    Recording is best effort: without a database, or if it fails, the tool still answers.
+    """
+
+    def wrap(fn):
+        signature = inspect.signature(fn)
+
+        @functools.wraps(fn)
+        def call(*args, **kwargs):
+            arguments = signature.bind(*args, **kwargs)
+            arguments.apply_defaults()
+            values = dict(arguments.arguments)
+            if not os.getenv("DATABASE_URL"):
+                return fn(*args, **kwargs)
+            from codeintent import runs
+
+            try:
+                repo, ref = _parse_repo(str(values.get("repo") or ""))
+            except ToolError:
+                repo, ref = str(values.get("repo") or "")[:200] or None, None
+            with ExitStack() as stack:
+                run = None
+                try:
+                    run = stack.enter_context(
+                        runs.recorded(
+                            "mcp",
+                            installation_id=_installation.get(),
+                            repository=repo,
+                            subject=tool,
+                            ref=ref,
+                            token_id=_token_id.get(),
+                            input=values,
+                        )
+                    )
+                except Exception as error:
+                    logger.warning(
+                        "Could not record %s (%s)", tool, type(error).__name__
+                    )
+                reset = _run.set(run)
+                try:
+                    result = fn(*args, **kwargs)
+                except ToolError as error:
+                    if run is not None:
+                        run.finish("failed", error=f"ToolError: {error}"[:300])
+                    raise
+                finally:
+                    _run.reset(reset)
+                if run is not None:
+                    run.finish(
+                        summary=_summary(result), result=result.model_dump(mode="json")
+                    )
+                return result
+
+        return call
+
+    return wrap
 
 
 @contextmanager
@@ -724,6 +828,7 @@ server = MCPServer(
 
 
 @server.tool(title="Upgrade brief for one dependency", annotations=READ_ONLY)
+@_recorded("upgrade_brief")
 def upgrade_brief(
     repo: RepoArg,
     package: PackageArg,
@@ -760,8 +865,10 @@ def upgrade_brief(
         end = _target(package, to_version, client)
         if start:
             _published(package, start, client)
-        with _source(name, ref) as root:
-            return _upgrade_brief(name, ref, package, start, end, root, client)
+        with _source(name, ref) as root, _timed(f"compare {package} → {end}") as note:
+            brief = _upgrade_brief(name, ref, package, start, end, root, client)
+            note["detail"] = f"{brief.verdict}: {brief.reason}"
+            return brief
 
 
 def _target(package: str, to_version: str, client: httpx.Client) -> str:
@@ -821,6 +928,7 @@ def _upgrade_brief(
 
 
 @server.tool(title="Where a dependency is pinned", annotations=READ_ONLY)
+@_recorded("why_pinned")
 def why_pinned(repo: RepoArg, package: PackageArg) -> WhyPinned:
     """Show every place a GitHub repository declares or restricts one Python dependency.
 
@@ -910,6 +1018,7 @@ def _direct(scan: ManifestScan) -> dict[str, list[Dependency]]:
 
 
 @server.tool(title="Direct dependencies and newer releases", annotations=READ_ONLY)
+@_recorded("list_dependencies")
 def list_dependencies(repo: RepoArg) -> DependencyList:
     """List a GitHub repository's direct Python dependencies with current and latest PyPI versions.
 
@@ -975,6 +1084,7 @@ def list_dependencies(repo: RepoArg) -> DependencyList:
 @server.tool(
     title="Known vulnerabilities in locked dependencies", annotations=READ_ONLY
 )
+@_recorded("advisories")
 def advisories(repo: RepoArg) -> AdvisoryReport:
     """List known OSV.dev vulnerability advisories for every locked or exactly pinned dependency of a GitHub repo.
 
@@ -1055,14 +1165,16 @@ class BearerAuth:
 
                 from codeintent import mcp_tokens
 
-                installation = await run_in_threadpool(
-                    mcp_tokens.resolve, supplied.decode("utf-8", "replace")
+                resolved = await run_in_threadpool(
+                    mcp_tokens.resolve_token, supplied.decode("utf-8", "replace")
                 )
-                if installation is not None:
-                    reset = _installation.set(installation)
+                if resolved is not None:
+                    reset = _installation.set(resolved[0])
+                    reset_token = _token_id.set(resolved[1])
                     try:
                         await self.app(scope, receive, send)
                     finally:
+                        _token_id.reset(reset_token)
                         _installation.reset(reset)
                     return
         response = JSONResponse(

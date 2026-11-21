@@ -73,6 +73,12 @@ def revoke(installation_id: int, ident: str) -> bool:
 
 def resolve(token: str) -> int | None:
     """The installation an active token belongs to, or None. Records when it was last used."""
+    found = resolve_token(token)
+    return found[0] if found else None
+
+
+def resolve_token(token: str) -> tuple[int, str] | None:
+    """``(installation_id, token_id)`` for an active token, or None. Records when it was last used."""
     if not token.startswith(PREFIX) or len(token) > 200:
         return None
     with store.connection() as conn:
@@ -80,10 +86,10 @@ def resolve(token: str) -> int | None:
             """UPDATE ci_mcp_tokens t SET last_used_at=now() FROM ci_installations i
             WHERE t.token_hash=%s AND t.revoked_at IS NULL
               AND i.id=t.installation_id AND i.deleted_at IS NULL AND NOT i.suspended
-            RETURNING t.installation_id""",
+            RETURNING t.installation_id,t.id""",
             (digest(token),),
         ).fetchone()
-    return row["installation_id"] if row else None
+    return (row["installation_id"], str(row["id"])) if row else None
 
 
 def watches(installation_id: int, repository: str) -> bool:
