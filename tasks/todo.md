@@ -66,7 +66,7 @@ Standard checks: `uv run pytest -q`, `uv run ruff check . && uv run ruff format 
 - [x] **T30 Known-vulnerability check** (S). Skills: `supply-chain-risk-auditor`, `security-and-hardening`
   - Accept: batch-query OSV.dev for every dependency (name + locked or pinned version, ecosystem PyPI); return advisory IDs, aliases (CVE/GHSA), summary, severity when given, and the lowest fixed version; cache per (package, version) with expiry; failures become "Not checked: advisory lookup failed", never "No known advisories". Verified against real known-vulnerable versions (e.g. requests 2.31.0, urllib3 1.26.15) and their fixed versions. Shown in the PR comment, Telegram, MCP and the overview.
   - Files: `codeintent/upgrades/advisories.py`. Deps: T4.
-- [ ] **T31 Upcoming breakage scan** (S)
+- [x] **T31 Upcoming breakage scan** (S)
   - Accept: for each direct dependency, run the verdict from the locked version to the latest non-yanked release on PyPI; list removed or deprecated APIs the code uses, with lines. Runs after each analysis and daily. Verified on Flask 1.1.2 (jinja2 3.1 `Markup`, werkzeug 3.0 `url_quote`).
   - Files: `codeintent/upgrades/upcoming.py`. Deps: T8.
 
@@ -84,7 +84,7 @@ Standard checks: `uv run pytest -q`, `uv run ruff check . && uv run ruff format 
 - [x] **T17 Dependency PR parser** (S)
   - Accept: the package, from and to versions are taken from the PR's manifest diff (the authority), with the title as fallback. Multi-package and grouped PRs are handled.
   - Files: `codeintent/depprs.py`, `tests/test_depprs.py`.
-- [ ] **T18 Check run and PR comment** (M). Skills: `pr-writer`
+- [x] **T18 Check run and PR comment** (M). Skills: `pr-writer`
   - Accept: one check run plus one comment per PR, updated in place on new commits. Shows the verdict line, affected lines, upstream decision with link, replacement and reversal. Failures show a clear neutral state, never a silent pass.
   - Files: `codeintent/report_pr.py`, `codeintent/tasks.py`, `tests/test_report_pr.py`. Deps: T13, T16, T17.
 - [ ] **T19 Sign in with GitHub and workspace sessions** (M). Skills: `security-and-hardening`, `secret-serialization`
