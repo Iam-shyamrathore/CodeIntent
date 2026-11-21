@@ -14,6 +14,8 @@ PostgreSQL stays the ledger; this graph is a projection of finished runs and can
     (:APIChange)-[:CHANGED_IN|DEPRECATED_IN]->(:PullRequest)      (:Advisory)-[:AFFECTS]->(:Release)
     (:Repository)-[:DECLARES]->(:Pin)-[:RESTRICTS]->(:Package)    (:Pin)-[:HOLDS_BACK]->(:Release)
     (:Pin)-[:ADDED_IN]->(:Commit)-[:MERGED_IN]->(:PullRequest)    (:AgentToken)-[:ASKED]->(:Run)
+    (:File)-[:IMPORTS]->(:File)   (:File)-[:DEFINES]->(:Function)-[:CALLS]->(:Function)
+    (:CodeLine)-[:INSIDE]->(:Function)   (from each repository's code map, ``codeintent.codemap``)
 
 ``USES`` edges come from scans of the default branch only, so they describe the code as it is, and edges
 a later scan no longer sees are removed.
@@ -65,6 +67,7 @@ LABELS = (
     "Pin",
     "Commit",
     "AgentToken",
+    "Function",
 )
 MAX_TEXT = 400
 
@@ -612,6 +615,118 @@ def _scan(
             )
 
 
+def map_batch(ws: int, repo: str, mapped: dict, seen: str) -> Batch:
+    """The nodes and relationships of one repository's code map (``codeintent.codemap``)."""
+    b = Batch(ws)
+    repository = b.repository(repo)
+    key = repo.lower()
+
+    def file(path: str) -> tuple[str, str]:
+        return ("File", b.node("File", f"{key}|{path}", repo=repo, path=path))
+
+    for f in mapped.get("files") or []:
+        node = (
+            "File",
+            b.node(
+                "File",
+                f"{key}|{f['path']}",
+                repo=repo,
+                path=f["path"],
+                name=f["path"],
+                module=f.get("module") or None,
+                test=bool(f.get("test")),
+                entry=bool(f.get("entry")),
+                lines=f.get("lines"),
+                seen=seen,
+            ),
+        )
+        b.rel("CONTAINS", repository, node, seen=seen)
+    for i in mapped.get("imports") or []:
+        b.rel(
+            "IMPORTS", file(i["file"]), file(i["target"]), line=i.get("line"), seen=seen
+        )
+
+    def function(ident: str) -> tuple[str, str]:
+        return ("Function", b.node("Function", f"{key}|{ident}", repo=repo))
+
+    for fn in mapped.get("functions") or []:
+        node = (
+            "Function",
+            b.node(
+                "Function",
+                f"{key}|{fn['id']}",
+                repo=repo,
+                file=fn["file"],
+                qualname=fn["name"],
+                name=f"{fn['name']}()",
+                line=fn.get("line"),
+                end=fn.get("end"),
+                entry=fn.get("entry"),
+                seen=seen,
+            ),
+        )
+        b.rel("DEFINES", file(fn["file"]), node, seen=seen)
+    for c in mapped.get("calls") or []:
+        b.rel(
+            "CALLS",
+            function(c["caller"]),
+            function(c["callee"]),
+            line=c.get("line"),
+            seen=seen,
+        )
+    for package, uses in (mapped.get("uses") or {}).items():
+        for use in uses:
+            line = b.code_line(repo, use["file"], use.get("line"))
+            b.rel(
+                "USES",
+                line,
+                b.symbol(package, public(use.get("symbol"))),
+                kind=use.get("kind"),
+                keywords=use.get("keywords") or [],
+                seen=seen,
+            )
+            if use.get("function"):
+                b.rel("INSIDE", line, function(use["function"]), seen=seen)
+    return b
+
+
+def project_map(installation_id: int, repository: str, db=None) -> dict | None:
+    """Project a repository's stored code map into its workspace graph, replacing the previous one."""
+    from contextlib import nullcontext
+
+    from codeintent.graph import run_query, shared
+
+    with store.connection() as conn:
+        row = conn.execute(
+            "SELECT map,built_at FROM ci_code_maps WHERE installation_id=%s AND repository=%s",
+            (installation_id, repository),
+        ).fetchone()
+    if not row:
+        return None
+    at = row["built_at"].isoformat()
+    batch = map_batch(installation_id, repository, row["map"], at)
+    with nullcontext(db) if db is not None else shared() as graph:
+        schema(graph)
+        counts = write(graph, batch)
+        uid = f"{installation_id}|Repository|{repository.lower()}"
+        for query in (
+            # What the new map no longer has: imports, definitions, calls, uses and functions.
+            """MATCH (:Repository {uid: $uid})-[:CONTAINS]->(:File)-[e:IMPORTS|DEFINES]->()
+            WHERE e.seen < $at DELETE e""",
+            """MATCH (:Repository {uid: $uid})-[:CONTAINS]->(:File)-[:HAS_LINE]->(:CodeLine)-[e:USES|INSIDE]->()
+            WHERE e.seen < $at DELETE e""",
+            """MATCH (fn:Function {ws: $ws, repo: $repo}) WHERE fn.seen < $at DETACH DELETE fn""",
+            """MATCH (:Function {ws: $ws, repo: $repo})-[e:CALLS]->() WHERE e.seen < $at DELETE e""",
+        ):
+            run_query(graph, query, uid=uid, at=at, ws=installation_id, repo=repository)
+    with store.connection() as conn:
+        conn.execute(
+            "UPDATE ci_code_maps SET projected_at=now() WHERE installation_id=%s AND repository=%s",
+            (installation_id, repository),
+        )
+    return counts
+
+
 # --- Writing ------------------------------------------------------------------------------------
 
 
@@ -645,6 +760,13 @@ def schema(db) -> None:
     _schema_ready = True
 
 
+CHUNK = 5000
+
+
+def _chunks(rows: list) -> list[list]:
+    return [rows[i : i + CHUNK] for i in range(0, len(rows), CHUNK)] or [[]]
+
+
 def write(
     db, batch: Batch, *, repository: str | None = None, scan_at: str | None = None
 ) -> dict:
@@ -653,20 +775,22 @@ def write(
 
     counts = {"nodes": 0, "relationships": 0}
     for label, rows in batch.nodes.items():
-        run_query(
-            db,
-            f"UNWIND $rows AS row MERGE (n:{label} {{uid: row.uid}}) SET n += row",
-            rows=list(rows.values()),
-        )
+        for chunk in _chunks(list(rows.values())):
+            run_query(
+                db,
+                f"UNWIND $rows AS row MERGE (n:{label} {{uid: row.uid}}) SET n += row",
+                rows=chunk,
+            )
         counts["nodes"] += len(rows)
     for (a, kind, b), rows in batch.rels.items():
-        run_query(
-            db,
-            f"""UNWIND $rows AS row
-            MATCH (a:{a} {{uid: row.a}}) MATCH (b:{b} {{uid: row.b}})
-            MERGE (a)-[e:{kind}]->(b) SET e += row.props""",
-            rows=list(rows.values()),
-        )
+        for chunk in _chunks(list(rows.values())):
+            run_query(
+                db,
+                f"""UNWIND $rows AS row
+                MATCH (a:{a} {{uid: row.a}}) MATCH (b:{b} {{uid: row.b}})
+                MERGE (a)-[e:{kind}]->(b) SET e += row.props""",
+                rows=chunk,
+            )
         counts["relationships"] += len(rows)
     if repository and scan_at:
         uid = f"{batch.ws}|Repository|{repository.lower()}"
@@ -740,6 +864,8 @@ def project(run_id: str) -> dict | None:
         )
     with store.connection() as conn:
         conn.execute("UPDATE ci_runs SET projected_at=now() WHERE id=%s", (run_id,))
+    if scan and run["installation_id"]:
+        project_map(run["installation_id"], run["repository"])
     if scan:
         from codeintent import ecosystem
 
@@ -781,6 +907,16 @@ def rebuild(installation_id: int) -> int:
         ]
     for ident in ids:
         project(ident)
+    with store.connection() as conn:
+        repositories = [
+            r["repository"]
+            for r in conn.execute(
+                "SELECT repository FROM ci_code_maps WHERE installation_id=%s",
+                (installation_id,),
+            ).fetchall()
+        ]
+    for repository in repositories:
+        project_map(installation_id, repository)
     return len(ids)
 
 
@@ -885,3 +1021,172 @@ def run_graph(db, ws: int, run_id: str) -> dict:
             a, b = dict(rel.start_node)["uid"], dict(rel.end_node)["uid"]
             edges[(a, rel.type, b)] = {"source": a, "target": b, "type": rel.type}
     return {"nodes": list(nodes.values()), "edges": list(edges.values())}
+
+
+# --- The PR check's questions: where a package reaches the code, and what a broken line takes down ----
+
+MAX_REACH_LINES = 200
+MAX_AFFECTED = 60
+
+
+def reach(db, ws: int, repo: str, package: str) -> dict:
+    """Where ``package`` reaches one repository's code: its own uses, and the chains through which
+    other dependencies pull it in (from the ecosystem graph), with how much code uses each of those."""
+    from codeintent.graph import run_query
+
+    uid = f"{ws}|Repository|{repo.lower()}"
+    direct = [
+        dict(r)
+        for r in run_query(
+            db,
+            """MATCH (:Repository {uid: $uid})-[:CONTAINS]->(f:File)-[:HAS_LINE]->(l:CodeLine)
+                  -[u:USES]->(s:Symbol {package: $package})
+            OPTIONAL MATCH (l)-[:INSIDE]->(fn:Function)
+            RETURN f.path AS file, l.line AS line, l.code AS code, s.name AS symbol, u.kind AS kind,
+              u.keywords AS keywords, fn.qualname AS function, coalesce(f.test, false) AS test
+            ORDER BY file, line LIMIT $limit""",
+            uid=uid,
+            package=package,
+            limit=MAX_REACH_LINES,
+        ).records
+    ]
+    through = [
+        dict(r)
+        for r in run_query(
+            db,
+            """MATCH (r:Repository {uid: $uid})-[l:LOCKS]->(d:Release)
+            WHERE coalesce(l.direct, true) AND d.package <> $package
+            MATCH (t:Release {package: $package})
+            MATCH p = shortestPath((d)-[:DEPENDS_ON*1..6]->(t))
+            WITH r, d.package AS via, [n IN nodes(p) | n.package + '@' + n.version] AS chain
+            ORDER BY size(chain)
+            WITH r, via, head(collect(chain)) AS chain
+            OPTIONAL MATCH (r)-[:CONTAINS]->(f:File)-[:HAS_LINE]->(cl:CodeLine)-[:USES]->(:Symbol {package: via})
+            RETURN via, chain, count(DISTINCT cl) AS uses, collect(DISTINCT f.path)[..8] AS files
+            ORDER BY uses DESC, size(chain), via LIMIT 20""",
+            uid=uid,
+            package=package,
+        ).records
+    ]
+    files = sorted({r["file"] for r in direct})
+    return {
+        "package": package,
+        "uses": len(direct),
+        "files": files,
+        "lines": direct,
+        "through": through,
+    }
+
+
+def blast(db, ws: int, repo: str, places: list[dict], depth: int = 4) -> list[dict]:
+    """For each broken ``{file, line}``: the function it is in, and everything in the repository that
+    reaches it, i.e. callers up to ``depth`` calls away and files importing that file up to ``depth``
+    imports away, with the tests and entry points (routes, commands, tasks, scripts) among them.
+
+    The search goes outward one hop per query, so its cost stays bounded on dense call graphs."""
+    from codeintent.graph import run_query
+
+    key = f"{ws}|"
+    prefix = f"{repo.lower()}|"
+    out = []
+    for place in places:
+        file, line = place.get("file"), place.get("line")
+        if not file:
+            continue
+        found = run_query(
+            db,
+            """MATCH (l:CodeLine {uid: $line})-[:INSIDE]->(fn:Function)
+            RETURN fn.uid AS uid, fn.qualname AS name, fn.entry AS entry ORDER BY fn.line DESC LIMIT 1""",
+            line=f"{key}CodeLine|{prefix}{file}|{line}",
+        ).records
+        if not found:
+            # A line the map has no use for (or a module-level line): find the function by its range.
+            found = run_query(
+                db,
+                """MATCH (fn:Function {ws: $ws, repo: $repo, file: $file})
+                WHERE fn.line <= $at AND fn.end >= $at
+                RETURN fn.uid AS uid, fn.qualname AS name, fn.entry AS entry ORDER BY fn.line DESC LIMIT 1""",
+                ws=ws,
+                repo=repo,
+                file=file,
+                at=line or 0,
+            ).records
+        function = dict(found[0]) if found else None
+        callers: dict[str, dict] = {}
+        frontier = [function["uid"]] if function else []
+        for hop in range(1, depth + 1):
+            if not frontier or len(callers) >= MAX_AFFECTED:
+                break
+            rows = run_query(
+                db,
+                """UNWIND $frontier AS uid
+                MATCH (caller:Function)-[c:CALLS]->(:Function {uid: uid})
+                MATCH (f:File)-[:DEFINES]->(caller)
+                RETURN DISTINCT caller.uid AS uid, caller.qualname AS function, caller.file AS file,
+                  c.line AS line, caller.entry AS entry, coalesce(f.test, false) AS test""",
+                frontier=frontier,
+            ).records
+            frontier = []
+            for r in rows:
+                if r["uid"] in callers or (function and r["uid"] == function["uid"]):
+                    continue
+                callers[r["uid"]] = {**dict(r), "depth": hop}
+                frontier.append(r["uid"])
+        importers: dict[str, dict] = {}
+        frontier = [f"{key}File|{prefix}{file}"]
+        for hop in range(1, depth + 1):
+            if not frontier or len(importers) >= MAX_AFFECTED:
+                break
+            rows = run_query(
+                db,
+                """UNWIND $frontier AS uid
+                MATCH (f:File)-[i:IMPORTS]->(:File {uid: uid})
+                RETURN DISTINCT f.uid AS uid, f.path AS file, coalesce(f.test, false) AS test,
+                  coalesce(f.entry, false) AS entry""",
+                frontier=frontier,
+            ).records
+            frontier = []
+            for r in rows:
+                if r["uid"] in importers or r["file"] == file:
+                    continue
+                importers[r["uid"]] = {**dict(r), "depth": hop}
+                frontier.append(r["uid"])
+        caller_rows = sorted(
+            ({k: v for k, v in c.items() if k != "uid"} for c in callers.values()),
+            key=lambda c: (c["depth"], c["file"], c["function"]),
+        )[:MAX_AFFECTED]
+        importer_rows = sorted(
+            ({k: v for k, v in i.items() if k != "uid"} for i in importers.values()),
+            key=lambda i: (i["depth"], i["file"]),
+        )[:MAX_AFFECTED]
+        tests = sorted(
+            {c["file"] for c in caller_rows if c["test"]}
+            | {i["file"] for i in importer_rows if i["test"]}
+        )
+        entries = [
+            {"name": c["entry"], "function": c["function"], "file": c["file"]}
+            for c in caller_rows
+            if c.get("entry")
+        ]
+        if function and function.get("entry"):
+            entries.insert(
+                0,
+                {"name": function["entry"], "function": function["name"], "file": file},
+            )
+        entries += [
+            {"name": "script", "function": None, "file": i["file"]}
+            for i in importer_rows
+            if i["entry"] and not i["test"]
+        ]
+        out.append(
+            {
+                "file": file,
+                "line": line,
+                "function": function["name"] if function else None,
+                "callers": [c for c in caller_rows if not c["test"]],
+                "importers": [i for i in importer_rows if not i["test"]],
+                "tests": tests,
+                "entry_points": entries[:20],
+            }
+        )
+    return out

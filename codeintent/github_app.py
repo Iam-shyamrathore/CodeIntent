@@ -432,12 +432,13 @@ def reconcile(conn, installation_id: int, repositories: list[dict]) -> dict:
     new = [r for i, r in current.items() if i not in recorded]
     _remove_repositories(conn, installation_id, gone)
     _add_repositories(conn, installation_id, list(current.values()))
-    conn.execute(
-        """DELETE FROM ci_repository_scans s WHERE s.installation_id=%s AND NOT EXISTS(
-          SELECT 1 FROM ci_installation_repositories r
-          WHERE r.installation_id=s.installation_id AND r.full_name=s.repository)""",
-        (installation_id,),
-    )
+    for table in ("ci_repository_scans", "ci_code_maps"):
+        conn.execute(
+            f"""DELETE FROM {table} s WHERE s.installation_id=%s AND NOT EXISTS(
+              SELECT 1 FROM ci_installation_repositories r
+              WHERE r.installation_id=s.installation_id AND r.full_name=s.repository)""",
+            (installation_id,),
+        )
     _scan(conn, installation_id, new)
     return {
         "added": sorted(r["full_name"] for r in new),

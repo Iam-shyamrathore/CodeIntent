@@ -94,7 +94,74 @@ def _why(verdict: UpgradeVerdict) -> list[str]:
     return lines
 
 
-def section(verdict: UpgradeVerdict) -> str:
+def _listed(names: list[str], limit: int = 3) -> str:
+    shown = ", ".join(_code(n) for n in names[:limit])
+    return shown + (f" and {len(names) - limit} more" if len(names) > limit else "")
+
+
+def traced(package: str, found: dict | None) -> list[str]:
+    """From the workspace graph: where the package reaches the code, and what each broken line takes down."""
+    if not found:
+        return []
+    lines: list[str] = []
+    reach = found.get("reach") or {}
+    if reach.get("uses"):
+        files = reach.get("files") or []
+        lines.append(
+            f"**Where {_code(package)} reaches your code:** {reach['uses']} use(s) in "
+            f"{len(files)} file(s): {_listed(files, 4)}."
+        )
+    through = reach.get("through") or []
+    if through:
+        chains = [
+            " → ".join(_code(c.split("@")[0]) for c in t["chain"])
+            + (
+                f" ({t['uses']} use(s) of {_code(t['via'])} in your code)"
+                if t.get("uses")
+                else ""
+            )
+            for t in through[:3]
+        ]
+        lines.append(
+            (
+                "**Also pulled in through:** "
+                if reach.get("uses")
+                else "**Reaches you through:** "
+            )
+            + "; ".join(chains)
+            + "."
+        )
+    hits = [
+        b for b in found.get("blast") or [] if b.get("function") or b.get("importers")
+    ]
+    if hits:
+        lines.append("**What else this breaks:**")
+        for b in hits[:5]:
+            bits = []
+            if b.get("function"):
+                bits.append(f"in {_code(b['function'] + '()')}")
+            callers = [c["function"] + "()" for c in b.get("callers") or []]
+            if callers:
+                bits.append(f"called by {_listed(callers)}")
+            entries = [
+                e["name"]
+                for e in b.get("entry_points") or []
+                if e.get("name") != "script"
+            ]
+            if entries:
+                bits.append(f"reached from {_listed(sorted(set(entries)))}")
+            if b.get("importers"):
+                bits.append(f"{len(b['importers'])} file(s) import it")
+            if b.get("tests"):
+                bits.append(f"tests: {_listed(b['tests'])}")
+            where = _code(f"{b['file']}:{b['line']}")
+            lines.append(f"- {where} " + ", ".join(bits) + ".")
+        if len(hits) > 5:
+            lines.append(f"- and {len(hits) - 5} more place(s)")
+    return lines + [""] if lines else []
+
+
+def section(verdict: UpgradeVerdict, found: dict | None = None) -> str:
     lines = [
         f"#### {verdict.label}: {_code(verdict.package)} {verdict.start} → {verdict.end}",
         "",
@@ -148,6 +215,7 @@ def section(verdict: UpgradeVerdict) -> str:
             lines.append(f"> {verdict.package} {version} says: “{message}”")
         if quoted:
             lines.append("")
+    lines += traced(verdict.package, found)
     if verdict.unchecked:
         reasons = sorted({u.reason for u in verdict.unchecked})
         first = verdict.unchecked[0]
@@ -188,15 +256,24 @@ def comment(
     added: list[tuple[str, str | None, list[AdvisoryCheck]]],
     report_url: str | None,
     notes: list[str] = (),
+    graph: dict[str, dict] | None = None,
+    pull: str | None = None,
 ) -> str:
+    """``graph`` holds what the workspace graph traced per package; ``pull`` is ``owner/repo#number``."""
     headline = LABELS[worst(verdicts)] if verdicts else "Dependencies changed"
     parts = [MARKER, f"### CodeIntent: {headline}", ""]
     for verdict in sorted(verdicts, key=lambda v: (ORDER.index(v.verdict), v.package)):
-        parts.append(section(verdict))
+        parts.append(section(verdict, (graph or {}).get(verdict.package)))
     for name, version, checks in added:
         parts.append(added_section(name, version, checks))
     for note in notes:
         parts.append(f"_{note}_\n")
+    if pull and any(v.findings or v.unchecked for v in verdicts):
+        parts.append(
+            f"**Fix it with your AI agent:** connect the CodeIntent MCP server and ask it to "
+            f"_fix the CodeIntent findings on {pull}_. Its `fix_brief` tool hands over every edit, "
+            "the code that depends on it and the tests to run; push the fix here and CodeIntent checks it again.\n"
+        )
     footer = "Verdicts come from static analysis of both releases; CodeIntent never runs your code or the library, and never calls an upgrade safe."
     if report_url:
         footer = f"[Full report]({report_url}) · " + footer

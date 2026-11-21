@@ -1385,6 +1385,217 @@ def dependents(package: PackageArg) -> Dependents:
     )
 
 
+class Affected(BaseModel):
+    function: str | None = None
+    file: str
+    line: int | None = None
+    depth: int = Field(
+        description="Calls or imports away from the broken line (1 = direct)."
+    )
+    entry: str | None = Field(
+        None,
+        description="Route, command or task this function serves, e.g. 'GET /users'.",
+    )
+
+
+class Edit(BaseModel):
+    file: str
+    line: int | None = None
+    code: str | None = Field(None, description="The statement there, as checked.")
+    function: str | None = Field(None, description="The function the line is in.")
+    severity: str
+    change: Change
+    step: str = Field(description="What to change, in one sentence.")
+    upstream_pr: str | None = Field(
+        None, description="The library PR that made the change."
+    )
+    upstream_quote: str | None = None
+    callers: list[Affected] = Field(
+        [],
+        description="Code that calls the function, from the workspace graph: check it still works.",
+    )
+    importers: list[str] = Field([], description="Files that import this file.")
+    entry_points: list[str] = Field(
+        [], description="Routes, commands, tasks and scripts that reach this line."
+    )
+    tests: list[str] = Field(
+        [], description="Test files that reach this line: run them."
+    )
+
+
+class UpgradeFix(BaseModel):
+    package: str
+    from_version: str
+    to_version: str
+    verdict: str
+    reason: str
+    edits: list[Edit]
+    unchecked: list[UncheckedItem] = Field(
+        [],
+        description="Uses touching changed code that static analysis could not follow: review by hand.",
+    )
+    reach: dict | None = Field(
+        None,
+        description="Where the package reaches the code: its own uses, and chains through other dependencies.",
+    )
+
+
+class FixBrief(BaseModel):
+    repo: str
+    pull: int
+    head_sha: str | None
+    checked_at: str
+    verdict: str | None
+    upgrades: list[UpgradeFix]
+    tests_to_run: list[str]
+    steps: list[str] = Field(description="Every edit as one ordered checklist.")
+    then: str
+
+
+@server.tool(title="Everything needed to fix one dependency PR", annotations=READ_ONLY)
+@_recorded("fix_brief")
+def fix_brief(
+    repo: RepoArg,
+    pull: Annotated[int, Field(description="The pull request number.", ge=1)],
+) -> FixBrief:
+    """Get the fix list for a dependency pull request that CodeIntent has checked.
+
+    Use this when asked to fix CodeIntent's findings on a PR. For each upgraded package it returns every
+    edit with the file, line, the code there, the function it is in, what changed in the library and the
+    upstream PR behind it, the replacement, and, from the workspace graph, the callers, importing files,
+    routes/commands and tests that reach the line. Then a single ordered checklist and the tests to run.
+    Instant: it reads the latest check of the PR, nothing is downloaded. Needs a workspace token.
+    """
+    from codeintent import breaks, store
+
+    ws = _workspace()
+    name, _ = _parse_repo(repo)
+    with _guard("fix_brief"), _timed("read the latest check") as note:
+        with store.connection() as conn:
+            run = conn.execute(
+                """SELECT id,ref,result,summary,finished_at FROM ci_runs
+                WHERE installation_id=%s AND kind='pull' AND lower(repository)=lower(%s) AND subject=%s
+                  AND status IN ('succeeded','partial') ORDER BY started_at DESC LIMIT 1""",
+                (ws, name, f"#{pull}"),
+            ).fetchone()
+            code = {
+                (p.get("file"), p.get("line")): p.get("code")
+                for r in conn.execute(
+                    """SELECT places FROM ci_breaks WHERE installation_id=%s AND lower(repository)=lower(%s)
+                    AND source='pull' AND pull_number=%s""",
+                    (ws, name, pull),
+                ).fetchall()
+                for p in r["places"] or []
+            }
+        if not run:
+            raise ToolError(
+                f"CodeIntent has not checked {name}#{pull} yet (or it is not in your workspace); "
+                "it checks dependency PRs when they open or change"
+            )
+        note["detail"] = f"run {run['id']}"
+    result = run["result"] or {}
+    graph = result.get("graph") or {}
+    upgrades, steps, tests = [], [], set()
+    for raw in result.get("verdicts") or []:
+        verdict = UpgradeVerdict.model_validate(raw)
+        traced = graph.get(verdict.package) or {}
+        blast = {(b["file"], b["line"]): b for b in traced.get("blast") or []}
+        edits = []
+        for index, finding in enumerate(verdict.findings):
+            decision = (
+                breaks._decision(raw, raw["findings"][index]["change"], index) or {}
+            )
+            quote = next(
+                (
+                    q.get("text")
+                    for q in decision.get("quotes") or []
+                    if q.get("source_kind") != "pr-title"
+                ),
+                None,
+            )
+            for loc in dict.fromkeys(finding.locations):
+                where = blast.get((loc.file, loc.line)) or {}
+                step = _step(finding, _place(loc), verdict.package, verdict.end)
+                steps.append(step)
+                tests.update(where.get("tests") or [])
+                edits.append(
+                    Edit(
+                        file=loc.file,
+                        line=loc.line,
+                        code=code.get((loc.file, loc.line)),
+                        function=where.get("function"),
+                        severity=finding.severity,
+                        change=Change(
+                            kind=finding.change.kind,
+                            symbol=finding.change.symbol,
+                            parameter=finding.change.parameter,
+                            detail=finding.change.detail,
+                            replacement=finding.change.replacement,
+                            replacement_source=finding.change.replacement_source,
+                            library_message=finding.change.message,
+                        ),
+                        step=step,
+                        upstream_pr=decision.get("pr_url"),
+                        upstream_quote=quote,
+                        callers=[
+                            Affected(
+                                function=c.get("function"),
+                                file=c["file"],
+                                line=c.get("line"),
+                                depth=c.get("depth") or 1,
+                                entry=c.get("entry"),
+                            )
+                            for c in where.get("callers") or []
+                        ],
+                        importers=[i["file"] for i in where.get("importers") or []],
+                        entry_points=sorted(
+                            {e["name"] for e in where.get("entry_points") or []}
+                        ),
+                        tests=where.get("tests") or [],
+                    )
+                )
+        for item in verdict.unchecked:
+            steps.append(
+                f"Review {_place(item.location)} by hand: the analysis could not follow it "
+                f"({item.reason}: {item.detail})"
+            )
+        upgrades.append(
+            UpgradeFix(
+                package=verdict.package,
+                from_version=verdict.start,
+                to_version=verdict.end,
+                verdict=verdict.verdict,
+                reason=verdict.reason,
+                edits=edits,
+                unchecked=[
+                    UncheckedItem(
+                        location=_place(u.location),
+                        reason=u.reason,
+                        detail=u.detail,
+                        symbol=u.symbol,
+                    )
+                    for u in verdict.unchecked[:MAX_LISTED]
+                ],
+                reach=traced.get("reach"),
+            )
+        )
+    tested = sorted(tests)
+    if tested:
+        steps.append("Run " + ", ".join(tested))
+    return FixBrief(
+        repo=name,
+        pull=pull,
+        head_sha=run["ref"],
+        checked_at=run["finished_at"].isoformat(),
+        verdict=(run["summary"] or {}).get("verdict"),
+        upgrades=upgrades,
+        tests_to_run=tested,
+        steps=list(dict.fromkeys(steps))[:MAX_STEPS],
+        then="Commit the edits to the PR's branch and push; CodeIntent checks the PR again and marks "
+        "each fixed break as fixed.",
+    )
+
+
 class BearerAuth:
     """Reject HTTP requests without a valid ``Authorization: Bearer`` token (constant-time compares).
 

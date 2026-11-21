@@ -209,6 +209,15 @@ def _scan(installation_id: int, repository: str, client, pypi, previous, run) ->
     with source.temporary() as folder:
         with run.step("download the repository"):
             root = source.download(repository, sha, Path(folder), client.token())
+        try:
+            with run.step("map the code") as note:
+                note["detail"] = describe(
+                    save_map(installation_id, repository, sha, root, pypi)
+                )
+        except Exception as exc:
+            # The map feeds the graph; the dependency comparison does not need it, so carry on.
+            logger.warning("Could not map %s (%s)", repository, runs.category(exc))
+            run.failed_step = None
         items, locked = [], []
         for project in found:
             with run.step(
@@ -274,6 +283,31 @@ def _scan(installation_id: int, repository: str, client, pypi, previous, run) ->
         result={"items": dumped, "usages": usages, "locked": locked},
     )
     return "done"
+
+
+def save_map(installation_id: int, repository: str, sha: str, root: Path, pypi) -> dict:
+    """Build the code map of ``root`` and keep it as the repository's latest."""
+    from codeintent import codemap
+
+    mapped = codemap.build(root, codemap.dependencies_of(root), pypi)
+    with store.connection() as conn:
+        conn.execute(
+            """INSERT INTO ci_code_maps(installation_id,repository,sha,map) VALUES(%s,%s,%s,%s)
+            ON CONFLICT(installation_id,repository) DO UPDATE
+            SET sha=EXCLUDED.sha,map=EXCLUDED.map,built_at=now(),projected_at=NULL""",
+            (installation_id, repository, sha, Jsonb(mapped)),
+        )
+    return mapped
+
+
+def describe(mapped: dict) -> str:
+    uses = sum(len(v) for v in mapped["uses"].values())
+    return (
+        f"{len(mapped['files'])} files, {len(mapped['imports'])} imports, "
+        f"{len(mapped['functions'])} functions, {len(mapped['calls'])} calls, "
+        f"{uses} uses of {len(mapped['uses'])} dependencies"
+        + (" (truncated)" if mapped.get("truncated") else "")
+    )
 
 
 class ScanError(Exception):

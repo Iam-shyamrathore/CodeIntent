@@ -282,3 +282,186 @@ def test_agents_and_telegram_ask_the_same_graph(workspaces, monkeypatch):
     assert "weather/client.py:40" in text and "found through the graph" in text
     assert telegram.impact(556, "httpx") == telegram.NOT_LINKED
     assert "not a Python package" in telegram.impact(555, "httpx <script>")
+
+
+# --- The code map in the graph, and the PR check's questions -------------------------------------
+
+
+@pytest.fixture
+def mapped(tmp_path, monkeypatch) -> dict:
+    from test_codemap import FILES
+
+    from codeintent import codemap
+
+    monkeypatch.setenv("CODEINTENT_ARTIFACT_CACHE", str(tmp_path / "cache"))
+    for name, text in FILES.items():
+        path = tmp_path / "repo" / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text.lstrip("\n"))
+    root = tmp_path / "repo"
+    return codemap.build(root, codemap.dependencies_of(root))
+
+
+def test_a_code_map_becomes_files_imports_functions_calls_and_uses(mapped):
+    batch = workspace_graph.map_batch(7, "acme/app", mapped, "2026-01-01T00:00:00")
+    kinds = {kind for (_, kind, _) in batch.rels}
+    assert {"CONTAINS", "IMPORTS", "DEFINES", "CALLS", "USES", "INSIDE"} <= kinds
+    functions = {n["qualname"]: n for n in batch.nodes["Function"].values()}
+    assert functions["users"]["entry"] == "GET /users"
+    assert all(uid.startswith("7|") for uid in batch.nodes["Function"])
+    inside = batch.rels[("CodeLine", "INSIDE", "Function")]
+    assert (
+        "7|CodeLine|acme/app|src/app/client.py|5",
+        "7|Function|acme/app|src/app/client.py:make",
+    ) in inside
+
+
+def store_map(ws: int, repo: str, mapped: dict) -> None:
+    from psycopg.types.json import Jsonb
+
+    with store.connection() as conn:
+        conn.execute(
+            """INSERT INTO ci_code_maps(installation_id,repository,sha,map) VALUES(%s,%s,'abc',%s)
+            ON CONFLICT(installation_id,repository) DO UPDATE SET map=EXCLUDED.map,built_at=now()""",
+            (ws, repo, Jsonb(mapped)),
+        )
+    workspace_graph.project_map(ws, repo)
+
+
+def lock_chain(ws: int, repo: str) -> None:
+    from codeintent.graph import driver
+
+    b = workspace_graph.Batch(ws)
+    httpx_, httpcore, h11 = (
+        b.release("httpx", "0.27.2"),
+        b.release("httpcore", "1.0.7"),
+        b.release("h11", "0.14.0"),
+    )
+    b.rel("LOCKS", b.repository(repo), httpx_, direct=True)
+    b.rel("DEPENDS_ON", httpx_, httpcore)
+    b.rel("DEPENDS_ON", httpcore, h11)
+    with driver() as db:
+        workspace_graph.write(db, b)
+
+
+@integration
+def test_reach_finds_own_uses_and_chains_through_other_packages(workspaces, mapped):
+    from codeintent.graph import driver
+
+    a, b = workspaces
+    store_map(a, "acme/app", mapped)
+    lock_chain(a, "acme/app")
+    with driver() as db:
+        own = workspace_graph.reach(db, a, "acme/app", "httpx")
+        through = workspace_graph.reach(db, a, "acme/app", "h11")
+        other = workspace_graph.reach(db, b, "acme/app", "httpx")
+    assert "src/app/client.py" in own["files"]
+    assert next(r for r in own["lines"] if r["line"] == 5)["function"] == "make"
+    assert through["uses"] == 0
+    assert through["through"][0]["chain"] == [
+        "httpx@0.27.2",
+        "httpcore@1.0.7",
+        "h11@0.14.0",
+    ]
+    assert through["through"][0]["uses"] >= 1
+    assert other["uses"] == 0 and other["through"] == []
+
+
+@integration
+def test_blast_follows_a_broken_line_to_callers_routes_and_tests(workspaces, mapped):
+    from codeintent.graph import driver
+
+    a, b = workspaces
+    store_map(a, "acme/app", mapped)
+    place = [{"file": "src/app/client.py", "line": 5}]
+    with driver() as db:
+        [found] = workspace_graph.blast(db, a, "acme/app", place)
+        assert workspace_graph.blast(db, b, "acme/app", place)[0]["function"] is None
+    assert found["function"] == "make"
+    callers = {(c["function"], c["depth"]) for c in found["callers"]}
+    assert {("users", 1), ("Session.__init__", 1), ("main", 2)} <= callers
+    assert "GET /users" in {e["name"] for e in found["entry_points"]}
+    assert found["tests"] == ["tests/test_client.py"]
+    assert "src/app/api.py" in {i["file"] for i in found["importers"]}
+
+
+@integration
+def test_a_new_map_replaces_calls_and_imports_the_code_no_longer_has(
+    workspaces, mapped
+):
+    from codeintent.graph import driver
+
+    a, _ = workspaces
+    store_map(a, "acme/app", mapped)
+    trimmed = {
+        **mapped,
+        "imports": [i for i in mapped["imports"] if i["file"] != "src/app/api.py"],
+        "calls": [
+            c for c in mapped["calls"] if not c["caller"].startswith("src/app/api.py")
+        ],
+        "functions": [f for f in mapped["functions"] if f["file"] != "src/app/api.py"],
+    }
+    store_map(a, "acme/app", trimmed)
+    with driver() as db:
+        [found] = workspace_graph.blast(
+            db, a, "acme/app", [{"file": "src/app/client.py", "line": 5}]
+        )
+    assert "users" not in {c["function"] for c in found["callers"]}
+    assert "src/app/api.py" not in {i["file"] for i in found["importers"]}
+
+
+@integration
+def test_fix_brief_hands_the_agent_every_edit_with_what_depends_on_it(
+    workspaces, mapped
+):
+    from mcp.server.mcpserver.exceptions import ToolError
+
+    from codeintent import mcp_server
+    from codeintent.graph import driver
+
+    a, b = workspaces
+    store_map(a, "acme/app", mapped)
+    verdict = {
+        **BREAKS,
+        "findings": [
+            {
+                **BREAKS["findings"][0],
+                "locations": [{"file": "src/app/client.py", "line": 5}],
+            }
+        ],
+    }
+    with driver() as db:
+        traced = {
+            "httpx": {
+                "reach": workspace_graph.reach(db, a, "acme/app", "httpx"),
+                "blast": workspace_graph.blast(
+                    db, a, "acme/app", [{"file": "src/app/client.py", "line": 5}]
+                ),
+            }
+        }
+    with runs.recorded(
+        "pull", installation_id=a, repository="acme/app", subject="#12", ref="deadbeef"
+    ) as run:
+        run.finish(
+            summary={"verdict": "breaks"},
+            result={"verdicts": [verdict], "graph": traced},
+        )
+    reset = mcp_server._installation.set(a)
+    try:
+        brief = mcp_server.fix_brief("acme/app", 12)
+    finally:
+        mcp_server._installation.reset(reset)
+    [upgrade] = brief.upgrades
+    [edit] = upgrade.edits
+    assert (edit.file, edit.line, edit.function) == ("src/app/client.py", 5, "make")
+    assert edit.change.replacement == "proxy= or mounts="
+    assert edit.upstream_pr == "https://github.com/encode/httpx/pull/3319"
+    assert "GET /users" in edit.entry_points
+    assert brief.tests_to_run == ["tests/test_client.py"]
+    assert brief.steps[-1] == "Run tests/test_client.py"
+    reset = mcp_server._installation.set(b)
+    try:
+        with pytest.raises(ToolError):
+            mcp_server.fix_brief("acme/app", 12)  # another workspace's PR
+    finally:
+        mcp_server._installation.reset(reset)

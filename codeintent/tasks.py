@@ -257,11 +257,21 @@ def analyze_pull_request(context, analysis_id: str):
                     note["detail"] = (
                         f"{counts['found']} found, {counts['fixed']} fixed since the last push"
                     )
+                traced = _trace(
+                    run, row["installation_id"], repo, head, root, pypi, verdicts
+                )
             notes = [
                 f"{name}: one side is a version range, not an exact version, so there is no pair to compare."
                 for name in gh.unresolved(diff)
             ]
-            body = report.comment(verdicts, new_packages, report_url, notes)
+            body = report.comment(
+                verdicts,
+                new_packages,
+                report_url,
+                notes,
+                graph=traced,
+                pull=f"{repo}#{number}",
+            )
             with run.step("write the comment"):
                 with store.connection() as conn:
                     previous = conn.execute(
@@ -318,6 +328,7 @@ def analyze_pull_request(context, analysis_id: str):
                 result={
                     "verdicts": dumped,
                     "usages": {v.package: runs.usage_rows(v) for v in verdicts},
+                    "graph": traced,
                 },
             )
         try:
@@ -361,6 +372,57 @@ def analyze_pull_request(context, analysis_id: str):
         raise RuntimeError(type(exc).__name__) from None
     finally:
         client.close()
+
+
+def _trace(run, installation_id: int, repo: str, head: str, root, pypi, verdicts):
+    """Ask the workspace graph where each upgraded package reaches the code and what its broken lines
+    take down. Builds the repository's code map first if no scan has yet. Best effort: without the graph
+    the comment simply has no such sections."""
+    from codeintent import scans, workspace_graph
+    from codeintent.graph import shared
+
+    if not (verdicts and workspace_graph.configured()):
+        return {}
+    try:
+        with run.step("trace through the graph") as note:
+            with store.connection() as conn:
+                stored = conn.execute(
+                    "SELECT projected_at FROM ci_code_maps WHERE installation_id=%s AND repository=%s",
+                    (installation_id, repo),
+                ).fetchone()
+            if stored is None and root is not None:
+                # No scan has mapped the default branch yet: map this head instead, until one does.
+                scans.save_map(installation_id, repo, head, root, pypi)
+            traced = {}
+            with shared() as db:
+                if stored is None or stored["projected_at"] is None:
+                    workspace_graph.project_map(installation_id, repo, db)
+                for v in verdicts:
+                    places = list(
+                        {
+                            (loc.file, loc.line): {"file": loc.file, "line": loc.line}
+                            for f in v.findings
+                            for loc in f.locations
+                        }.values()
+                    )
+                    traced[v.package] = {
+                        "reach": workspace_graph.reach(
+                            db, installation_id, repo, v.package
+                        ),
+                        "blast": workspace_graph.blast(
+                            db, installation_id, repo, places
+                        ),
+                    }
+            note["detail"] = "; ".join(
+                f"{name}: {t['reach']['uses']} use(s), {len(t['reach']['through'])} chain(s), "
+                f"{sum(len(b['callers']) for b in t['blast'])} caller(s)"
+                for name, t in traced.items()
+            )
+            return traced
+    except Exception as exc:
+        logger.warning("Graph trace for %s failed (%s)", repo, type(exc).__name__)
+        run.failed_step = None
+        return {}
 
 
 @app.task(
