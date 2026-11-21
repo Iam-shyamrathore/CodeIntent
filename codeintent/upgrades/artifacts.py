@@ -14,6 +14,8 @@ from pathlib import Path, PurePosixPath
 import httpx
 from packaging.utils import canonicalize_name
 
+from codeintent.upgrades import cache
+
 PYPI = "https://pypi.org/pypi"
 CACHE = Path(
     os.getenv(
@@ -22,6 +24,8 @@ CACHE = Path(
 )
 MAX_ARTIFACT_BYTES = 150_000_000
 MAX_EXTRACTED_BYTES = 600_000_000
+# PyPI release metadata is reused for this long; yanked flags can change, so it is not kept forever.
+RELEASE_TTL = float(os.getenv("CODEINTENT_PYPI_TTL", 6 * 3600))
 
 
 class ArtifactError(Exception):
@@ -31,12 +35,24 @@ class ArtifactError(Exception):
         self.detail = detail
 
 
+def _release_path(name: str, version: str) -> Path:
+    return CACHE.parent / "pypi" / f"{cache.digest(name, version)}.json"
+
+
 def release(name: str, version: str, client: httpx.Client) -> dict:
-    response = client.get(f"{PYPI}/{canonicalize_name(name)}/{version}/json")
+    """PyPI JSON metadata for ``name`` at ``version``, cached on disk for ``RELEASE_TTL`` seconds."""
+    canonical = canonicalize_name(name)
+    path = _release_path(canonical, version)
+    cached = cache.read_json(path, max_age=RELEASE_TTL)
+    if isinstance(cached, dict) and "urls" in cached:
+        return cached
+    response = client.get(f"{PYPI}/{canonical}/{version}/json")
     if response.status_code == 404:
         raise ArtifactError("release-not-found", f"{name} {version} is not on PyPI")
     response.raise_for_status()
-    return response.json()
+    data = response.json()
+    cache.write_json(path, data)
+    return data
 
 
 def choose(files: list[dict]) -> dict:
@@ -63,11 +79,31 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _stamp(path: Path) -> dict:
+    stat = path.stat()
+    return {"size": stat.st_size, "mtime_ns": stat.st_mtime_ns}
+
+
+def _verified(target: Path, expected: str) -> bool:
+    """Whether ``target`` has SHA-256 ``expected``; a sidecar skips re-hashing while size and mtime are unchanged."""
+    sidecar = target.with_name(target.name + ".sha256.json")
+    try:
+        stamp = _stamp(target)
+    except OSError:
+        return False
+    if cache.read_json(sidecar) == {**stamp, "sha256": expected}:
+        return True
+    if _sha256(target) != expected:
+        return False
+    cache.write_json(sidecar, {**stamp, "sha256": expected})
+    return True
+
+
 def download(name: str, version: str, client: httpx.Client) -> Path:
     chosen = choose(release(name, version, client)["urls"])
     expected = chosen["digests"]["sha256"]
     target = CACHE / canonicalize_name(name) / version / chosen["filename"]
-    if target.is_file() and _sha256(target) == expected:
+    if target.is_file() and _verified(target, expected):
         return target
     target.parent.mkdir(parents=True, exist_ok=True)
     partial = target.with_suffix(target.suffix + ".part")
@@ -89,6 +125,10 @@ def download(name: str, version: str, client: httpx.Client) -> Path:
             "hash-mismatch", f"{chosen['filename']} does not match PyPI's SHA-256"
         )
     partial.replace(target)
+    cache.write_json(
+        target.with_name(target.name + ".sha256.json"),
+        {**_stamp(target), "sha256": expected},
+    )
     return target
 
 

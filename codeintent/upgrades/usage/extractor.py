@@ -8,8 +8,12 @@ cannot be followed statically are reported as unchecked.
 
 from __future__ import annotations
 
+import multiprocessing
 import os
+from concurrent.futures import ProcessPoolExecutor
+from concurrent.futures.process import BrokenProcessPool
 from dataclasses import dataclass
+from importlib.metadata import version as _package_version
 from pathlib import Path
 
 import libcst as cst
@@ -19,9 +23,18 @@ from libcst.metadata import (
     QualifiedNameProvider,
     QualifiedNameSource,
 )
+from pydantic import ValidationError
 
+from codeintent.upgrades import artifacts, cache
 from codeintent.upgrades.manifests import files
 from codeintent.upgrades.models import Location, Unchecked, Usage, UsageScan
+
+# Bump whenever anything that changes extracted records changes (FileScan, _Prepass, helpers, models):
+# it is part of every per-file cache key, so old cached results stop being used.
+EXTRACTOR_VERSION = 1
+LIBCST_VERSION = _package_version("libcst")
+# Below this many files to parse, a process pool costs more to start than it saves.
+MIN_PARALLEL_FILES = 8
 
 SKIP_DIRS = {
     ".git",
@@ -519,42 +532,135 @@ def _python_files(root: Path):
                 yield Path(directory) / name
 
 
+def _scan_text(name: str, text: str, modules: tuple[str, ...]) -> dict:
+    """Usages and unchecked records of one file as JSON-ready dicts (process-pool worker; must stay top-level)."""
+    try:
+        module = cst.parse_module(text)
+    except cst.ParserSyntaxError as error:
+        found = Unchecked(
+            reason="parse-error",
+            detail=str(error).splitlines()[0],
+            location=Location(file=name, line=error.raw_line),
+        )
+        return {"usages": [], "unchecked": [found.model_dump(mode="json")]}
+    result = FileScan(module, name, modules)
+    return {
+        "usages": [u.model_dump(mode="json") for u in result.usages.values()],
+        "unchecked": [u.model_dump(mode="json") for u in result.unchecked],
+    }
+
+
+def _cache_key(name: str, text: str, modules: tuple[str, ...]) -> str:
+    """Digest of everything a file's records depend on: extractor logic, LibCST, path, modules, contents."""
+    return cache.digest(
+        str(EXTRACTOR_VERSION), LIBCST_VERSION, name, "\0".join(modules), text
+    )
+
+
+def _cache_path(key: str) -> Path:
+    return artifacts.CACHE.parent / "usage" / key[:2] / f"{key}.json"
+
+
+def _workers() -> int:
+    configured = os.getenv("CODEINTENT_SCAN_WORKERS")
+    if configured:
+        try:
+            return max(1, int(configured))
+        except ValueError:
+            pass
+    try:
+        cpus = len(os.sched_getaffinity(0))
+    except AttributeError:
+        cpus = os.cpu_count() or 1
+    return min(4, cpus)
+
+
+def _scan_all(jobs: list[tuple[str, str]], modules: tuple[str, ...]) -> list[dict]:
+    """``_scan_text`` for every ``(name, text)`` job, in job order; in parallel when it is worth it."""
+    workers = min(_workers(), len(jobs))
+    if (
+        len(jobs) >= MIN_PARALLEL_FILES
+        and workers > 1
+        and not multiprocessing.current_process().daemon
+    ):
+        # Largest files first so one big file does not end up last on a single worker.
+        order = sorted(range(len(jobs)), key=lambda i: -len(jobs[i][1]))
+        try:
+            with ProcessPoolExecutor(
+                max_workers=workers, mp_context=multiprocessing.get_context("spawn")
+            ) as pool:
+                futures = {
+                    i: pool.submit(_scan_text, jobs[i][0], jobs[i][1], modules)
+                    for i in order
+                }
+                return [futures[i].result() for i in range(len(jobs))]
+        except (BrokenProcessPool, OSError, RuntimeError):
+            pass  # e.g. no fork/spawn allowed here: fall back to scanning in-process
+    return [_scan_text(name, text, modules) for name, text in jobs]
+
+
+Records = tuple[list[Usage], list[Unchecked]]
+
+
+def _records(result) -> Records | None:
+    """Validated records from a worker result or cache entry; ``None`` if it is malformed."""
+    try:
+        return (
+            [Usage.model_validate(u) for u in result["usages"]],
+            [Unchecked.model_validate(u) for u in result["unchecked"]],
+        )
+    except (KeyError, TypeError, ValidationError):
+        return None
+
+
 def scan(root: Path, modules: tuple[str, ...]) -> UsageScan:
-    """Usages of ``modules`` (top-level import names of one distribution) in the repository at ``root``."""
+    """Usages of ``modules`` (top-level import names of one distribution) in the repository at ``root``.
+
+    Per-file results are cached on disk by content, so unchanged files are not parsed again; files that do
+    need parsing are spread over a process pool (``CODEINTENT_SCAN_WORKERS``). Output order is the sorted
+    walk order either way. Callers running this from a script need an ``if __name__ == "__main__"`` guard.
+    """
     root = root.resolve()
-    usages: list[Usage] = []
-    unchecked: list[Unchecked] = []
+    # One slot per file in walk order: either ready records or the index of a pending parse job.
+    slots: list[Records | int] = []
+    keys: list[str] = []
+    jobs: list[tuple[str, str]] = []
     count = 0
     for path in _python_files(root):
         name = path.relative_to(root).as_posix()
         try:
             text = files.read(root, path)
         except files.Unreadable as error:
-            unchecked.append(
-                Unchecked(
-                    reason=error.reason,
-                    detail=error.detail,
-                    location=Location(file=name),
-                )
+            found = Unchecked(
+                reason=error.reason,
+                detail=error.detail,
+                location=Location(file=name),
             )
+            slots.append(([], [found]))
             continue
         if not any(module in text for module in modules):
             continue
         count += 1
-        try:
-            module = cst.parse_module(text)
-        except cst.ParserSyntaxError as error:
-            unchecked.append(
-                Unchecked(
-                    reason="parse-error",
-                    detail=str(error).splitlines()[0],
-                    location=Location(file=name, line=error.raw_line),
-                )
-            )
+        key = _cache_key(name, text, modules)
+        cached = cache.read_json(_cache_path(key))
+        records = _records(cached) if cached is not None else None
+        if records is not None:
+            slots.append(records)
             continue
-        result = FileScan(module, name, modules)
-        usages.extend(result.usages.values())
-        unchecked.extend(result.unchecked)
+        slots.append(len(jobs))
+        keys.append(key)
+        jobs.append((name, text))
+    fresh = _scan_all(jobs, modules)
+    for key, result in zip(keys, fresh):
+        cache.write_json(_cache_path(key), result)
+    usages: list[Usage] = []
+    unchecked: list[Unchecked] = []
+    for slot in slots:
+        found_usages, found_unchecked = (
+            _records(fresh[slot]) if isinstance(slot, int) else slot
+        )
+        usages.extend(found_usages)
+        unchecked.extend(found_unchecked)
     return UsageScan(
         modules=modules, files=count, usages=tuple(usages), unchecked=tuple(unchecked)
     )
