@@ -38,16 +38,16 @@ Standard checks: `uv run pytest -q`, `uv run ruff check . && uv run ruff format 
 - [x] **T8 Verdict engine and CLI** (M)
   - Accept: usage × API changes → `Breaks you | Needs a change | No known impact | Not checked`, with affected lines and the reasons anything wasn't checked. `python -m scripts.verdict --repo owner/name@ref --package P --from A --to B` prints JSON.
   - Files: `codeintent/upgrades/verdict.py`, `scripts/verdict.py`, `tests/upgrades/test_verdict.py`. Deps: T4, T5, T7.
-- [ ] **T9 Backtest harness** (M). Skills: `fp-check`, `regression-hunt`
+- [x] **T9 Backtest harness** (M). Skills: `fp-check`, `regression-hunt`
   - Accept: all 4 breakages return "Breaks you" with the right line: httpx 0.28 → `openai-python`, itsdangerous 2.1 → Flask 1.1.x, MarkupSafe 2.1 → Jinja2 2.11.x, urllib3 2.0 → botocore 1.29.121 (and botocore 1.29.130, which guards the import, must not). The 14 additional verified cases from the research record are labelled too, and a mechanically sampled set of ≥50 harmless upgrades produces 0 false "Breaks you" (Wilson 95% upper bound reported). Results go to `artifacts/backtest/latest.json`; CI replays recorded fixtures offline.
   - Files: `evals/upgrades.json`, `scripts/backtest.py`, `tests/test_backtest.py`, `.github/workflows/*`. Deps: T8.
 
 ### Checkpoint 1: is the core real?
-- [ ] 4/4 breakages caught, 0 false alarms on the harmless set, every "Not checked" has a reason. **Review with the team before continuing.**
+- [x] 4/4 breakages caught, 0 false alarms on the harmless set, every "Not checked" has a reason. **Review with the team before continuing.**
 
 ## Phase 2: Explanations, shared index, pins
 
-- [ ] **T10 Upstream explanation for each change** (M). Skills: `neo4j-cypher-skill`
+- [x] **T10 Upstream explanation for each change** (M). Skills: `neo4j-cypher-skill`
   - Accept: collect the PRs, reviews and issues between the two tags (compare API → commits → associated PRs). Link each API change to the PR that touched that symbol, then extract decisions and replacement guidance through the existing `temporal`/citation path. Detect reversals by checking the symbol in later releases. All quotes pass `domain` citation validation.
   - Files: `codeintent/github.py` (range mode), `codeintent/explain.py`, `codeintent/temporal.py`, `tests/test_explain.py`. Deps: T7.
 - [ ] **T11 Data model** (M). Skills: `supabase-postgres-best-practices`, `neo4j-modeling-skill`
@@ -59,7 +59,7 @@ Standard checks: `uv run pytest -q`, `uv run ruff check . && uv run ruff format 
 - [ ] **T13 Repository analysis job and graph verdict** (M). Skills: `neo4j-query-tuning-skill`
   - Accept: analysing a repo stores its usage and dependencies (workspace-scoped). The verdict is a bounded Cypher traversal that matches the T8 result on all backtest cases, and the query is profiled with no full scans.
   - Files: `codeintent/tasks.py`, `codeintent/graph.py`, `codeintent/verdict.py`. Deps: T12.
-- [ ] **T14 Pin explainer** (M)
+- [x] **T14 Pin explainer** (M)
   - Accept: for each pin, find the commit/PR that introduced it (history of the manifest file, then the line) and its cited reason. Say "can be lifted" only when evidence shows the cause was fixed or restored upstream; otherwise "keep" or "unknown". Tested on `httpx<0.28` in a real repo.
   - Files: `codeintent/pins.py`, `codeintent/github.py`, `tests/test_pins.py`. Deps: T4, T10.
 
@@ -75,7 +75,7 @@ Standard checks: `uv run pytest -q`, `uv run ruff check . && uv run ruff format 
 
 ## Phase 3: GitHub App (primary journey)
 
-- [ ] **T15 GitHub App and installation auth** (S). Code done (`codeintent/github_app.py`); waiting on App registration and Heroku config. Skills: `gh-cli`, `security-and-hardening`
+- [x] **T15 GitHub App and installation auth** (S). Code done (`codeintent/github_app.py`); waiting on App registration and Heroku config. Skills: `gh-cli`, `security-and-hardening`
   - Accept: App manifest with least-privilege permissions (contents:read, pull_requests:write, checks:write, metadata:read); JWT plus a cached installation token client; private repos readable after install.
   - Files: `codeintent/github_app.py`, `codeintent/settings.py`, `docs/github-app.md`.
 - [x] **T16 Webhook endpoint** (M). Skills: `fastapi`, `api-and-interface-design`
@@ -87,24 +87,24 @@ Standard checks: `uv run pytest -q`, `uv run ruff check . && uv run ruff format 
 - [x] **T18 Check run and PR comment** (M). Skills: `pr-writer`
   - Accept: one check run plus one comment per PR, updated in place on new commits. Shows the verdict line, affected lines, upstream decision with link, replacement and reversal. Failures show a clear neutral state, never a silent pass.
   - Files: `codeintent/report_pr.py`, `codeintent/tasks.py`, `tests/test_report_pr.py`. Deps: T13, T16, T17.
-- [ ] **T19 Sign in with GitHub and workspace sessions** (M). Skills: `security-and-hardening`, `secret-serialization`
+- [x] **T19 Sign in with GitHub and workspace sessions** (M). Skills: `security-and-hardening`, `secret-serialization`
   - Accept: web sign-in via the GitHub App user flow; sessions are signed and HTTP-only. A user only sees workspaces whose installation they can access, and reports are workspace-scoped.
   - Files: `app/api/auth/*`, `lib/session.ts`, `codeintent/api.py`, `tests/test_api_contract.py`. Deps: T11, T15.
 
 ### Checkpoint 3: primary journey
-- [ ] On a real repository: install the App, Dependabot opens a PR, and the check and comment appear on their own with the correct verdict.
+- [x] On a real repository: install the App, Dependabot opens a PR, and the check and comment appear on their own with the correct verdict.
 
 ## Phase 4: Telegram and MCP
 
-- [ ] **T20 Telegram bot** (M)
+- [x] **T20 Telegram bot** (M)
   - Accept: link a chat to a workspace with a one-time code from the web. Alerts fire on "Breaks you", "Needs a change" and liftable pins; `/status` and `/why <package>` work. Webhook secret-token check in production, long polling locally; rate-limited.
   - Files: `codeintent/telegram.py`, `codeintent/api.py`, `codeintent/tasks.py`, `tests/test_telegram.py`. Deps: T13, T14.
-- [ ] **T21 MCP server** (M). Skills: `mcp-builder`, `fastmcp-server`, `test-quality`
+- [x] **T21 MCP server** (M). Skills: `mcp-builder`, `fastmcp-server`, `test-quality`
   - Accept: tools `list_upgrades(repo)`, `upgrade_brief(repo, package, to_version)` and `why_pinned(repo, package)` return structured briefs (lines, reason, replacement, citations). Workspace token auth. Verified from Claude Code against the demo repo.
   - Files: `codeintent/mcp.py`, `tests/test_mcp.py`, `docs/mcp.md`. Deps: T13, T14.
 
 ### Checkpoint 4
-- [ ] A breaking PR triggers a Telegram alert, and Claude Code fixes it from the MCP brief.
+- [ ] A breaking PR triggers a Telegram alert (done), and Claude Code fixes it from the MCP brief (not yet tried end to end).
 
 ## Phase 5: Web app
 
@@ -123,11 +123,11 @@ Standard checks: `uv run pytest -q`, `uv run ruff check . && uv run ruff format 
 
 ## Phase 6: Harden and ship
 
-- [ ] **T25 Observability** (S). Skills: `observability-and-instrumentation`
+- [x] **T25 Observability** (S). Skills: `observability-and-instrumentation`
   - Accept: structured logs carry delivery, job and workspace IDs; counters for verdicts, failures and GitHub rate-limit waits; failed jobs are visible in the web UI and alert in Telegram for operators.
-- [ ] **T26 Security pass** (M). Skills: `security-review`, `security-best-practices`, `security-threat-model`, `gha-security-review`, `github-actions-hardening`, `agentic-actions-auditor`, `secret-serialization`, `semgrep`
+- [~] **T26 Security pass** (M). Threat model, Actions pinning and remediation log done; credential rotation and semgrep pending. Skills: `security-review`, `security-best-practices`, `security-threat-model`, `gha-security-review`, `github-actions-hardening`, `agentic-actions-auditor`, `secret-serialization`, `semgrep`
   - Accept: threat model written to `docs/security/threat-model.md`; all critical and high findings fixed or justified in the remediation log; workflows pinned by SHA with least-privilege tokens.
-- [ ] **T27 Demo repository and evaluator guide** (S)
+- [x] **T27 Demo repository and evaluator guide** (S)
   - Accept: a public demo repo has the App installed and an open Dependabot PR showing a real "Breaks you". `docs/evaluator-guide.md` explains how to try it without us; the backtest numbers are published.
 - [ ] **T28 ArgosX Pro scan of the dashboard** (S). Skills: `security-review`
   - Accept: one Pro scan once the dashboard and webhook are live, with a test login for each of two workspaces; the report is saved to `docs/security/argosx.pdf`; the remediation log says what was found, what was fixed, what remains and why. **By 11 AM, 22 Nov.**

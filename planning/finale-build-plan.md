@@ -1,6 +1,6 @@
 # CodeIntent: Finale Build Plan (v3)
 
-hackFront India Grand Finale · 21–22 November 2026 · status verified against `codex/deployable-v1` (`c085bef`), deployed as Heroku v11 and Vercel production
+hackFront India Grand Finale · 21–22 November 2026 · status verified against `codex/deployable-v1`, deployed as Heroku v21 and Vercel production
 
 > **One line.** A GitHub App that comments on every PR that changes a dependency: whether the new version breaks the code you actually have, at which lines, why upstream changed it, what to use instead, and whether that version has known vulnerabilities.
 >
@@ -34,7 +34,7 @@ Full diagram: `docs/architecture.md`.
 
 | Capability | Status | Evidence in the repository |
 | --- | --- | --- |
-| Live public app | Live | Web on Vercel (`code-intent-tawny.vercel.app`) and API plus worker on Heroku (v11); Neo4j Aura kept awake by a six-hourly job (`57860d9`). |
+| Live public app | Live | Web on Vercel (`code-intent-tawny.vercel.app`) and API plus worker on Heroku (v21); Neo4j Aura kept awake by a six-hourly job (`57860d9`). |
 | GitHub App `codeintent-dependency-check` | Live | Registered with Metadata and Contents read, Pull requests and Checks write, `pull_request` events. Signed webhooks, installations and repositories recorded (`7930346`); installed on a real account. |
 | Manifest and lockfile parser | Built, verified on real repos | `codeintent/upgrades/manifests/` (`b70c938`, `f26f84f`): `pyproject.toml`, `*requirements*.txt`, `uv.lock`, `poetry.lock`, `setup.cfg`, `setup.py`, with source lines and pin kinds. |
 | Consumer usage extractor | Built, verified on real repos | `codeintent/upgrades/usage/` (LibCST): aliases, keyword args, local subclasses, `**kwargs` forwarding, import fallbacks; cached per file and parsed in parallel (`b8554be`). |
@@ -44,16 +44,17 @@ Full diagram: `docs/architecture.md`.
 | Upstream decision for each change | Built, verified on real repos | `upstream.py` (`1eebc0d`): the PR that made each change, the PR that deprecated it, later restorations, quotes checked word for word; 19 of 19 real changes mapped correctly. |
 | PR check run and comment | Built, deployed | `report.py`, `tasks.py` (`7d2fcf9`, `8cfde6c`): one check run and one comment edited in place, with the "why" line; any failure turns the check neutral with the reason. |
 | Known-vulnerability check | Built | `advisories.py` (`afb4dcf`): OSV.dev per exact version, lowest fixed version, "Not checked" when the lookup fails. |
-| Upcoming breakage | Built (engine) | `upcoming.py` (`5399fc9`): locked → latest for every direct dependency; this repository's 22 dependencies in 17 s. |
-| MCP server for AI agents | Built | `mcp_server.py` (`c6e927c`): `upgrade_brief`, `why_pinned`, `list_dependencies`, `advisories` over streamable HTTP with a bearer token; `docs/mcp.md`. |
+| Upcoming breakage | Built, deployed | `upcoming.py`, `scans.py` (`a207e10`, `dd9cb16`): every watched repository's default branch on install, after each merge and daily; every direct dependency's locked version against its latest release, nested projects included, with upstream reasons and advisories on the versions in use; one scan at a time in its own process (`fb7d894`); shown on the dashboard and each repository, alerted on Telegram once per finding. |
+| MCP server for AI agents | Built, deployed | `mcp_server.py`, `mcp_tokens.py` (`7acadc4`): `upgrade_brief`, `why_pinned`, `list_dependencies`, `advisories` at `/mcp` on the API; per-installation tokens created and revoked from the dashboard, stored as SHA-256; the installation's private repositories read with its installation token. |
 | Telegram bot `@codeintent_alerts_bot` | Built, deployed | `telegram.py` (`c085bef`): one-time link codes, alerts per reported PR, `/status`, `/why`, `/unlink`; webhook registered. |
-| Web setup, dashboard and verdict report | Built, deployed | `/setup` with the install link, `/dashboard`, `/dashboard/[owner]/[name]`, `/pulls/[id]` (`3a330d1`). |
+| Web setup, dashboard and verdict report | Built, deployed | `/setup` with the install link, `/dashboard` (bento: breaks this week, latest verdicts, Telegram, before you upgrade, repositories, AI agents), `/dashboard/[owner]/[name]` with pins and Scan now, `/pulls/[id]` (`3a330d1`, `8c854b2`, `fa5bd8e`). |
 | Sign in with GitHub | Built, deployed | GitHub App user authorization with PKCE; dashboard, reports and Telegram scoped to the user's installations (`b1f6ee2`). |
 | Product landing page and bento dashboard | Built, deployed | One-screen landing with a Three.js halftone hero and the three steps (install, connect Telegram, automatic); bento dashboard (`2fbd623`, `6eaaa7f`). |
 | Labelled backtest set | Built | `evals/upgrades.json` (`c6cc913`): 101 cases, 19 breaks, 2 guarded controls, 80 harmless sampled from merged Dependabot PRs with passing checks. |
 | Backtest harness and published numbers | Built, run on all 101 cases | `scripts/backtest.py`, `artifacts/backtest/latest.json`: 14 of 19 breaks caught (13 at the expected lines, 5 Not checked, none missed as No known impact); both guarded controls not Breaks you; 0 false Breaks you on 78 harmless upgrades (95% upper bound 4.7%), 70 No known impact. |
-| Pin explainer | Partial | Every pin with file, line and kind (`why_pinned`); the introducing commit is not looked up yet. |
+| Pin explainer | Built, deployed | `pins.py` (`dd9cb16`): each deliberate pin, whether it blocks the latest release, keep / can be lifted / unknown from the verdict on that upgrade, and the commit and PR that added it (git blame walked back past edits that kept the clause); in scans, `why_pinned` and Telegram. Verified on pallets/flask#4047 and the MCP fetch server's `httpx<0.28`. |
 | Investigation workbench (previous product) | Built, kept | Evidence graph, decision extraction with reversal detection and cited answers (`temporal.py`, `investigate.py`); reachable from the footer. |
+| Operations and security | Built, deployed | Operator view and failure alerts (`aa01aa4`); repositories reconciled with GitHub when webhooks are missed (`abb4baa`); CI pinned by commit with live engine tests, 157 passing (`c21810d`); `docs/security/threat-model.md`. |
 | ArgosX scan | Planned | One Pro scan of the dashboard with two test workspaces; `docs/security/remediation-log.md` records it. |
 
 **Testing approach.** Verification runs on real repositories, real PyPI artifacts and real GitHub data, not mocks. T9 records these runs as fixtures so CI replays them offline, and the deployed API is tested against real repositories.
