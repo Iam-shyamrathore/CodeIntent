@@ -27,7 +27,7 @@ Standard checks: `uv run pytest -q`, `uv run ruff check . && uv run ruff format 
 - [x] **T5 Usage extractor** (M). Skills: `test-driven-development`
   - Accept: LibCST finds imports (aliases, `from x import y`), attribute chains rooted at imported names, call keyword arguments, module-level aliases, local subclasses of library classes and `**kwargs` forwarding to `super().__init__`, each with file and line. Import names map to distributions (e.g. `yaml` → PyYAML). Dynamic access (`getattr`, `**kwargs` pass-through, star imports) is recorded as an *unknown* with a reason.
   - Files: `codeintent/upgrades/usage/extractor.py`, `codeintent/upgrades/usage/distributions.py`, `tests/upgrades/test_usage.py`.
-- [ ] **T6 Release locator** (S)
+- [x] **T6 Release locator** (S)
   - Accept: given `package, from, to`, return the repository from PyPI `project_urls`, the release artifacts for both versions, and the matching git tags or commits. When it can't, it returns an explicit "not located" reason.
   - Files: `codeintent/upgrades/releases.py`, `codeintent/upgrades/artifacts.py`, `tests/upgrades/test_releases.py`.
 - [ ] **T7 Library API surface and consumer-driven diff** (M). Skills: `differential-review`

@@ -107,3 +107,25 @@ class UsageScan(Record):
     files: int
     usages: tuple[Usage, ...] = ()
     unchecked: tuple[Unchecked, ...] = ()
+
+
+RepositoryEvidence = Literal["attestation", "project-urls", "deps.dev"]
+TagMatch = Literal["exact-ref", "tag-list", "release-date"]
+
+
+class ReleasePoint(Record):
+    version: str
+    published: str | None = None
+    yanked: bool = False
+    tag: str | None = None
+    commit: str | None = None
+    match: TagMatch | None = None
+
+
+class ReleaseRange(Record):
+    package: str
+    repository: str | None = None
+    evidence: RepositoryEvidence | None = None
+    start: ReleasePoint
+    end: ReleasePoint
+    not_located: str | None = None
