@@ -135,6 +135,7 @@ class FileScan(cst.CSTVisitor):
         self.classes: dict[str, LocalClass] = {}
         self.instances: dict[str, set[str]] = {}
         self.guards: list[tuple[int, int, str]] = []
+        self.fallbacks: set[str] = set()
         self.usages: dict[tuple, Usage] = {}
         self.unchecked: list[Unchecked] = []
         self.covered: set[int] = set()
@@ -156,10 +157,14 @@ class FileScan(cst.CSTVisitor):
 
     def emit(self, node, symbol: str, kind: str, **extra):
         location = self.location(node)
+        root = node.func if isinstance(node, cst.Call) else node
+        while isinstance(root, (cst.Attribute, cst.Call)):
+            root = root.value if isinstance(root, cst.Attribute) else root.func
+        fallback = isinstance(root, cst.Name) and root.value in self.fallbacks
         usage = Usage(
             symbol=symbol,
             kind=kind,
-            guard=self.guard(location.line),
+            guard="import-error" if fallback else self.guard(location.line),
             location=location,
             **extra,
         )
@@ -400,6 +405,44 @@ class FileScan(cst.CSTVisitor):
                 self.emit(node, target, "subclass", via=(node.name.value,))
 
 
+def _only_raises(body) -> bool:
+    return all(
+        isinstance(line, cst.SimpleStatementLine)
+        and all(isinstance(small, cst.Raise) for small in line.body)
+        for line in body
+    )
+
+
+def _bound(body) -> set[str]:
+    """Module-level names bound by imports or plain assignments in a block."""
+    names = set()
+    for line in body:
+        for small in (
+            getattr(line, "body", ())
+            if isinstance(line, cst.SimpleStatementLine)
+            else ()
+        ):
+            if isinstance(small, (cst.Import, cst.ImportFrom)) and not isinstance(
+                small.names, cst.ImportStar
+            ):
+                for alias in small.names:
+                    local = alias.asname.name if alias.asname else alias.name
+                    dotted = _dotted(local)
+                    if dotted:
+                        names.add(dotted.split(".")[0])
+            elif isinstance(small, cst.Assign):
+                names |= {
+                    t.target.value
+                    for t in small.targets
+                    if isinstance(t.target, cst.Name)
+                }
+            elif isinstance(small, cst.AnnAssign) and isinstance(
+                small.target, cst.Name
+            ):
+                names.add(small.target.value)
+    return names
+
+
 class _Prepass(cst.CSTVisitor):
     """Record guarded regions and which variables or ``self`` attributes hold library instances."""
 
@@ -428,7 +471,12 @@ class _Prepass(cst.CSTVisitor):
                 for e in elements
             }
         if caught & IMPORT_ERRORS:
+            handlers = [h.body.body for h in node.handlers]
+            if all(_only_raises(body) for body in handlers):
+                return
             self.region(node.body, "import-error")
+            rebound = {n for body in handlers for n in _bound(body)}
+            self.scan.fallbacks |= _bound(node.body.body) & rebound
         elif caught & BROAD_ERRORS:
             self.region(node.body, "broad-exception")
 
@@ -460,7 +508,11 @@ class _Prepass(cst.CSTVisitor):
 def _python_files(root: Path):
     for directory, subdirs, names in os.walk(root):
         subdirs[:] = sorted(
-            d for d in subdirs if d not in SKIP_DIRS and not d.endswith(".egg-info")
+            d
+            for d in subdirs
+            if d not in SKIP_DIRS
+            and not d.startswith(".")
+            and not d.endswith(".egg-info")
         )
         for name in sorted(names):
             if name.endswith((".py", ".pyi")):
