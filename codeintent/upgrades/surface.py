@@ -704,6 +704,135 @@ def _hinted(change: APIChange, warnings: list[Warning_] | tuple) -> APIChange:
     return change.model_copy(update={"message": message}) if message else change
 
 
+def _accepts(
+    surface: Surface, sig: Signature, keyword: str, depth: int = 0
+) -> bool | None:
+    """Whether a call accepts ``keyword=``: True, False, or None when ``**kwargs`` goes somewhere unknown.
+
+    ``**kwargs`` is followed into the calls that receive it (``super().__init__(**kwargs)``,
+    ``self.method(**kwargs)``, ``Helper(**kwargs)``), a few hops deep. A body that reads the key itself
+    (``kwargs.pop("timeout")``) accepts it.
+    """
+    parameter = sig.names.get(keyword)
+    if parameter is not None:
+        return parameter.kind is not griffe.ParameterKind.positional_only
+    if not sig.var_keyword:
+        return False
+    if depth > 3:
+        return None
+    tree = surface.source(sig.owner)
+    function = (
+        next(
+            (
+                n
+                for n in ast.walk(tree)
+                if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))
+            ),
+            None,
+        )
+        if tree is not None
+        else None
+    )
+    if function is None or function.args.kwarg is None:
+        return None
+    name = function.args.kwarg.arg
+    targets, unknown = [], False
+    for node in ast.walk(function):
+        if isinstance(node, ast.Call):
+            if any(
+                k.arg is None and isinstance(k.value, ast.Name) and k.value.id == name
+                for k in node.keywords
+            ):
+                callee = _callee(surface, sig.owner, node.func)
+                if callee is None:
+                    unknown = True
+                else:
+                    targets.append(callee)
+            if (
+                isinstance(node.func, ast.Attribute)
+                and isinstance(node.func.value, ast.Name)
+                and node.func.value.id == name
+                and node.func.attr in ("pop", "get", "setdefault")
+                and node.args
+                and isinstance(node.args[0], ast.Constant)
+                and node.args[0].value == keyword
+            ):
+                return True
+        if (
+            isinstance(node, ast.Subscript)
+            and isinstance(node.value, ast.Name)
+            and node.value.id == name
+            and isinstance(node.slice, ast.Constant)
+            and node.slice.value == keyword
+        ):
+            return True
+        if (
+            isinstance(node, ast.Compare)
+            and isinstance(node.left, ast.Constant)
+            and node.left.value == keyword
+            and any(isinstance(c, ast.Name) and c.id == name for c in node.comparators)
+        ):
+            return True
+    if not targets:
+        return None
+    results = []
+    for target in targets:
+        inner = signature(target)
+        results.append(
+            None if inner is None else _accepts(surface, inner, keyword, depth + 1)
+        )
+    if any(results):
+        return True
+    return None if unknown or None in results else False
+
+
+def _callee(
+    surface: Surface, owner: griffe.Object, func: ast.expr
+) -> griffe.Object | None:
+    """The library object a call inside ``owner`` targets, when it can be named statically."""
+    cls = owner.parent if owner.parent is not None and owner.parent.is_class else None
+    if (
+        isinstance(func, ast.Attribute)
+        and isinstance(func.value, ast.Call)
+        and isinstance(func.value.func, ast.Name)
+        and func.value.func.id == "super"
+        and cls is not None
+    ):
+        try:
+            mro = cls.mro()
+        except (ValueError, griffe.AliasResolutionError, griffe.CyclicAliasError):
+            return None
+        for base in mro:
+            member = base.members.get(func.attr)
+            if member is not None:
+                return _final(member)
+        return None
+    if (
+        isinstance(func, ast.Attribute)
+        and isinstance(func.value, ast.Name)
+        and func.value.id in ("self", "cls")
+        and cls is not None
+    ):
+        member = cls.all_members.get(func.attr)
+        return _final(member) if member is not None else None
+    dotted = ast.unparse(func)
+    module = owner
+    while module is not None and not module.is_module:
+        module = module.parent
+    path = surface._name_in(dotted, module) if module is not None else None
+    if path is None or not surface._inside(path):
+        return None
+    found = surface.lookup(path, 5)
+    return found.obj if isinstance(found, Found) and not found.rest else None
+
+
+def _final(member) -> griffe.Object | None:
+    try:
+        return member.final_target if member.is_alias else member
+    except (griffe.AliasResolutionError, griffe.CyclicAliasError):
+        return None
+
+
 def _arguments(old, new, usage, before, after, changes, problems):
     was, now = signature(before), signature(after)
     passes = bool(usage.keywords or usage.positional)
@@ -719,18 +848,16 @@ def _arguments(old, new, usage, before, after, changes, problems):
         return
     where = dict(before=old.location(was.owner), after=new.location(now.owner))
     for keyword in usage.keywords:
-        if keyword not in was.names and not was.var_keyword:
+        if _accepts(old, was, keyword) is False:
             continue
-        if (
-            keyword in now.names
-            and now.names[keyword].kind is not griffe.ParameterKind.positional_only
-        ):
+        accepted = _accepts(new, now, keyword)
+        if accepted:
             continue
-        if now.var_keyword:
+        if accepted is None:
             problems.append(
                 Unchecked(
                     reason="kwargs-absorbed",
-                    detail=f"{after.path} takes **kwargs in {new.version}, so {keyword}= may still be accepted",
+                    detail=f"{after.path} takes **kwargs in {new.version} and passes them somewhere this check can't follow, so {keyword}= may still be accepted",
                     location=usage.location,
                 )
             )
@@ -740,7 +867,8 @@ def _arguments(old, new, usage, before, after, changes, problems):
                 kind="parameter-removed",
                 symbol=after.path,
                 parameter=keyword,
-                detail=f"{after.path} accepts {keyword}= in {old.version} but not in {new.version}",
+                detail=f"{after.path} accepts {keyword}= in {old.version} but not in {new.version}"
+                + (" (followed through **kwargs)" if now.var_keyword else ""),
                 **where,
             )
         )
