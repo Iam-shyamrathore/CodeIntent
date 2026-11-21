@@ -31,6 +31,7 @@ from codeintent.upgrades.models import (
 )
 from codeintent.upgrades.releases import locate
 from codeintent.upgrades.surface import Found, Surface, check, hint_from
+from codeintent.upgrades.upstream import UpstreamDecision, explain
 from codeintent.upgrades.usage import scan
 
 Verdict = Literal["breaks", "needs-change", "not-checked", "no-known-impact"]
@@ -83,6 +84,8 @@ class UpgradeVerdict(Record):
     coverage: Coverage | None = None
     release: ReleaseRange | None = None
     advisories: tuple[AdvisoryCheck, ...] = ()
+    decisions: tuple[UpstreamDecision, ...] = ()
+    """The upstream pull request behind each finding, in the order of ``findings``."""
 
 
 def _severity(change: APIChange, guard: str | None) -> tuple[Severity, bool]:
@@ -305,6 +308,7 @@ def evaluate(
     *,
     release: bool = True,
     advisory: bool = True,
+    upstream: bool = True,
 ) -> UpgradeVerdict:
     """Fetch both releases, decide the verdict, and attach the release range and known advisories."""
     try:
@@ -334,6 +338,24 @@ def evaluate(
                 start={"version": start},
                 end={"version": end},
                 not_located=f"release lookup failed: {type(error).__name__}",
+            )
+    located = extra.get("release")
+    if upstream and result.findings and located is not None and located.repository:
+        try:
+            extra["decisions"] = tuple(
+                explain(located, [f.change for f in result.findings])
+            )
+        except (httpx.HTTPError, OSError, ValueError, KeyError) as error:
+            extra["decisions"] = tuple(
+                UpstreamDecision(
+                    change_key={
+                        "symbol": f.change.symbol,
+                        "parameter": f.change.parameter,
+                        "kind": f.change.kind,
+                    },
+                    not_found=f"upstream lookup failed: {type(error).__name__}",
+                )
+                for f in result.findings
             )
     if advisory:
         extra["advisories"] = tuple(

@@ -68,6 +68,32 @@ def _advisories(
     return f"{len(active)} known: {shown}{more}"
 
 
+def _why(verdict: UpgradeVerdict) -> list[str]:
+    """One line per upstream pull request behind the findings, with one checked quote each."""
+    lines, seen = [], set()
+    for decision in verdict.decisions:
+        if not decision.pr_url or decision.pr_url in seen:
+            continue
+        seen.add(decision.pr_url)
+        key = decision.change_key
+        name = _code(
+            f"{key.parameter}=" if key.parameter else key.symbol.split(".")[-1]
+        )
+        line = f"**Why:** {name} changed in [#{decision.pr_number} {decision.pr_title}]({decision.pr_url})"
+        origin = decision.deprecation
+        if origin and origin.pr_url and origin.pr_url != decision.pr_url:
+            line += f", deprecated earlier in [#{origin.pr_number}]({origin.pr_url})"
+        if decision.reversal:
+            line += f". Later restored: {decision.reversal}"
+        lines.append(line + ".")
+        quote = next((q for q in decision.quotes if q.source_kind != "pr-title"), None)
+        if quote:
+            lines.append(f"> “{quote.text.strip()}” ([source]({quote.source_url}))")
+        if len(seen) == 3:
+            break
+    return lines
+
+
 def section(verdict: UpgradeVerdict) -> str:
     lines = [
         f"#### {verdict.label}: {_code(verdict.package)} {verdict.start} → {verdict.end}",
@@ -106,6 +132,9 @@ def section(verdict: UpgradeVerdict) -> str:
         if total > rows:
             lines.append(f"| | and {total - rows} more place(s) | | |")
         lines.append("")
+        why = _why(verdict)
+        if why:
+            lines += why + [""]
         quoted = {
             (
                 f.change.message_version
