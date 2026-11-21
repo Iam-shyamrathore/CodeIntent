@@ -1452,6 +1452,18 @@ class FixBrief(BaseModel):
     then: str
 
 
+FIX_FIELDS = (
+    "package",
+    "start",
+    "end",
+    "verdict",
+    "label",
+    "reason",
+    "findings",
+    "unchecked",
+)
+
+
 @server.tool(title="Everything needed to fix one dependency PR", annotations=READ_ONLY)
 @_recorded("fix_brief")
 def fix_brief(
@@ -1497,7 +1509,10 @@ def fix_brief(
     graph = result.get("graph") or {}
     upgrades, steps, tests = [], [], set()
     for raw in result.get("verdicts") or []:
-        verdict = UpgradeVerdict.model_validate(raw)
+        # Only what the brief reads: stored runs may predate fields elsewhere in the record.
+        verdict = UpgradeVerdict.model_validate(
+            {k: raw[k] for k in FIX_FIELDS if k in raw}
+        )
         traced = graph.get(verdict.package) or {}
         blast = {(b["file"], b["line"]): b for b in traced.get("blast") or []}
         edits = []

@@ -3306,3 +3306,29 @@ input:focus-visible {
   font-family: var(--font-mono);
   color: var(--muted);
 }
+
+/* Graph trace of a PR check: where a package reaches the code and what a broken line takes down. */
+.ci-trace {
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+.ci-trace h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+.ci-trace p {
+  margin: 0;
+}
+.ci-trace-chains {
+  margin: 0;
+  padding-left: 1.1rem;
+  display: grid;
+  gap: 0.25rem;
+}
+.ci-trace-blast {
+  border-top: 1px solid var(--line);
+  padding-top: 0.75rem;
+  display: grid;
+  gap: 0.5rem;
+}

@@ -337,6 +337,30 @@ export type Break = {
   resolved_at: string | null;
   pull_title?: string | null;
 };
+/** What the workspace graph traced for one upgraded package during a PR check. */
+export type Traced = {
+  reach: {
+    package: string;
+    uses: number;
+    files: string[];
+    through: { via: string; chain: string[]; uses: number; files: string[] }[];
+  };
+  blast: {
+    file: string;
+    line: number | null;
+    function: string | null;
+    callers: {
+      function: string;
+      file: string;
+      line: number | null;
+      depth: number;
+      entry: string | null;
+    }[];
+    importers: { file: string; depth: number }[];
+    tests: string[];
+    entry_points: { name: string; function: string | null; file: string }[];
+  }[];
+};
 export type RunDetail = RunSummary & {
   input: Record<string, unknown> | null;
   result: Record<string, unknown> | null;

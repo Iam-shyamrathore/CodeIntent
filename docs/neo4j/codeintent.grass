@@ -34,6 +34,7 @@ node.PullRequest { color: #1d3a24; border-color: #5fd47f; diameter: 52px; captio
 node.Advisory { color: #5a4210; border-color: #ffb020; diameter: 48px; caption: '{name}'; }
 node.Pin { color: #3d2a12; border-color: #e08a3c; diameter: 46px; caption: '{name}'; }
 node.Commit { color: #1d3a24; border-color: #3fa35f; diameter: 40px; caption: '{name}'; }
+node.Function { color: #1f2a2e; border-color: #9fe7c4; diameter: 44px; caption: '{name}'; }
 node.AgentToken { color: #edebe4; border-color: #6be4ff; text-color-internal: #0b0b0a; diameter: 44px; caption: '{name}'; }
 relationship.CAUSED_BY { color: #ff4b3e; shaft-width: 2.5px; }
 relationship.AT { color: #ff6a5f; shaft-width: 2.5px; }
@@ -41,3 +42,6 @@ relationship.CHANGED_IN { color: #5fd47f; shaft-width: 2.5px; }
 relationship.USES { color: #6be4ff; }
 relationship.DEPENDS_ON { color: #8f7ad6; shaft-width: 1.5px; }
 relationship.LOCKS { color: #6be4ff; }
+relationship.IMPORTS { color: #77746c; }
+relationship.CALLS { color: #9fe7c4; shaft-width: 1.5px; }
+relationship.INSIDE { color: #edebe4; }

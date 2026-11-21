@@ -19,6 +19,10 @@ const CLIENTS: [string, string][] = [
 ];
 const TOOLS: [string, string][] = [
   [
+    "fix_brief",
+    "Every edit for a checked PR, with the callers and tests that reach it",
+  ],
+  [
     "upgrade_brief",
     "What breaks if a package moves to a version, and how to fix it",
   ],
@@ -30,6 +34,8 @@ const TOOLS: [string, string][] = [
   ["advisories", "Known advisories for every pinned package"],
   ["impact", "Every line a library change touches, across your repositories"],
   ["who_uses", "Where your repositories use a library or one of its names"],
+  ["dependency_path", "Why a package is installed: the chain that pulls it in"],
+  ["dependents", "Who depends on a package, across your repos and open source"],
 ];
 
 export default async function Agents() {

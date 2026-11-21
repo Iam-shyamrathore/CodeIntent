@@ -5,6 +5,7 @@ import { BreakCard } from "@/components/break-card";
 import { ConsoleHeader } from "@/components/console-header";
 import { RunGraphLazy } from "@/components/run-graph-lazy";
 import { SiteFooter } from "@/components/site/footer";
+import { Trace } from "@/components/trace";
 import { ArrowOut } from "@/components/site/icons";
 import {
   formatDate,
@@ -13,6 +14,7 @@ import {
   UUID,
   type RunDetail,
   type RunGraph,
+  type Traced,
 } from "@/lib/dashboard";
 import { duration, failure, KIND, runTitle, STATUS } from "@/lib/runs";
 import {
@@ -244,6 +246,10 @@ export default async function RunPage({ params }: Props) {
           ))}
         </section>
       )}
+
+      {run.kind === "pull" && run.result?.graph ? (
+        <Trace graph={run.result.graph as Record<string, Traced>} />
+      ) : null}
 
       <section aria-labelledby="graph" className="ci-run-section">
         <div className="ci-tile-head">

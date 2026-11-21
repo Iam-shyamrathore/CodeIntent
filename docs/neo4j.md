@@ -109,11 +109,30 @@ the questions that cross repositories: **what does this library change touch, ev
 (:APIChange)-[:CHANGED_IN|DEPRECATED_IN]->(:UpstreamPR)       (:Advisory)-[:AFFECTS]->(:Release)
 (:Repository)-[:DECLARES]->(:Pin)-[:RESTRICTS]->(:Package)    (:Pin)-[:HOLDS_BACK]->(:Release)
 (:Pin)-[:ADDED_IN]->(:Commit)-[:MERGED_IN]->(:PullRequest)    (:AgentToken)-[:ASKED]->(:Run)
+(:File)-[:IMPORTS]->(:File)    (:File)-[:DEFINES]->(:Function)-[:CALLS]->(:Function)    (:CodeLine)-[:INSIDE]->(:Function)
 ```
 
 `USES` edges come from scans of each default branch only, carry the keyword arguments passed, and are removed
 when a later scan no longer sees them, so they describe the code as it is now. Every label has a uniqueness
 constraint on `uid` and an index on `ws`.
+
+## The code graph: how a dependency PR is traced
+
+When the App is installed, and after every push to a default branch, each repository is mapped
+(`codeintent/codemap.py`): every Python file, which of its own files it imports, every function, the calls
+between them that can be resolved statically, which files are tests, which functions are routes, commands or
+tasks, and every line that uses each dependency. The map is kept in `ci_code_maps` and projected here.
+
+When a dependency PR opens, the check compares the two releases against the code, then asks this graph two
+questions (`workspace_graph.reach` and `workspace_graph.blast`):
+
+1. **Where does the package reach the code?** Its own `USES` lines, and the chains through which other locked
+   dependencies pull it in (`LOCKS`, then `DEPENDS_ON` in the ecosystem graph), with how much code uses each.
+2. **What does each broken line take down?** The function it is in, every function that calls it up to four
+   calls away, every file importing that file, and the tests and entry points among them.
+
+Both go into the PR comment, the run page and the MCP tool `fix_brief`, which hands an agent each edit with
+its callers and the tests to run.
 
 ## Opening it in Neo4j Browser
 
@@ -215,4 +234,61 @@ RETURN p
 ```cypher
 MATCH p = (:Repository {ws: $ws})-[:LOCKS]->(:Release)<-[:AFFECTS]-(:Advisory)
 RETURN p
+```
+
+## Queries for the code graph
+
+Set the repository too: `:param repo => 'Iam-shyamrathore/codeintent-demo'`
+
+**The repository's own structure: which file imports which.**
+
+```cypher
+MATCH p = (:Repository {ws: $ws, name: $repo})-[:CONTAINS]->(:File)-[:IMPORTS]->(:File)
+RETURN p LIMIT 200
+```
+
+**Every line that uses httpx, and the function it is in.**
+
+```cypher
+MATCH p = (:Repository {ws: $ws, name: $repo})-[:CONTAINS]->(:File)-[:HAS_LINE]->(l:CodeLine)
+          -[:USES]->(:Symbol {package: 'httpx'})
+OPTIONAL MATCH q = (l)-[:INSIDE]->(:Function)
+RETURN p, q
+```
+
+**A package the code never imports: how it gets in, and which of your lines sit on that chain.**
+
+```cypher
+MATCH (r:Repository {ws: $ws, name: $repo})-[:LOCKS {direct: true}]->(d:Release)
+MATCH (t:Release {package: 'h11'})
+MATCH chain = shortestPath((d)-[:DEPENDS_ON*1..6]->(t))
+OPTIONAL MATCH uses = (r)-[:CONTAINS]->(:File)-[:HAS_LINE]->(:CodeLine)-[:USES]->(:Symbol {package: d.package})
+RETURN chain, uses LIMIT 50
+```
+
+**One PR check, end to end:** the run, the break, the line, the function it is in, everything that calls it,
+and the files those callers live in (tests included).
+
+```cypher
+MATCH p = (run:Run {uid: toString($ws) + '|Run|' + $run})-[:CHECKED]->(:Upgrade)-[:FOUND]->(:Finding)
+          -[:AT]->(:CodeLine)-[:INSIDE]->(fn:Function)
+OPTIONAL MATCH q = (fn)<-[:CALLS*1..4]-(:Function)<-[:DEFINES]-(:File)
+OPTIONAL MATCH why = (run)-[:CHECKED]->(:Upgrade)-[:FOUND]->(:Finding)-[:CAUSED_BY]->(:APIChange)-[:CHANGED_IN]->(:UpstreamPR)
+RETURN p, q, why
+```
+
+**Which tests exercise the code a library change breaks.**
+
+```cypher
+MATCH (:APIChange {package: 'httpx'})-[:AFFECTS]->(:Symbol)<-[:USES]-(l:CodeLine {ws: $ws})-[:INSIDE]->(fn:Function)
+MATCH (t:File {test: true})-[:DEFINES]->(:Function)-[:CALLS*1..4]->(fn)
+RETURN DISTINCT l.name AS broken_line, fn.name AS function, t.path AS test
+```
+
+**Routes and commands a library change reaches.**
+
+```cypher
+MATCH (:APIChange {package: 'httpx'})-[:AFFECTS]->(:Symbol)<-[:USES]-(l:CodeLine {ws: $ws})-[:INSIDE]->(fn:Function)
+MATCH (e:Function)-[:CALLS*0..4]->(fn) WHERE e.entry IS NOT NULL
+RETURN DISTINCT l.name AS broken_line, e.entry AS entry_point, e.file AS file
 ```

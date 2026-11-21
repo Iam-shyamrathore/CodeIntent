@@ -997,6 +997,12 @@ def run_graph(db, ws: int, run_id: str) -> dict:
             -[:IN_FILE]->(:Module) RETURN p
           UNION
           MATCH p = (run)-[:CHECKED]->(:Upgrade)-[:TO]->(:Release)<-[:AFFECTS]-(:Advisory) RETURN p
+          UNION
+          MATCH p = (run)-[:CHECKED]->(:Upgrade)-[:FOUND]->(:Finding)-[:AT]->(:CodeLine)
+            -[:INSIDE]->(:Function)<-[:CALLS*1..2]-(:Function) RETURN p
+          UNION
+          MATCH p = (run)-[:CHECKED]->(:Upgrade)-[:FOUND]->(:Finding)-[:AT]->(:CodeLine)
+            <-[:HAS_LINE]-(:File)<-[:IMPORTS]-(:File) RETURN p
         }
         RETURN p LIMIT 400""",
         uid=f"{ws}|Run|{run_id}",
