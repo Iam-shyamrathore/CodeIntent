@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowUpRight, LoaderCircle, RefreshCw, Send } from "lucide-react";
+import { ArrowOut, PlaneMark } from "./site/icons";
 import type { TelegramCode } from "@/lib/telegram";
 
 /** "Connect Telegram": asks the server for a one-time code and shows how to use it. */
@@ -45,38 +45,40 @@ export function TelegramConnect({
       })
     : "";
   return (
-    <div className="telegram-connect">
+    <div className="ci-tg-connect">
       {code ? (
-        <div className="telegram-code" aria-live="polite">
+        <div className="ci-tg-code" aria-live="polite">
           <p>
-            One-time code for {account}, valid for 15 minutes (until{" "}
-            <time dateTime={code.expires_at}>{expires}</time>):
+            One-time code for {account}, valid until{" "}
+            <time dateTime={code.expires_at}>{expires}</time>:
           </p>
-          <code className="telegram-code-value">{code.code}</code>
-          <div className="telegram-actions">
-            <a className="primary-button" href={code.deep_link}>
-              Open @{code.bot_username}
-              <ArrowUpRight size={17} aria-hidden="true" />
+          <code className="ci-tg-code-value" translate="no">
+            {code.code}
+          </code>
+          <div className="ci-tg-actions">
+            <a className="ci-btn" href={code.group_link}>
+              <PlaneMark />
+              Add @{code.bot_username} to a group
             </a>
-            <a className="text-link" href={code.group_link}>
-              Add to a group <ArrowUpRight size={14} aria-hidden="true" />
+            <a className="ci-link" href={code.deep_link}>
+              Or a private chat <ArrowOut />
             </a>
           </div>
           <p>
-            Or send <code>/link {code.code}</code> to @{code.bot_username} in
-            any chat the bot is in. Each code links one chat.
+            In a group the bot is already in, send{" "}
+            <code translate="no">/link {code.code}</code>. Each code links one
+            chat.
           </p>
-          <div className="telegram-actions">
+          <div className="ci-tg-actions">
             <button
-              className="quiet-button"
+              className="ci-btn-quiet"
               onClick={() => router.refresh()}
               type="button"
             >
-              <RefreshCw size={14} aria-hidden="true" />
-              Refresh linked chats
+              I linked it
             </button>
             <button
-              className="quiet-button"
+              className="ci-btn-quiet"
               onClick={create}
               disabled={busy}
               type="button"
@@ -87,25 +89,16 @@ export function TelegramConnect({
         </div>
       ) : (
         <button
-          className="quiet-button telegram-start"
+          className="ci-btn-quiet"
           onClick={create}
           disabled={busy}
           type="button"
         >
-          {busy ? (
-            <>
-              <LoaderCircle className="loading-icon" size={14} />
-              Creating a code…
-            </>
-          ) : (
-            <>
-              <Send size={14} aria-hidden="true" />
-              Connect Telegram
-            </>
-          )}
+          <PlaneMark size={14} />
+          {busy ? "Creating a code…" : "Connect Telegram"}
         </button>
       )}
-      <p role="alert" className="request-error console-form-error">
+      <p role="alert" className="ci-error">
         {error}
       </p>
     </div>

@@ -1,4 +1,3 @@
-import { LockKeyhole, LogOut } from "lucide-react";
 import type { Session } from "@/lib/session";
 import { signInConfigured, signInHref } from "@/lib/auth";
 
@@ -22,7 +21,7 @@ export function AuthUser({
 }) {
   if (!session)
     return signInConfigured() ? (
-      <a className="auth-header-link" href={signInHref(next)}>
+      <a className="ci-nav-signin" href={signInHref(next)}>
         Sign in
       </a>
     ) : null;
@@ -30,29 +29,22 @@ export function AuthUser({
     session.kind === "github" && session.avatar
       ? avatarUrl(session.avatar)
       : null;
+  const name = session.kind === "github" ? session.login : "Operator";
   return (
-    <div className="auth-user">
-      {session.kind === "github" ? (
-        <span className="auth-identity" title={`Signed in as ${session.login}`}>
-          {avatar ? (
-            // A small fixed-size avatar from GitHub's CDN; next/image adds nothing here.
-            <img src={avatar} alt="" width={28} height={28} />
-          ) : (
-            <span className="auth-avatar-fallback" aria-hidden="true">
-              {session.login.slice(0, 1).toUpperCase()}
-            </span>
-          )}
-          <span className="auth-login">{session.login}</span>
-        </span>
-      ) : (
-        <span className="auth-identity auth-operator-badge">
-          <LockKeyhole size={14} aria-hidden="true" />
-          <span className="auth-login">Operator</span>
-        </span>
-      )}
+    <div className="ci-nav-user">
+      <span className="ci-nav-identity" title={`Signed in as ${name}`}>
+        {avatar ? (
+          // A small fixed-size avatar from GitHub's CDN; next/image adds nothing here.
+          <img src={avatar} alt="" width={24} height={24} />
+        ) : (
+          <span className="ci-nav-initial" aria-hidden="true">
+            {name.slice(0, 1).toUpperCase()}
+          </span>
+        )}
+        <span className="ci-nav-login">{name}</span>
+      </span>
       <form method="post" action="/api/auth/logout">
-        <button className="quiet-button" type="submit">
-          <LogOut size={14} aria-hidden="true" />
+        <button className="ci-nav-signout" type="submit">
           Sign out
         </button>
       </form>

@@ -1,36 +1,43 @@
 import Link from "next/link";
-import "@/app/auth.css";
+import "@/app/site.css";
 import { Brand } from "./brand";
 import { AuthUser } from "./auth-user";
 import type { Session } from "@/lib/session";
 
+/** The floating pill nav shared by every product page. */
 export function ConsoleHeader({
   current,
-  session = null,
+  session,
   next,
 }: {
   current?: "setup" | "dashboard";
+  /** Omit on static pages: no sign-in state is shown there. */
   session?: Session | null;
   /** Where "Sign in" returns to; defaults to the dashboard. */
   next?: string;
 }) {
   return (
-    <header className="collection-header console-header">
-      <Brand />
-      <nav aria-label="Workspace">
-        <Link
-          href="/setup"
-          aria-current={current === "setup" ? "page" : undefined}
-        >
-          Setup
-        </Link>
-        <Link
-          href="/dashboard"
-          aria-current={current === "dashboard" ? "page" : undefined}
-        >
-          Dashboard
-        </Link>
-        <AuthUser session={session} next={next} />
+    <header className="ci-nav-wrap">
+      <a className="ci-skip" href="#main">
+        Skip to content
+      </a>
+      <nav className="ci-nav" aria-label="Main">
+        <Brand small />
+        <div className="ci-nav-links">
+          <Link
+            href="/setup"
+            aria-current={current === "setup" ? "page" : undefined}
+          >
+            Setup
+          </Link>
+          <Link
+            href="/dashboard"
+            aria-current={current === "dashboard" ? "page" : undefined}
+          >
+            Dashboard
+          </Link>
+        </div>
+        {session !== undefined && <AuthUser session={session} next={next} />}
       </nav>
     </header>
   );

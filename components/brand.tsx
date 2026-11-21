@@ -1,15 +1,89 @@
 import Link from "next/link";
+
+/** The mark: an isometric package in halftone, one dot flagged red. Same geometry as app/icon.svg. */
+const DOTS: [number, number, number, number][] = [
+  [32, 10.63, 2.65, 0],
+  [26.59, 13.75, 2.65, 0],
+  [21.17, 16.88, 2.65, 0],
+  [15.76, 20, 2.65, 0],
+  [37.41, 13.75, 2.65, 0],
+  [32, 16.88, 2.65, 0],
+  [26.59, 20, 2.65, 0],
+  [21.17, 23.13, 2.65, 0],
+  [42.83, 16.88, 2.65, 0],
+  [37.41, 20, 2.65, 0],
+  [32, 23.13, 2.65, 0],
+  [26.59, 26.25, 2.65, 0],
+  [48.24, 20, 2.65, 0],
+  [42.83, 23.13, 2.65, 0],
+  [37.41, 26.25, 2.65, 0],
+  [32, 29.38, 2.65, 0],
+  [13.06, 24.69, 1.8, 0],
+  [13.06, 30.94, 1.8, 0],
+  [13.06, 37.19, 1.8, 0],
+  [13.06, 43.44, 1.8, 0],
+  [18.47, 27.81, 1.8, 0],
+  [18.47, 34.06, 1.8, 0],
+  [18.47, 40.31, 1.8, 0],
+  [18.47, 46.56, 1.8, 0],
+  [23.88, 30.94, 1.8, 0],
+  [23.88, 37.19, 1.8, 0],
+  [23.88, 43.44, 1.8, 0],
+  [23.88, 49.69, 1.8, 0],
+  [29.29, 34.06, 1.8, 0],
+  [29.29, 40.31, 1.8, 0],
+  [29.29, 46.56, 1.8, 0],
+  [29.29, 52.81, 1.8, 0],
+  [50.94, 24.69, 1.05, 0],
+  [50.94, 30.94, 1.05, 0],
+  [50.94, 37.19, 1.05, 0],
+  [50.94, 43.44, 1.05, 0],
+  [45.53, 27.81, 1.05, 0],
+  [45.53, 34.06, 2.7, 1],
+  [45.53, 40.31, 1.05, 0],
+  [45.53, 46.56, 1.05, 0],
+  [40.12, 30.94, 1.05, 0],
+  [40.12, 37.19, 1.05, 0],
+  [40.12, 43.44, 1.05, 0],
+  [40.12, 49.69, 1.05, 0],
+  [34.71, 34.06, 1.05, 0],
+  [34.71, 40.31, 1.05, 0],
+  [34.71, 46.56, 1.05, 0],
+  [34.71, 52.81, 1.05, 0],
+];
+
+export function Mark({ className = "brand-mark" }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 64 64"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <g fill="currentColor">
+        {DOTS.map(([x, y, r, red], i) => (
+          <circle
+            key={i}
+            cx={x}
+            cy={y}
+            r={r}
+            fill={red ? "var(--break, #ff4b3e)" : undefined}
+          />
+        ))}
+      </g>
+    </svg>
+  );
+}
+
 export function Brand({ small = false }: { small?: boolean }) {
   return (
     <Link
       className={`brand ${small ? "brand-small" : ""}`}
       href="/"
-      aria-label="Code Intent home"
+      aria-label="CodeIntent home"
     >
-      <span className="brand-mark" aria-hidden="true">
-        [<span>·</span>]
-      </span>
-      code intent<span className="brand-period">.</span>
+      <Mark />
+      <span aria-hidden="true">CodeIntent</span>
     </Link>
   );
 }

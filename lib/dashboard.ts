@@ -72,6 +72,26 @@ export type AdvisoryCheck = {
   advisories?: Advisory[];
   detail?: string | null;
 };
+export type UpstreamQuote = {
+  text: string;
+  source_url: string;
+  source_kind: string;
+};
+/** The upstream pull request behind one change (codeintent/upgrades/upstream.py). */
+export type UpstreamDecision = {
+  change_key: { symbol: string; parameter?: string | null; kind: string };
+  pr_number?: number | null;
+  pr_title?: string | null;
+  pr_url?: string | null;
+  quotes?: UpstreamQuote[];
+  deprecation?: {
+    pr_number?: number | null;
+    pr_title?: string | null;
+    pr_url?: string | null;
+  } | null;
+  reversal?: string | null;
+  not_found?: string | null;
+};
 export type UpgradeVerdict = {
   package: string;
   start: string;
@@ -85,6 +105,7 @@ export type UpgradeVerdict = {
   coverage?: Coverage | null;
   release?: ReleaseRange | null;
   advisories?: AdvisoryCheck[];
+  decisions?: UpstreamDecision[];
 };
 export type PackageLine = {
   package: string | null;

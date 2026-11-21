@@ -1,5 +1,5 @@
-import { ArrowUpRight, Github } from "lucide-react";
 import { OperatorSignIn } from "./operator-access";
+import { ArrowOut, GitHubMark } from "./site/icons";
 import { installUrl, signInConfigured, signInHref } from "@/lib/auth";
 
 const NOTICES: Record<string, string> = {
@@ -16,7 +16,7 @@ export function AuthNotice({ code }: { code?: string | string[] }) {
   const text = typeof code === "string" ? NOTICES[code] : undefined;
   if (!text) return null;
   return (
-    <p role="alert" className="request-error collection-error">
+    <p role="alert" className="ci-alert">
       {text}
     </p>
   );
@@ -30,26 +30,19 @@ export function GitHubSignInButton({
 }: {
   next: string;
   label?: string;
-  /** A secondary text link instead of the primary button. */
+  /** A secondary button instead of the primary one. */
   quiet?: boolean;
 }) {
   if (!signInConfigured())
     return (
-      <span className="auth-github-button" aria-disabled="true">
-        <Github size={17} aria-hidden="true" />
+      <span className="ci-btn" aria-disabled="true">
+        <GitHubMark />
         Sign-in not configured
       </span>
     );
   return (
-    <a
-      className={
-        quiet
-          ? "text-link auth-github-link"
-          : "primary-button auth-github-button"
-      }
-      href={signInHref(next)}
-    >
-      <Github size={17} aria-hidden="true" />
+    <a className={quiet ? "ci-btn-quiet" : "ci-btn"} href={signInHref(next)}>
+      <GitHubMark />
       {label}
     </a>
   );
@@ -69,28 +62,25 @@ export function SignInPanel({
 }) {
   const configured = signInConfigured();
   return (
-    <section className="auth-panel" aria-labelledby="sign-in-heading">
+    <section className="ci-signin" aria-labelledby="sign-in-heading">
       <h2 id="sign-in-heading">{title}</h2>
       <p>{body}</p>
       <GitHubSignInButton next={next} />
       {configured ? (
-        <p className="auth-fine-print">
-          GitHub asks you to authorize Code Intent once. It reads who you are
-          and which installations of the App you can access; nothing else is
-          kept.
+        <p className="ci-fine">
+          GitHub asks you to authorize CodeIntent once. It reads who you are and
+          which installations of the App you can access; nothing else is kept.
         </p>
       ) : (
-        <div className="console-notice" role="status">
-          <strong>Sign-in not configured</strong>
-          <p>
-            The operator sets <code>GITHUB_APP_CLIENT_ID</code> and{" "}
-            <code>GITHUB_APP_CLIENT_SECRET</code> from the GitHub App’s
-            settings, with <code>CODEINTENT_PUBLIC_URL</code>
-            <code>/api/auth/callback</code> as its callback URL.
-          </p>
-        </div>
+        <p className="ci-fine" role="status">
+          Sign-in is not configured. The operator sets{" "}
+          <code>GITHUB_APP_CLIENT_ID</code> and{" "}
+          <code>GITHUB_APP_CLIENT_SECRET</code> from the GitHub App’s settings,
+          with <code>CODEINTENT_PUBLIC_URL</code>
+          <code>/api/auth/callback</code> as its callback URL.
+        </p>
       )}
-      <details className="auth-operator">
+      <details className="ci-operator">
         <summary>Operator access</summary>
         <OperatorSignIn purpose={operatorPurpose} />
       </details>
@@ -101,16 +91,19 @@ export function SignInPanel({
 /** Signed in, but GitHub reports no installation of the App this user can access. */
 export function NoInstallations({ next }: { next: string }) {
   return (
-    <section className="console-empty" aria-labelledby="empty-heading">
-      <h2 id="empty-heading">No installation of the App is yours yet</h2>
+    <section className="ci-signin" aria-labelledby="empty-heading">
+      <h2 id="empty-heading">Install the App to get started</h2>
       <p>
-        Install the GitHub App on an account you manage and pick the
-        repositories to check. If it is already installed, ask an owner of that
-        account for access to one of its repositories, then sign in again.
+        No installation of CodeIntent is yours yet. Install it on an account you
+        manage and pick the repositories to check. If it is already installed,
+        ask an owner of that account for access to one of its repositories, then
+        sign in again.
       </p>
-      <div className="auth-actions">
-        <a className="primary-button" href={installUrl()}>
-          Install the GitHub App <ArrowUpRight size={17} aria-hidden="true" />
+      <div className="ci-tg-actions">
+        <a className="ci-btn" href={installUrl()}>
+          <GitHubMark />
+          Install on GitHub
+          <ArrowOut />
         </a>
         <GitHubSignInButton next={next} label="Sign in again" quiet />
       </div>

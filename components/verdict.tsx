@@ -12,7 +12,42 @@ const PENDING: Record<AnalysisStatus, string> = {
   failed: "Analysis failed",
 };
 
-/** The verdict as words; the marker repeats it visually and is hidden from assistive technology. */
+type Kind = Verdict | "pending" | "failed";
+
+/** Which of the 3×3 dots are lit, row by row: each verdict has its own dot-matrix shape. */
+const SHAPES: Record<Kind, string> = {
+  breaks: "111111111",
+  "needs-change": "101010101",
+  "not-checked": "111101111",
+  "no-known-impact": "000010000",
+  pending: "000111000",
+  failed: "101010101",
+};
+
+/** The verdict's dot-matrix glyph; decorative, the words beside it carry the meaning. */
+export function VerdictGlyph({ kind }: { kind: Kind }) {
+  const shape = SHAPES[kind];
+  return (
+    <svg
+      className="ci-glyph"
+      viewBox="0 0 12 12"
+      aria-hidden="true"
+      focusable="false"
+    >
+      {[...shape].map((on, i) => (
+        <circle
+          key={i}
+          cx={2 + (i % 3) * 4}
+          cy={2 + Math.floor(i / 3) * 4}
+          r={on === "1" ? 1.55 : 0.6}
+          className={on === "1" ? "on" : "off"}
+        />
+      ))}
+    </svg>
+  );
+}
+
+/** The verdict as words, with its glyph. */
 export function VerdictLabel({
   verdict,
   status,
@@ -22,11 +57,11 @@ export function VerdictLabel({
   status?: AnalysisStatus;
   size?: "regular" | "large";
 }) {
-  const kind = verdict || (status === "failed" ? "failed" : "pending");
+  const kind: Kind = verdict || (status === "failed" ? "failed" : "pending");
   const text = verdict ? LABELS[verdict] : PENDING[status || "queued"];
   return (
-    <span className={`verdict-label verdict-${kind} verdict-${size}`}>
-      <span className="verdict-marker" aria-hidden="true" />
+    <span className={`ci-verdict ci-verdict-${kind} ci-verdict-${size}`}>
+      <VerdictGlyph kind={kind} />
       {text}
     </span>
   );
@@ -35,17 +70,19 @@ export function VerdictLabel({
 export function PackageChanges({ packages }: { packages: PackageLine[] }) {
   if (!packages.length) return null;
   return (
-    <ul className="package-changes" aria-label="Changed packages">
+    <ul className="ci-packages" aria-label="Changed packages">
       {packages.map((p, i) => (
         <li key={`${p.package}-${i}`}>
-          <code>{p.package}</code>
-          <span>
+          <code translate="no">{p.package}</code>
+          <code>
             {p.start || "added"}
             <span aria-hidden="true"> → </span>
             <span className="sr-only"> to </span>
             {p.end || "removed"}
-          </span>
-          {p.verdict && packages.length > 1 && <em>{LABELS[p.verdict]}</em>}
+          </code>
+          {p.verdict && packages.length > 1 && (
+            <span className="ci-packages-verdict">{LABELS[p.verdict]}</span>
+          )}
         </li>
       ))}
     </ul>

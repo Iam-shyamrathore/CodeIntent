@@ -1,7 +1,6 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, LoaderCircle } from "lucide-react";
 
 /** The workspace-key form: the operator's admin fallback, secondary to GitHub sign-in. */
 export function OperatorSignIn({ purpose }: { purpose: string }) {
@@ -28,7 +27,7 @@ export function OperatorSignIn({ purpose }: { purpose: string }) {
     }
   }
   return (
-    <form onSubmit={submit} className="access-form">
+    <form onSubmit={submit} className="ci-operator-form">
       <label htmlFor="workspace-key">Workspace key</label>
       <p>{purpose}</p>
       <div>
@@ -42,23 +41,15 @@ export function OperatorSignIn({ purpose }: { purpose: string }) {
           maxLength={512}
           aria-describedby={error ? "workspace-key-error" : undefined}
         />
-        <button className="primary-button" disabled={busy}>
-          {busy ? (
-            <>
-              Signing in… <LoaderCircle className="loading-icon" size={16} />
-            </>
-          ) : (
-            <>
-              Sign in <ArrowRight size={16} aria-hidden="true" />
-            </>
-          )}
+        <button className="ci-btn-quiet" disabled={busy}>
+          {busy ? "Signing in…" : "Sign in"}
         </button>
       </div>
       <p
         id="workspace-key-error"
         role="alert"
         aria-live="polite"
-        className="request-error console-form-error"
+        className="ci-error"
       >
         {error}
       </p>

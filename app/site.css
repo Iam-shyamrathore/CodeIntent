@@ -1,0 +1,1536 @@
+/*
+ * CodeIntent site: landing, setup, dashboard and reports.
+ * Dark dot-matrix. One accent (scan cyan) for the scanning line, focus and live state;
+ * red only ever means "Breaks you". Every class here is prefixed `ci-`, so the older
+ * workbench styles in styles.css never collide with it.
+ */
+.ci {
+  --void: #0b0b0a;
+  --carbon: #141412;
+  --carbon-2: #1b1a17;
+  --carbon-3: #23221e;
+  --edge: rgba(237, 235, 228, 0.07);
+  --edge-strong: rgba(237, 235, 228, 0.13);
+  --ink: #edebe4;
+  --ash: #a3a097;
+  --dim: #77746c;
+  --scan: #6be4ff;
+  --scan-deep: #0e3a44;
+  --break: #ff4b3e;
+  --break-ink: #ff6a5f;
+  --ease: cubic-bezier(0.32, 0.72, 0, 1);
+  --radius: 22px;
+  --pad: clamp(16px, 4vw, 56px);
+
+  min-height: 100dvh;
+  background: var(--void);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.55;
+  font-variation-settings: "wdth" 100;
+}
+.ci ::selection {
+  background: var(--scan);
+  color: var(--void);
+}
+.ci a {
+  color: inherit;
+}
+.ci :focus-visible {
+  outline: 2px solid var(--scan);
+  outline-offset: 3px;
+  border-radius: 6px;
+}
+.ci code {
+  font-family: var(--font-mono);
+  font-size: 0.8em;
+  font-variation-settings: "wdth" 87.5;
+  letter-spacing: -0.01em;
+}
+.ci h1,
+.ci h2,
+.ci h3 {
+  font-weight: 600;
+  text-wrap: balance;
+}
+.ci p {
+  text-wrap: pretty;
+}
+
+/* ------------------------------------------------------------------ nav */
+.ci-skip {
+  position: absolute;
+  left: 12px;
+  top: -60px;
+  z-index: 20;
+  padding: 10px 14px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--void) !important;
+  font-weight: 600;
+  font-size: 14px;
+}
+.ci-skip:focus {
+  top: 12px;
+}
+.ci-nav-wrap {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  justify-content: center;
+  padding: 16px var(--pad) 0;
+}
+.ci-nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 48px;
+  padding: 6px 6px 6px 18px;
+  border-radius: 999px;
+  background: var(--carbon);
+  box-shadow:
+    inset 0 0 0 1px var(--edge),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  max-width: 100%;
+}
+.ci-nav .brand {
+  margin-right: 14px;
+}
+.ci-nav-links {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.ci-nav-links a,
+.ci-nav-signin {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 0 14px;
+  border-radius: 999px;
+  font-size: 14px;
+  color: var(--ash);
+  transition:
+    color 200ms var(--ease),
+    background-color 200ms var(--ease);
+}
+.ci-nav-links a:hover,
+.ci-nav-signin:hover {
+  color: var(--ink);
+  background: var(--carbon-2);
+}
+.ci-nav-links a[aria-current="page"] {
+  color: var(--ink);
+  background: var(--carbon-3);
+}
+.ci-nav-signin {
+  color: var(--ink);
+  background: var(--carbon-2);
+  margin-left: 4px;
+}
+.ci-nav-user {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 6px;
+  padding-left: 10px;
+  border-left: 1px solid var(--edge);
+}
+.ci-nav-identity {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  min-width: 0;
+}
+.ci-nav-identity img,
+.ci-nav-initial {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--carbon-3);
+  flex-shrink: 0;
+}
+.ci-nav-initial {
+  display: inline-grid;
+  place-items: center;
+  font-size: 11px;
+  color: var(--ash);
+}
+.ci-nav-login {
+  max-width: 20ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ci-nav-user form {
+  display: inline-flex;
+}
+.ci-nav-signout {
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ash);
+  font-size: 13px;
+  transition:
+    color 200ms var(--ease),
+    background-color 200ms var(--ease);
+}
+.ci-nav-signout:hover {
+  color: var(--ink);
+  background: var(--carbon-2);
+}
+
+/* ------------------------------------------------------------- shared bits */
+.ci-display {
+  font-size: clamp(38px, min(4.5vw, 8vh), 80px);
+  line-height: 0.98;
+  letter-spacing: -0.035em;
+  font-weight: 640;
+  font-variation-settings: "wdth" 116;
+}
+.ci-display span {
+  display: block;
+  white-space: nowrap;
+}
+.ci-lede {
+  font-size: clamp(15px, 1.15vw, 17px);
+  line-height: 1.55;
+  color: var(--ash);
+  max-width: 34em;
+}
+.ci-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 46px;
+  padding: 0 22px 0 18px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--void) !important;
+  font-size: 15px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition:
+    background-color 260ms var(--ease),
+    transform 200ms var(--ease);
+}
+.ci-btn:hover {
+  background: var(--scan);
+}
+.ci-btn:active {
+  transform: scale(0.98);
+}
+.ci-btn[aria-disabled="true"] {
+  background: var(--carbon-3);
+  color: var(--ash) !important;
+  cursor: not-allowed;
+}
+.ci-btn-quiet {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 16px;
+  border-radius: 999px;
+  background: var(--carbon-3);
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background-color 200ms var(--ease);
+}
+.ci-btn-quiet:hover {
+  background: #2c2b26;
+}
+.ci-btn-quiet:disabled {
+  color: var(--ash);
+  cursor: progress;
+}
+.ci-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink);
+  font-weight: 500;
+  text-decoration: underline;
+  text-decoration-color: rgba(237, 235, 228, 0.25);
+  text-underline-offset: 4px;
+  transition:
+    text-decoration-color 200ms var(--ease),
+    color 200ms var(--ease);
+}
+.ci-link:hover {
+  text-decoration-color: var(--scan);
+}
+.ci-link svg,
+.ci-step-link svg {
+  transition: transform 220ms var(--ease);
+}
+.ci-link:hover svg,
+.ci-step-link:hover svg {
+  transform: translateX(2px);
+}
+.ci-card {
+  background: var(--carbon);
+  border-radius: 16px;
+  box-shadow:
+    inset 0 0 0 1px var(--edge),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 18px 40px -24px rgba(0, 0, 0, 0.9);
+}
+.ci-num {
+  font-family: var(--font-numerals);
+  font-variation-settings: "ROND" 100;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--ink);
+}
+.ci-glyph {
+  width: 0.9em;
+  height: 0.9em;
+  flex-shrink: 0;
+}
+.ci-glyph .on {
+  fill: currentColor;
+}
+.ci-glyph .off {
+  fill: currentColor;
+  opacity: 0.35;
+}
+.ci-verdict {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45em;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--ink);
+}
+.ci-verdict-breaks {
+  color: var(--break-ink);
+}
+.ci-verdict-no-known-impact {
+  color: var(--scan);
+}
+.ci-verdict-not-checked,
+.ci-verdict-pending,
+.ci-verdict-failed {
+  color: var(--ash);
+}
+.ci-verdict-large {
+  font-size: 15px;
+}
+.ci-packages {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--ash);
+}
+.ci-packages code {
+  white-space: nowrap;
+}
+.ci-packages li {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: baseline;
+}
+.ci-packages code:first-child {
+  color: var(--ink);
+}
+.ci-packages-verdict {
+  font-size: 12px;
+}
+
+/* ---------------------------------------------------------------- footer */
+.ci-footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px 24px;
+  padding: 14px var(--pad) 18px;
+  font-size: 12.5px;
+  color: var(--dim);
+  max-width: 1520px;
+  width: 100%;
+  margin: 0 auto;
+}
+.ci-footer nav {
+  display: flex;
+  gap: 18px;
+}
+.ci-footer a {
+  color: var(--ash);
+  transition: color 200ms var(--ease);
+}
+.ci-footer a:hover {
+  color: var(--ink);
+}
+
+/* --------------------------------------------------------------- landing */
+.ci-home {
+  display: flex;
+  flex-direction: column;
+  overflow-x: clip;
+}
+.ci-home-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 1520px;
+  margin: 0 auto;
+  padding: 0 var(--pad);
+}
+.ci-hero {
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+  align-items: center;
+  gap: 0 24px;
+  min-height: 0;
+  padding: clamp(8px, 2vh, 24px) 0;
+}
+.ci-hero-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: clamp(18px, 3vh, 28px);
+  position: relative;
+  z-index: 2;
+}
+.ci-hero-copy .ci-btn {
+  margin-top: 4px;
+}
+
+/* The stage: a square, so the poster and the render always line up. */
+.ci-stage {
+  --stage: clamp(300px, calc(100dvh - 300px), 700px);
+  position: relative;
+  width: min(calc(var(--stage) * 1.22), 100%);
+  aspect-ratio: 1.22;
+  justify-self: end;
+}
+.ci-stage-art {
+  position: absolute;
+  inset: 0;
+}
+.ci-stage-poster {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--ink);
+  transition: opacity 900ms var(--ease);
+}
+.ci-stage-mark {
+  width: 40%;
+  height: 46%;
+  transform: translateX(-12%);
+  opacity: 0.9;
+}
+.ci-stage-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  transition: opacity 900ms var(--ease);
+}
+.ci-stage[data-ready] .ci-stage-canvas {
+  opacity: 1;
+}
+.ci-stage[data-ready] .ci-stage-poster {
+  opacity: 0;
+}
+/* From the red mark to the comment card; positioned by the scene every frame. */
+.ci-leader {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: var(--ml, 0px);
+  height: 1px;
+  transform-origin: 0 50%;
+  transform: translate(var(--mx, 0px), var(--my, 0px)) rotate(var(--ma, 0rad));
+  background: linear-gradient(
+    to right,
+    rgba(255, 75, 62, 0) 0,
+    rgba(255, 75, 62, 0.9) 18px,
+    rgba(237, 235, 228, 0.5) 100%
+  );
+  opacity: var(--mo, 0);
+  pointer-events: none;
+  z-index: 1;
+}
+.ci-leader::before {
+  content: "";
+  position: absolute;
+  left: -9px;
+  top: -9px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1.5px var(--break);
+}
+.ci-example-pr,
+.ci-example-tg {
+  position: absolute;
+  z-index: 2;
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+.ci-example-pr {
+  top: 5%;
+  right: 0;
+  width: 304px;
+  padding: 14px 16px 12px;
+}
+.ci-example-tg {
+  right: 3%;
+  bottom: 5%;
+  width: 282px;
+  padding: 12px 14px;
+}
+.ci-example-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ash);
+  font-size: 12.5px;
+  margin-bottom: 10px;
+}
+.ci-example-head strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+.ci-example-head a {
+  text-decoration: underline;
+  text-decoration-color: rgba(237, 235, 228, 0.25);
+  text-underline-offset: 3px;
+}
+.ci-example-head a:hover {
+  color: var(--ink);
+}
+.ci-example-avatar {
+  width: 18px;
+  height: 18px;
+  color: var(--ink);
+}
+.ci-example-plane {
+  color: var(--scan);
+}
+.ci-example-verdict {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  font-size: 15px;
+  color: var(--break-ink);
+  margin-bottom: 10px;
+}
+.ci-example-verdict code {
+  color: var(--ash);
+  font-weight: 400;
+  font-size: 11.5px;
+}
+.ci-example-rows {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--edge);
+}
+.ci-example-rows div {
+  display: grid;
+  grid-template-columns: 62px minmax(0, 1fr);
+  gap: 8px;
+}
+.ci-example-rows dt {
+  color: var(--dim);
+}
+.ci-example-rows dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.ci-example-rows dd a {
+  text-decoration: underline;
+  text-decoration-color: rgba(237, 235, 228, 0.25);
+  text-underline-offset: 3px;
+}
+.ci-example-tg p + p {
+  margin-top: 3px;
+}
+.ci-example-tg p strong {
+  color: var(--break-ink);
+  font-weight: 600;
+}
+.ci-example-tg-where {
+  color: var(--ash);
+}
+
+.ci-steps {
+  padding: 4px 0 0;
+}
+.ci-steps ol {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ci-steps li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 2px 16px;
+  padding: 16px 20px 14px;
+  border-radius: 18px;
+  background: var(--carbon);
+  box-shadow: inset 0 0 0 1px var(--edge);
+}
+.ci-steps .ci-num {
+  grid-row: span 2;
+  font-size: 46px;
+  width: 0.8em;
+  margin-top: 2px;
+}
+.ci-steps h3 {
+  font-size: 15px;
+  line-height: 1.3;
+}
+.ci-steps p {
+  margin-top: 2px;
+  font-size: 13.5px;
+  color: var(--ash);
+  line-height: 1.4;
+}
+.ci-step-link {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 30px;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--scan) !important;
+  white-space: nowrap;
+}
+.ci-step-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+/* ------------------------------------------------- product pages (shell) */
+.ci-page {
+  display: flex;
+  flex-direction: column;
+}
+.ci-main {
+  flex: 1;
+  width: 100%;
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: clamp(28px, 6vh, 64px) var(--pad) 48px;
+}
+.ci-crumb {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  font-size: 13.5px;
+  color: var(--ash);
+  margin-bottom: 14px;
+}
+.ci-crumb a {
+  text-decoration: underline;
+  text-decoration-color: rgba(237, 235, 228, 0.22);
+  text-underline-offset: 4px;
+}
+.ci-crumb a:hover {
+  color: var(--ink);
+}
+.ci-title {
+  font-size: clamp(30px, 4vw, 48px);
+  line-height: 1.04;
+  letter-spacing: -0.03em;
+  font-variation-settings: "wdth" 112;
+  overflow-wrap: anywhere;
+}
+.ci-intro {
+  margin-top: 12px;
+  color: var(--ash);
+  max-width: 40em;
+}
+.ci-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px 32px;
+  margin-bottom: clamp(24px, 4vh, 40px);
+}
+.ci-alert {
+  margin: 0 0 24px;
+  padding: 14px 18px;
+  border-radius: 14px;
+  background: #2a1513;
+  color: #ffd4cf;
+  font-size: 14px;
+}
+.ci-error {
+  color: #ff9d94;
+  font-size: 13px;
+  min-height: 0;
+}
+.ci-error:empty {
+  display: none;
+}
+.ci-note {
+  color: var(--ash);
+  font-size: 14px;
+}
+.ci-fine {
+  margin-top: 28px;
+  font-size: 12.5px;
+  color: var(--dim);
+  max-width: 60em;
+}
+
+/* --------------------------------------------------------------- bento */
+.ci-bento {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-auto-rows: minmax(150px, auto);
+  gap: 12px;
+}
+.ci-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+  padding: 22px 22px 20px;
+  border-radius: var(--radius);
+  background: var(--carbon);
+  box-shadow:
+    inset 0 0 0 1px var(--edge),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  overflow: hidden;
+}
+.ci-tile h2 {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ash);
+  letter-spacing: 0;
+}
+.ci-tile-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.ci-tile-head a {
+  font-size: 13px;
+  color: var(--ash);
+}
+.ci-tile-head a:hover {
+  color: var(--ink);
+}
+.ci-tile-latest {
+  grid-column: 3 / 7;
+  grid-row: 1 / 3;
+}
+.ci-tile-breaks {
+  grid-column: 1 / 3;
+  grid-row: 1;
+}
+.ci-tile-telegram {
+  grid-column: 1 / 3;
+  grid-row: 2;
+}
+.ci-tile-repos {
+  grid-column: 1 / 5;
+}
+.ci-tile-install {
+  grid-column: 5 / 7;
+}
+.ci-big {
+  font-family: var(--font-numerals);
+  font-variation-settings: "ROND" 100;
+  font-weight: 800;
+  font-size: clamp(64px, 7vw, 96px);
+  line-height: 0.9;
+  letter-spacing: 0.02em;
+}
+.ci-tile-breaks .ci-big {
+  color: var(--break);
+}
+.ci-tile-breaks[data-zero] .ci-big {
+  color: var(--ink);
+}
+.ci-tile-breaks .ci-tile-note {
+  color: var(--ash);
+  font-size: 13.5px;
+  margin-top: auto;
+}
+/* The red count sits on a field of its own dots, thinning out to the right. */
+.ci-tile-breaks:not([data-zero])::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(
+    circle,
+    rgba(255, 75, 62, 0.34) 1.3px,
+    transparent 1.6px
+  );
+  background-size: 9px 9px;
+  mask-image: linear-gradient(105deg, transparent 30%, #000 100%);
+  -webkit-mask-image: linear-gradient(105deg, transparent 30%, #000 100%);
+  pointer-events: none;
+}
+.ci-rows {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+}
+.ci-rows > li + li {
+  border-top: 1px solid var(--edge);
+}
+.ci-row {
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 4px 18px;
+  padding: 12px 0;
+  min-height: 56px;
+}
+a.ci-row {
+  border-radius: 10px;
+  transition: background-color 200ms var(--ease);
+}
+a.ci-row:hover {
+  background: var(--carbon-2);
+  box-shadow:
+    -10px 0 0 var(--carbon-2),
+    10px 0 0 var(--carbon-2);
+}
+.ci-row-title {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.ci-row-title strong {
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ci-row-title > span {
+  font-size: 13px;
+  color: var(--ash);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ci-row-title strong a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.ci-row-title .ci-packages {
+  font-size: 13px;
+}
+.ci-pager {
+  margin-top: 16px;
+}
+.ci-row-meta {
+  font-size: 13px;
+  color: var(--ash);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.ci-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+  color: var(--ash);
+  font-size: 14px;
+  margin-top: auto;
+}
+.ci-repo-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.ci-repo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--carbon-2);
+  min-width: 0;
+  transition: background-color 200ms var(--ease);
+}
+.ci-repo:hover {
+  background: var(--carbon-3);
+}
+.ci-repo strong {
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ci-repo span {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--ash);
+}
+.ci-count {
+  font-family: var(--font-numerals);
+  font-variation-settings: "ROND" 100;
+  font-weight: 800;
+  font-size: 30px;
+  line-height: 1;
+  color: var(--ink);
+  margin-left: 8px;
+}
+.ci-tile-install p {
+  color: var(--ash);
+  font-size: 14px;
+}
+.ci-tile-install .ci-btn-quiet {
+  margin-top: auto;
+  align-self: flex-start;
+}
+.ci-tg-account + .ci-tg-account {
+  border-top: 1px solid var(--edge);
+  padding-top: 14px;
+}
+.ci-tg-account {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.ci-tg-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+}
+.ci-tg-status::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--dim);
+  flex-shrink: 0;
+}
+.ci-tg-status[data-on]::before {
+  background: var(--scan);
+}
+.ci-tg-status small {
+  color: var(--ash);
+  font-size: 13px;
+}
+
+/* Telegram connect (client component) */
+.ci-tg-connect {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  font-size: 14px;
+}
+.ci-tg-code {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  color: var(--ash);
+}
+.ci-tg-code-value {
+  align-self: flex-start;
+  padding: 8px 14px;
+  border-radius: 10px;
+  background: var(--carbon-3);
+  color: var(--ink);
+  font-size: 18px !important;
+  letter-spacing: 0.12em;
+}
+.ci-tg-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+}
+
+/* --------------------------------------------------------- sign-in panel */
+.ci-signin {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 16px;
+  max-width: 560px;
+  padding: 28px;
+  border-radius: var(--radius);
+  background: var(--carbon);
+  box-shadow: inset 0 0 0 1px var(--edge);
+}
+.ci-signin h2 {
+  font-size: 22px;
+  font-variation-settings: "wdth" 110;
+}
+.ci-signin p {
+  color: var(--ash);
+  font-size: 14px;
+}
+.ci-signin .ci-fine {
+  margin-top: 0;
+}
+.ci-operator {
+  width: 100%;
+  padding-top: 14px;
+  border-top: 1px solid var(--edge);
+}
+.ci-operator > summary:hover {
+  color: var(--ink);
+}
+.ci-operator-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 14px;
+}
+.ci-operator-form label {
+  font-size: 13px;
+  font-weight: 500;
+}
+.ci-operator-form p {
+  font-size: 13px;
+}
+.ci-operator-form > div {
+  display: flex;
+  gap: 8px;
+}
+.ci-operator-form input {
+  flex: 1;
+  min-width: 0;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 12px;
+  background: var(--carbon-3);
+  color: var(--ink);
+  font-size: 14px;
+}
+.ci-operator-form input:focus-visible {
+  outline: 2px solid var(--scan);
+  outline-offset: 1px;
+}
+
+/* --------------------------------------------------------------- setup */
+.ci-setup {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: none;
+}
+.ci-setup > li {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 24px;
+  border-radius: var(--radius);
+  background: var(--carbon);
+  box-shadow: inset 0 0 0 1px var(--edge);
+  min-width: 0;
+  scroll-margin-top: 24px;
+}
+.ci-setup > li[data-state="done"] {
+  background: linear-gradient(180deg, #121a1c 0%, var(--carbon) 70%);
+}
+.ci-setup-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.ci-setup .ci-num {
+  font-size: 64px;
+}
+.ci-state {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ash);
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--carbon-3);
+  white-space: nowrap;
+}
+li[data-state="done"] .ci-state {
+  color: var(--void);
+  background: var(--scan);
+}
+li[data-state="next"] .ci-state {
+  color: var(--void);
+  background: var(--ink);
+}
+.ci-setup h2 {
+  font-size: 21px;
+  line-height: 1.2;
+  font-variation-settings: "wdth" 108;
+}
+.ci-setup p {
+  color: var(--ash);
+  font-size: 14px;
+}
+.ci-setup-body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+  margin-top: auto;
+}
+.ci-setup-body .ci-btn {
+  align-self: stretch;
+}
+.ci-setup-extra {
+  margin-top: 24px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.ci-setup-extra section {
+  padding: 20px 24px;
+  border-radius: var(--radius);
+  background: var(--carbon);
+  box-shadow: inset 0 0 0 1px var(--edge);
+}
+.ci-setup-extra h2 {
+  font-size: 15px;
+  margin-bottom: 6px;
+}
+.ci-setup-extra p,
+.ci-setup-extra li {
+  color: var(--ash);
+  font-size: 13.5px;
+}
+.ci-setup-extra ul {
+  margin: 0;
+  padding-left: 18px;
+}
+
+/* -------------------------------------------------------------- report */
+.ci-report-head {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 36px;
+}
+.ci-report-verdict {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 20px;
+}
+.ci-report-verdict .ci-verdict {
+  font-size: clamp(40px, 6vw, 72px);
+  letter-spacing: -0.035em;
+  font-variation-settings: "wdth" 116;
+  line-height: 1;
+  gap: 0.25em;
+}
+.ci-report-verdict .ci-glyph {
+  width: 0.62em;
+  height: 0.62em;
+  align-self: center;
+}
+.ci-report-reason {
+  font-size: clamp(17px, 1.6vw, 21px);
+  line-height: 1.45;
+  max-width: 38em;
+  color: var(--ink);
+}
+.ci-report-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  font-size: 13.5px;
+  color: var(--ash);
+}
+.ci-package {
+  margin-top: 28px;
+  padding: 24px;
+  border-radius: var(--radius);
+  background: var(--carbon);
+  box-shadow: inset 0 0 0 1px var(--edge);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  scroll-margin-top: 24px;
+}
+.ci-package-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px 16px;
+}
+.ci-package-head h2 {
+  font-size: 19px;
+  font-variation-settings: "wdth" 108;
+}
+.ci-package-head h2 code {
+  font-size: 0.86em;
+}
+.ci-package-reason {
+  color: var(--ash);
+}
+.ci-findings {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.ci-findings th {
+  text-align: left;
+  font-weight: 500;
+  font-size: 12.5px;
+  color: var(--dim);
+  padding: 0 16px 8px 0;
+}
+.ci-findings td {
+  padding: 12px 16px 12px 0;
+  border-top: 1px solid var(--edge);
+  vertical-align: top;
+  overflow-wrap: anywhere;
+}
+.ci-findings td:last-child,
+.ci-findings th:last-child {
+  padding-right: 0;
+}
+.ci-findings a {
+  text-decoration: underline;
+  text-decoration-color: rgba(237, 235, 228, 0.25);
+  text-underline-offset: 3px;
+}
+.ci-findings a:hover {
+  text-decoration-color: var(--scan);
+}
+.ci-findings .ci-verdict {
+  font-size: 13px;
+}
+.ci-findings small {
+  display: block;
+  margin-top: 4px;
+  color: var(--ash);
+  font-size: 12.5px;
+}
+.ci-findings ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 2px;
+}
+.ci-instead {
+  color: var(--scan);
+}
+.ci-facts {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr);
+  gap: 10px 18px;
+  margin: 0;
+  font-size: 14px;
+}
+.ci-facts dt {
+  color: var(--dim);
+}
+.ci-facts dd {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.ci-facts dd + dd {
+  grid-column: 2;
+}
+.ci-facts a {
+  text-decoration: underline;
+  text-decoration-color: rgba(237, 235, 228, 0.25);
+  text-underline-offset: 3px;
+}
+.ci-facts a:hover {
+  text-decoration-color: var(--scan);
+}
+.ci-quote {
+  display: block;
+  margin-top: 6px;
+  padding-left: 12px;
+  border-left: 2px solid var(--carbon-3);
+  color: var(--ash);
+  font-size: 13.5px;
+}
+.ci-more {
+  border-top: 1px solid var(--edge);
+  padding-top: 14px;
+}
+.ci-more > summary,
+.ci-operator > summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  width: max-content;
+  max-width: 100%;
+  font-size: 13.5px;
+  color: var(--ash);
+  list-style: none;
+}
+.ci-more > summary::-webkit-details-marker,
+.ci-operator > summary::-webkit-details-marker {
+  display: none;
+}
+/* A plus drawn from two bars; the upright one folds away when open. */
+.ci-more > summary::before,
+.ci-operator > summary::before {
+  content: "";
+  flex-shrink: 0;
+  width: 10px;
+  height: 10px;
+  background:
+    linear-gradient(currentColor, currentColor) center / 10px 1.5px no-repeat,
+    linear-gradient(currentColor, currentColor) center / 1.5px 10px no-repeat;
+  transition: background-size 220ms var(--ease);
+}
+.ci-more[open] > summary::before,
+.ci-operator[open] > summary::before {
+  background-size:
+    10px 1.5px,
+    1.5px 0;
+}
+.ci-more > summary:hover {
+  color: var(--ink);
+}
+.ci-more[open] > summary {
+  margin-bottom: 14px;
+}
+.ci-more-body {
+  display: grid;
+  gap: 18px;
+  font-size: 13.5px;
+  color: var(--ash);
+}
+.ci-more-body h3 {
+  font-size: 13.5px;
+  color: var(--ink);
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+.ci-more-body ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 6px;
+}
+.ci-more-body li {
+  display: grid;
+  gap: 2px;
+}
+.ci-more-body a {
+  color: var(--ink);
+  text-decoration: underline;
+  text-decoration-color: rgba(237, 235, 228, 0.25);
+  text-underline-offset: 3px;
+}
+.ci-index {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 8px;
+  padding: 0;
+  list-style: none;
+}
+.ci-index a {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: var(--carbon);
+  box-shadow: inset 0 0 0 1px var(--edge);
+  font-size: 13.5px;
+}
+.ci-index a:hover {
+  background: var(--carbon-2);
+}
+.ci-index .ci-verdict {
+  font-size: 13px;
+}
+
+/* ---------------------------------------------------------- responsive */
+@media (max-width: 960px) {
+  .ci-hero {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 36px 0 12px;
+    gap: 24px;
+  }
+  .ci-stage {
+    --stage: min(560px, 100%);
+    margin-bottom: 8px;
+  }
+  .ci-bento {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .ci-tile-latest,
+  .ci-tile-repos {
+    grid-column: 1 / -1;
+    grid-row: auto;
+  }
+  .ci-tile-breaks,
+  .ci-tile-telegram,
+  .ci-tile-install {
+    grid-column: auto;
+    grid-row: auto;
+  }
+  .ci-setup {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 720px) {
+  .ci-row-title strong,
+  .ci-row-title > span,
+  .ci-repo strong {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  .ci-steps ol {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  /* The cards leave the stage and sit under it: no leader line on small screens. */
+  .ci-stage {
+    width: 100%;
+    aspect-ratio: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .ci-stage-art {
+    position: relative;
+    inset: auto;
+    width: 100%;
+    aspect-ratio: 1.15;
+    margin-bottom: -6%;
+  }
+  .ci-example-pr,
+  .ci-example-tg {
+    position: relative;
+    inset: auto;
+    width: 100%;
+  }
+  .ci-leader {
+    display: none;
+  }
+  .ci-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 6px;
+  }
+  .ci-title {
+    font-size: clamp(26px, 7.4vw, 40px);
+  }
+  .ci-setup-extra {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .ci-findings thead {
+    display: none;
+  }
+  .ci-findings tr {
+    display: grid;
+    gap: 4px;
+    padding: 12px 0;
+    border-top: 1px solid var(--edge);
+  }
+  .ci-findings td {
+    border: 0;
+    padding: 0;
+  }
+  .ci-facts {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2px;
+  }
+  .ci-facts dt {
+    margin-top: 10px;
+  }
+  .ci-facts dd + dd {
+    grid-column: 1;
+  }
+}
+@media (max-width: 560px) {
+  .ci-nav {
+    padding-left: 14px;
+    gap: 2px;
+  }
+  .ci-nav .brand {
+    margin-right: 4px;
+  }
+  .ci-nav .brand span {
+    display: none;
+  }
+  .ci-nav-links a,
+  .ci-nav-signin {
+    padding: 0 11px;
+  }
+  .ci-nav-login {
+    display: none;
+  }
+  .ci-nav-user {
+    padding-left: 6px;
+    margin-left: 2px;
+  }
+  .ci-bento {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .ci-tile-latest,
+  .ci-tile-repos,
+  .ci-tile-breaks,
+  .ci-tile-telegram,
+  .ci-tile-install {
+    grid-column: 1;
+  }
+  .ci-hero-copy .ci-btn {
+    align-self: stretch;
+  }
+  .ci-package,
+  .ci-signin,
+  .ci-setup > li {
+    padding: 20px 18px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ci *,
+  .ci *::before,
+  .ci *::after {
+    transition-duration: 0ms !important;
+  }
+}
+.ci-manifest {
+  margin-top: 24px;
+}
+.ci-nowrap {
+  white-space: nowrap;
+}

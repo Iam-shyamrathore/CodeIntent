@@ -1,5 +1,5 @@
-import { ArrowUpRight } from "lucide-react";
-import { VerdictLabel } from "./verdict";
+import { ArrowOut } from "./site/icons";
+import { PackageChanges, VerdictLabel } from "./verdict";
 import type {
   Advisory,
   AdvisoryCheck,
@@ -12,13 +12,13 @@ import type {
 } from "@/lib/dashboard";
 import { formatDate, publicSymbol, pullUrl } from "@/lib/dashboard";
 
-const KIND: Record<Change["kind"], string> = {
-  removed: "Removed",
-  "parameter-removed": "Argument removed",
-  "parameter-required": "Argument now required",
-  "parameter-moved": "Argument moved",
-  "default-changed": "Default changed",
-  deprecated: "Deprecated",
+const WHAT: Record<Change["kind"], string> = {
+  removed: "removed",
+  "parameter-removed": "no longer accepts this argument",
+  "parameter-required": "now requires an argument you don’t pass",
+  "parameter-moved": "positional arguments changed order",
+  "default-changed": "default changed",
+  deprecated: "deprecated",
 };
 const REASON: Record<string, string> = {
   "compiled-module": "Compiled module, no readable source",
@@ -41,18 +41,20 @@ const REASON: Record<string, string> = {
   "star-import": "Star import",
 };
 const REPLACEMENT_SOURCE = {
-  message: "named in the library’s deprecation message",
+  message: "from the library’s deprecation message",
   "message-unverified":
-    "suggested by the library’s message; not confirmed in the new release",
-  signature: "found in the new release’s signature",
+    "suggested by the library; not confirmed in the release",
+  signature: "from the new release’s signature",
 };
-const VISIBLE_LOCATIONS = 12;
+const VISIBLE_LOCATIONS = 3;
 
 const sentence = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 const plural = (n: number, one: string, many = `${one}s`) =>
   `${n.toLocaleString("en-GB")} ${n === 1 ? one : many}`;
 const where = (l: Location) =>
   `${l.file}${l.line ? `:${l.line}` : ""}${l.line && l.column ? `:${l.column}` : ""}`;
+const target = (change: Change) =>
+  `${publicSymbol(change.symbol)}${change.parameter ? `(${change.parameter}=)` : ""}`;
 
 function CodeLink({
   pull,
@@ -66,8 +68,11 @@ function CodeLink({
     .map(encodeURIComponent)
     .join("/")}${location.line ? `#L${location.line}` : ""}`;
   return (
-    <a className="code-location" href={href}>
-      {where(location)}
+    <a href={href}>
+      <code translate="no">
+        {location.file}
+        {location.line ? `:${location.line}` : ""}
+      </code>
     </a>
   );
 }
@@ -76,110 +81,206 @@ function Locations({ pull, items }: { pull: PullDetail; items: Location[] }) {
   const shown = items.slice(0, VISIBLE_LOCATIONS),
     rest = items.slice(VISIBLE_LOCATIONS);
   return (
-    <>
-      <ul className="location-list">
-        {shown.map((l, i) => (
-          <li key={`${where(l)}-${i}`}>
-            <CodeLink pull={pull} location={l} />
-          </li>
-        ))}
-      </ul>
+    <ul>
+      {shown.map((l, i) => (
+        <li key={`${where(l)}-${i}`}>
+          <CodeLink pull={pull} location={l} />
+        </li>
+      ))}
       {rest.length > 0 && (
-        <details className="report-more">
-          <summary>{plural(rest.length, "more place")}</summary>
-          <ul className="location-list">
-            {rest.map((l, i) => (
-              <li key={`${where(l)}-${i}`}>
-                <CodeLink pull={pull} location={l} />
-              </li>
-            ))}
-          </ul>
-        </details>
+        <li>
+          <details>
+            <summary>{plural(rest.length, "more place")}</summary>
+            <ul>
+              {rest.map((l, i) => (
+                <li key={`${where(l)}-${i}`}>
+                  <CodeLink pull={pull} location={l} />
+                </li>
+              ))}
+            </ul>
+          </details>
+        </li>
+      )}
+    </ul>
+  );
+}
+
+function Findings({
+  pull,
+  verdict,
+}: {
+  pull: PullDetail;
+  verdict: UpgradeVerdict;
+}) {
+  const findings = verdict.findings || [];
+  if (!findings.length) return null;
+  return (
+    <table className="ci-findings">
+      <caption className="sr-only">
+        What changes for your code in {verdict.package}
+      </caption>
+      <thead>
+        <tr>
+          <th scope="col">Your code</th>
+          <th scope="col">What changed</th>
+          <th scope="col">Use instead</th>
+        </tr>
+      </thead>
+      <tbody>
+        {findings.map((f: Finding, i) => (
+          <tr key={i}>
+            <td>
+              <Locations pull={pull} items={f.locations} />
+            </td>
+            <td>
+              {f.severity !== verdict.verdict && (
+                <>
+                  <VerdictLabel verdict={f.severity} />{" "}
+                </>
+              )}
+              <code translate="no">{target(f.change)}</code>{" "}
+              {WHAT[f.change.kind]}
+              {f.guarded && <small>Your import has a fallback.</small>}
+            </td>
+            <td>
+              {f.change.replacement ? (
+                <>
+                  <code className="ci-instead" translate="no">
+                    {f.change.replacement}
+                  </code>
+                  {f.change.replacement_source && (
+                    <small>
+                      {REPLACEMENT_SOURCE[f.change.replacement_source]}
+                    </small>
+                  )}
+                </>
+              ) : (
+                <span className="ci-note">No replacement named</span>
+              )}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+/** Text from GitHub with `backticks` shown as code. */
+function Ticks({ text }: { text: string }) {
+  return (
+    <>
+      {text.split("`").map((part, i) =>
+        i % 2 ? (
+          <code key={i} translate="no">
+            {part}
+          </code>
+        ) : (
+          part
+        ),
       )}
     </>
   );
 }
 
-function FindingEntry({
-  pull,
-  verdict,
-  finding,
-}: {
-  pull: PullDetail;
-  verdict: UpgradeVerdict;
-  finding: Finding;
-}) {
-  const { change } = finding;
+/** Why upstream changed it: one line per upstream pull request, with one checked quote. */
+function Why({ verdict }: { verdict: UpgradeVerdict }) {
+  const seen = new Set<string>();
+  const lines = (verdict.decisions || []).filter((d) => {
+    if (!d.pr_url || seen.has(d.pr_url)) return false;
+    seen.add(d.pr_url);
+    return true;
+  });
+  if (!lines.length) return null;
   return (
-    <li className="finding">
-      <div className="finding-head">
-        <VerdictLabel verdict={finding.severity} />
-        <span className="finding-kind">{KIND[change.kind]}</span>
-        {finding.guarded && (
-          <span className="finding-kind">Behind an import fallback</span>
-        )}
-      </div>
-      <h4>
-        <code>
-          {publicSymbol(change.symbol)}
-          {change.parameter ? `(${change.parameter}=)` : ""}
-        </code>
-      </h4>
-      <p className="finding-detail">{change.detail}.</p>
-      <dl className="finding-facts">
-        <div>
-          <dt>Your code</dt>
-          <dd>
-            <Locations pull={pull} items={finding.locations} />
+    <>
+      <dt>Why</dt>
+      {lines.slice(0, 3).map((d) => {
+        const key = d.change_key;
+        const quote = d.quotes?.find((q) => q.source_kind !== "pr-title");
+        const origin = d.deprecation;
+        return (
+          <dd key={d.pr_url}>
+            <code translate="no">
+              {key.parameter
+                ? `${key.parameter}=`
+                : key.symbol.split(".").pop()}
+            </code>{" "}
+            changed in{" "}
+            <a href={d.pr_url!}>
+              #{d.pr_number} <Ticks text={d.pr_title || ""} />
+            </a>
+            {origin?.pr_url && origin.pr_url !== d.pr_url && (
+              <>
+                , deprecated earlier in{" "}
+                <a href={origin.pr_url}>#{origin.pr_number}</a>
+              </>
+            )}
+            {d.reversal ? `. Later restored: ${d.reversal}` : ""}.
+            {quote && (
+              <span className="ci-quote">
+                <Ticks text={quote.text.trim()} />{" "}
+                <a href={quote.source_url}>Source</a>
+              </span>
+            )}
           </dd>
-        </div>
-        {(change.before || change.after) && (
-          <div>
-            <dt>Upstream</dt>
-            <dd>
-              {change.before && (
-                <span className="upstream-location">
-                  <code>{where(change.before)}</code> in {verdict.start}
-                </span>
-              )}
-              {change.after && (
-                <span className="upstream-location">
-                  <code>{where(change.after)}</code> in {verdict.end}
-                </span>
-              )}
-            </dd>
-          </div>
+        );
+      })}
+    </>
+  );
+}
+
+function AdvisoryLinks({ list }: { list: Advisory[] }) {
+  return (
+    <>
+      {list.slice(0, 5).map((a, i) => (
+        <span key={a.id}>
+          {i > 0 && ", "}
+          <a href={a.url}>{a.id}</a>
+          {a.fixed ? ` (fixed in ${a.fixed})` : ""}
+        </span>
+      ))}
+      {list.length > 5 ? ` and ${list.length - 5} more` : ""}
+    </>
+  );
+}
+
+function Advisories({ verdict }: { verdict: UpgradeVerdict }) {
+  const checks = verdict.advisories || [];
+  const at = (version: string): AdvisoryCheck | undefined =>
+    checks.find((c) => c.version === version);
+  const active = (c?: AdvisoryCheck) =>
+    (c?.advisories || []).filter((a) => !a.withdrawn);
+  const end = at(verdict.end),
+    start = at(verdict.start);
+  const remaining = active(end);
+  const ids = new Set(remaining.map((a) => a.id));
+  const resolved = active(start).filter((a) => !ids.has(a.id));
+  return (
+    <>
+      <dt>Advisories</dt>
+      <dd>
+        {!end || end.status === "not-checked" ? (
+          <>
+            Not checked for {verdict.end}
+            {end?.detail ? `: ${end.detail}` : ""}.
+          </>
+        ) : remaining.length ? (
+          <>
+            {plural(remaining.length, "known advisory", "known advisories")} for{" "}
+            {verdict.end}: <AdvisoryLinks list={remaining} />.
+          </>
+        ) : (
+          <>None known for {verdict.end} on OSV.dev.</>
         )}
-        {change.replacement && (
-          <div>
-            <dt>Use instead</dt>
-            <dd>
-              <code className="replacement">{change.replacement}</code>
-              {change.replacement_source && (
-                <span className="fact-note">
-                  {REPLACEMENT_SOURCE[change.replacement_source]}
-                </span>
-              )}
-            </dd>
-          </div>
+        {resolved.length > 0 && (
+          <span className="ci-quote">
+            This upgrade leaves behind{" "}
+            {plural(resolved.length, "advisory", "advisories")} affecting{" "}
+            {verdict.start}: <AdvisoryLinks list={resolved} />.
+          </span>
         )}
-      </dl>
-      {change.message && (
-        <figure className="library-message">
-          <blockquote>
-            <p>
-              <mark>“{change.message}”</mark>
-            </p>
-          </blockquote>
-          <figcaption>
-            {verdict.package}{" "}
-            {change.message_version ??
-              (change.kind === "deprecated" ? verdict.end : verdict.start)}
-            , in its own words
-          </figcaption>
-        </figure>
-      )}
-    </li>
+      </dd>
+    </>
   );
 }
 
@@ -191,137 +292,129 @@ function UncheckedList({
   items: Unchecked[];
 }) {
   return (
-    <ul className="unchecked-list">
+    <ul>
       {items.map((u, i) => (
         <li key={`${where(u.location)}-${i}`}>
-          <strong>
-            {REASON[u.reason] || sentence(u.reason.replace(/-/g, " "))}
-          </strong>
+          <span>
+            <strong>
+              {REASON[u.reason] || sentence(u.reason.replace(/-/g, " "))}
+            </strong>{" "}
+            · <CodeLink pull={pull} location={u.location} />
+          </span>
           <span>{sentence(u.detail)}</span>
-          <CodeLink pull={pull} location={u.location} />
         </li>
       ))}
     </ul>
   );
 }
 
-function AdvisoryItem({ advisory }: { advisory: Advisory }) {
-  return (
-    <li>
-      <a href={advisory.url}>
-        {advisory.id} <ArrowUpRight size={12} aria-hidden="true" />
-      </a>
-      {advisory.summary && <span>{advisory.summary}</span>}
-      <small>
-        {[
-          advisory.severity && `Severity ${advisory.severity.toLowerCase()}`,
-          advisory.fixed
-            ? `Fixed in ${advisory.fixed}`
-            : "No fixed version listed",
-          advisory.aliases?.length ? advisory.aliases.join(", ") : "",
-        ]
-          .filter(Boolean)
-          .join(" · ")}
-      </small>
-    </li>
-  );
-}
-
-function Advisories({ verdict }: { verdict: UpgradeVerdict }) {
-  const checks = verdict.advisories || [];
-  if (!checks.length) return null;
-  const at = (version: string): AdvisoryCheck | undefined =>
-    checks.find((c) => c.version === version);
-  const active = (c?: AdvisoryCheck) =>
-    (c?.advisories || []).filter((a) => !a.withdrawn);
-  const start = at(verdict.start),
-    end = at(verdict.end);
-  const remaining = active(end);
-  const ids = new Set(remaining.map((a) => a.id));
-  const resolved = active(start).filter((a) => !ids.has(a.id));
-  return (
-    <section
-      className="report-block"
-      aria-label={`${verdict.package} advisories`}
-    >
-      <h3>Known advisories</h3>
-      {!end || end.status === "not-checked" ? (
-        <p className="report-note">
-          Advisories for {verdict.package} {verdict.end} were not checked
-          {end?.detail ? `: ${end.detail}` : ""}.
-        </p>
-      ) : remaining.length ? (
-        <>
-          <p className="report-note">
-            OSV.dev lists {plural(remaining.length, "advisory", "advisories")}{" "}
-            affecting {verdict.package} {verdict.end}, the version this pull
-            request moves to.
-          </p>
-          <ul className="advisory-list">
-            {remaining.map((a) => (
-              <AdvisoryItem key={a.id} advisory={a} />
-            ))}
-          </ul>
-        </>
-      ) : (
-        <p className="report-note">
-          OSV.dev lists no advisories for {verdict.package} {verdict.end}.
-        </p>
-      )}
-      {start?.status === "not-checked" && (
-        <p className="report-note">
-          Advisories for {verdict.start} were not checked
-          {start.detail ? `: ${start.detail}` : ""}.
-        </p>
-      )}
-      {resolved.length > 0 && (
-        <>
-          <p className="report-note">
-            {plural(resolved.length, "advisory", "advisories")} affecting{" "}
-            {verdict.start} do not list {verdict.end} as affected:
-          </p>
-          <ul className="advisory-list">
-            {resolved.map((a) => (
-              <AdvisoryItem key={a.id} advisory={a} />
-            ))}
-          </ul>
-        </>
-      )}
-    </section>
-  );
-}
-
-function Release({ verdict }: { verdict: UpgradeVerdict }) {
-  const release = verdict.release;
-  if (!release) return null;
-  const { repository, start, end } = release;
+function MoreDetail({
+  pull,
+  verdict,
+}: {
+  pull: PullDetail;
+  verdict: UpgradeVerdict;
+}) {
+  const findings = verdict.findings || [],
+    unchecked = verdict.unchecked || [],
+    limits = verdict.limits || [],
+    coverage = verdict.coverage,
+    release = verdict.release;
   const compare =
-    repository && start.tag && end.tag
-      ? `https://github.com/${repository}/compare/${encodeURIComponent(start.tag)}...${encodeURIComponent(end.tag)}`
+    release?.repository && release.start.tag && release.end.tag
+      ? `https://github.com/${release.repository}/compare/${encodeURIComponent(release.start.tag)}...${encodeURIComponent(release.end.tag)}`
       : null;
+  const messages = findings.filter((f) => f.change.message);
+  const upstream = findings.filter((f) => f.change.before || f.change.after);
   return (
-    <p className="report-note release-line">
-      {compare ? (
-        <a href={compare}>
-          Upstream changes {start.tag}…{end.tag} in {repository}
-          <ArrowUpRight size={12} aria-hidden="true" />
-        </a>
-      ) : (
-        <>
-          Upstream release range not located
-          {release.not_located ? `: ${release.not_located}` : ""}.
-          {repository && (
-            <>
-              {" "}
-              <a href={`https://github.com/${repository}/releases`}>
-                {repository} releases
-                <ArrowUpRight size={12} aria-hidden="true" />
-              </a>
-            </>
-          )}
-        </>
-      )}
-    </p>
+    <details className="ci-more">
+      <summary>Coverage, upstream source and everything else</summary>
+      <div className="ci-more-body">
+        {coverage && (
+          <section>
+            <h3>Coverage</h3>
+            <p>
+              Compared {plural(coverage.usages, "use")} in{" "}
+              {plural(coverage.files, "file")}:{" "}
+              {coverage.checked.toLocaleString("en-GB")} followed in both
+              releases, {coverage.unchecked.toLocaleString("en-GB")} could not
+              be followed.{" "}
+              {plural(coverage.upstream_changes, "upstream change")} between the
+              two releases.
+            </p>
+          </section>
+        )}
+        {release && (
+          <section>
+            <h3>Releases</h3>
+            <p>
+              {compare ? (
+                <a href={compare}>
+                  {release.repository} {release.start.tag}…{release.end.tag}
+                </a>
+              ) : (
+                <>
+                  Upstream release range not located
+                  {release.not_located ? `: ${release.not_located}` : ""}.
+                </>
+              )}
+            </p>
+          </section>
+        )}
+        {messages.length > 0 && (
+          <section>
+            <h3>In the library’s own words</h3>
+            <ul>
+              {messages.map((f, i) => (
+                <li key={i}>
+                  <span>“{f.change.message}”</span>
+                  <span>
+                    {verdict.package}{" "}
+                    {f.change.message_version ??
+                      (f.change.kind === "deprecated"
+                        ? verdict.end
+                        : verdict.start)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+        {upstream.length > 0 && (
+          <section>
+            <h3>Where it is defined upstream</h3>
+            <ul>
+              {upstream.map((f, i) => (
+                <li key={i}>
+                  <span>
+                    <code translate="no">{target(f.change)}</code>
+                    {f.change.before &&
+                      ` · ${where(f.change.before)} in ${verdict.start}`}
+                    {f.change.after &&
+                      ` · ${where(f.change.after)} in ${verdict.end}`}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+        {unchecked.length > 0 && verdict.verdict !== "not-checked" && (
+          <section>
+            <h3>Not checked</h3>
+            <UncheckedList pull={pull} items={unchecked} />
+          </section>
+        )}
+        {limits.length > 0 && (
+          <section>
+            <h3>
+              {plural(limits.length, "other use")} could not be followed but
+              touch nothing this upgrade changed
+            </h3>
+            <UncheckedList pull={pull} items={limits} />
+          </section>
+        )}
+      </div>
+    </details>
   );
 }
 
@@ -329,75 +422,45 @@ function PackageVerdict({
   pull,
   verdict,
   index,
+  single,
 }: {
   pull: PullDetail;
   verdict: UpgradeVerdict;
   index: number;
+  single: boolean;
 }) {
-  const findings = verdict.findings || [],
-    unchecked = verdict.unchecked || [],
-    limits = verdict.limits || [],
-    coverage = verdict.coverage;
+  const unchecked = verdict.unchecked || [];
   const id = `package-${index}`;
   return (
-    <section className="package-verdict" aria-labelledby={id}>
-      <div className="package-verdict-head">
-        <h2 id={id}>
-          <code>{verdict.package}</code> {verdict.start}
+    <section className="ci-package" aria-labelledby={`${id}-title`} id={id}>
+      <div className="ci-package-head">
+        <h2 id={`${id}-title`}>
+          <code translate="no">{verdict.package}</code> {verdict.start}
           <span aria-hidden="true"> → </span>
           <span className="sr-only"> to </span>
           {verdict.end}
         </h2>
         <VerdictLabel verdict={verdict.verdict} size="large" />
       </div>
-      <p className="package-reason">{sentence(verdict.reason)}.</p>
-      {coverage && (
-        <p className="coverage-line">
-          Compared {plural(coverage.usages, "use")} in{" "}
-          {plural(coverage.files, "file")} ·{" "}
-          {coverage.checked.toLocaleString("en-GB")} followed in both releases ·{" "}
-          {coverage.unchecked.toLocaleString("en-GB")} could not be followed ·{" "}
-          {plural(coverage.upstream_changes, "upstream change")}
-        </p>
+      {!single && (
+        <p className="ci-package-reason">{sentence(verdict.reason)}.</p>
       )}
-      <Release verdict={verdict} />
-      {findings.length > 0 && (
-        <section
-          className="report-block"
-          aria-label={`${verdict.package} findings`}
-        >
-          <h3>What changes for your code</h3>
-          <ol className="finding-list">
-            {findings.map((f, i) => (
-              <FindingEntry key={i} pull={pull} verdict={verdict} finding={f} />
-            ))}
-          </ol>
-        </section>
-      )}
-      {unchecked.length > 0 && (
-        <section
-          className="report-block"
-          aria-label={`${verdict.package} not checked`}
-        >
-          <h3>Not checked</h3>
-          <p className="report-note">
-            These uses could not be followed, and they touch parts of{" "}
+      <Findings pull={pull} verdict={verdict} />
+      {unchecked.length > 0 && verdict.verdict === "not-checked" && (
+        <div className="ci-more-body">
+          <p>
+            These uses could not be followed and touch parts of{" "}
             {verdict.package} that changed in {verdict.end}. Review them by
             hand.
           </p>
           <UncheckedList pull={pull} items={unchecked} />
-        </section>
+        </div>
       )}
-      {limits.length > 0 && (
-        <details className="report-more report-limits">
-          <summary>
-            {plural(limits.length, "other use")} could not be followed but touch
-            nothing this upgrade changed
-          </summary>
-          <UncheckedList pull={pull} items={limits} />
-        </details>
-      )}
-      <Advisories verdict={verdict} />
+      <dl className="ci-facts">
+        <Why verdict={verdict} />
+        <Advisories verdict={verdict} />
+      </dl>
+      <MoreDetail pull={pull} verdict={verdict} />
     </section>
   );
 }
@@ -414,65 +477,74 @@ const PENDING_TEXT: Record<string, string> = {
   failed: "The analysis could not be completed.",
 };
 
-export function PullReport({ pull }: { pull: PullDetail }) {
+export function PullReport({
+  pull,
+  crumb,
+}: {
+  pull: PullDetail;
+  /** Breadcrumb links, shown above the verdict. */
+  crumb?: React.ReactNode;
+}) {
   const manifest = pull.diff?.changed || [];
   const issues = pull.diff?.issues || [];
+  const single = pull.verdicts.length === 1;
   return (
     <>
-      <div className="collection-intro report-intro">
-        <div>
-          <p className="collection-breadcrumb">
-            {pull.repository} · pull request #{pull.number}
-          </p>
-          <h1 className="console-title">
-            {pull.title || `Pull request #${pull.number}`}
-          </h1>
-          <div className="report-summary">
-            <VerdictLabel
-              verdict={pull.verdict}
-              status={pull.status}
-              size="large"
-            />
-            <span>
-              {pull.verdicts.length
-                ? plural(pull.verdicts.length, "package") + " judged"
-                : ""}
-            </span>
-          </div>
-          <p className="pull-meta">
+      <header className="ci-report-head">
+        <p className="ci-crumb">
+          {crumb}
+          <span>
+            #{pull.number} {pull.title || "Untitled pull request"}
+          </span>
+        </p>
+        <h1 className="ci-report-verdict">
+          <VerdictLabel
+            verdict={pull.verdict}
+            status={pull.status}
+            size="large"
+          />
+          <span className="sr-only">
+            {" "}
+            for {pull.repository} pull request #{pull.number}
+          </span>
+        </h1>
+        <p className="ci-report-reason">
+          {pull.verdicts.length === 0
+            ? PENDING_TEXT[pull.status] || PENDING_TEXT.queued
+            : single
+              ? `${sentence(pull.verdicts[0].reason)}.`
+              : `${plural(pull.verdicts.length, "package")} changed. Each is judged below, the worst first.`}
+        </p>
+        <div className="ci-report-meta">
+          <PackageChanges packages={pull.packages} />
+          <span>
             Analysed{" "}
             <time dateTime={pull.updated_at}>
               {formatDate(pull.updated_at)}
             </time>{" "}
-            at <code>{pull.head_sha.slice(0, 7)}</code> ·{" "}
-            <a href={pullUrl(pull.repository, pull.number)}>
-              Open the pull request on GitHub
-              <ArrowUpRight size={12} aria-hidden="true" />
-            </a>
-          </p>
+            at <code translate="no">{pull.head_sha.slice(0, 7)}</code>
+          </span>
+          <a className="ci-link" href={pullUrl(pull.repository, pull.number)}>
+            Pull request on GitHub <ArrowOut />
+          </a>
         </div>
-      </div>
+        {pull.status === "failed" && pull.error && (
+          <p className="ci-note">Failure category: {pull.error}</p>
+        )}
+      </header>
       {pull.verdicts.length > 1 && (
-        <nav className="report-index" aria-label="Packages in this report">
-          <ul>
+        <nav aria-label="Packages in this report">
+          <ul className="ci-index">
             {pull.verdicts.map((v, i) => (
               <li key={`${v.package}-${i}`}>
                 <a href={`#package-${i}`}>
-                  <code>{v.package}</code> {v.start} → {v.end}
+                  <code translate="no">{v.package}</code>
+                  <VerdictLabel verdict={v.verdict} />
                 </a>
-                <VerdictLabel verdict={v.verdict} />
               </li>
             ))}
           </ul>
         </nav>
-      )}
-      {pull.verdicts.length === 0 && (
-        <div className="console-empty" role="status">
-          <p>{PENDING_TEXT[pull.status] || PENDING_TEXT.queued}</p>
-          {pull.status === "failed" && pull.error && (
-            <p className="report-note">Failure category: {pull.error}</p>
-          )}
-        </div>
       )}
       {pull.verdicts.map((v, i) => (
         <PackageVerdict
@@ -480,54 +552,45 @@ export function PullReport({ pull }: { pull: PullDetail }) {
           pull={pull}
           verdict={v}
           index={i}
+          single={single}
         />
       ))}
       {(manifest.length > 0 || issues.length > 0) && (
-        <section
-          className="report-block manifest-block"
-          aria-labelledby="manifest-heading"
-        >
-          <h2 id="manifest-heading">Manifest changes</h2>
-          {manifest.length > 0 && (
-            <ul className="manifest-list">
-              {manifest.map((m, i) => (
-                <li key={`${m.name}-${m.file}-${i}`}>
-                  <code>{m.name}</code>
-                  <span>
-                    {m.old?.locked_version || m.old?.specifier || "unpinned"}
-                    <span aria-hidden="true"> → </span>
-                    <span className="sr-only"> to </span>
-                    {m.new?.locked_version || m.new?.specifier || "unpinned"}
-                  </span>
-                  <small>{m.file}</small>
-                </li>
-              ))}
-            </ul>
-          )}
-          {issues.length > 0 && (
-            <>
-              <p className="report-note">
-                Parts of the manifests could not be read:
-              </p>
-              <ul className="unchecked-list">
-                {issues.map((issue, i) => (
-                  <li key={i}>
-                    <strong>{sentence(issue.reason.replace(/-/g, " "))}</strong>
-                    <span>{sentence(issue.detail)}</span>
-                    <code>{where(issue.location)}</code>
+        <details className="ci-more ci-manifest">
+          <summary>Manifest changes</summary>
+          <div className="ci-more-body">
+            {manifest.length > 0 && (
+              <ul>
+                {manifest.map((m, i) => (
+                  <li key={`${m.name}-${m.file}-${i}`}>
+                    <span>
+                      <code translate="no">{m.name}</code>{" "}
+                      {m.old?.locked_version || m.old?.specifier || "unpinned"}
+                      <span aria-hidden="true"> → </span>
+                      <span className="sr-only"> to </span>
+                      {m.new?.locked_version || m.new?.specifier || "unpinned"}
+                    </span>
+                    <span>{m.file}</span>
                   </li>
                 ))}
               </ul>
-            </>
-          )}
-        </section>
+            )}
+            {issues.length > 0 && (
+              <ul>
+                {issues.map((issue, i) => (
+                  <li key={i}>
+                    <strong>{sentence(issue.reason.replace(/-/g, " "))}</strong>
+                    <span>
+                      {sentence(issue.detail)} ·{" "}
+                      <code>{where(issue.location)}</code>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </details>
       )}
-      <p className="collection-footnote">
-        Verdicts come from fixed rules over a static comparison of both releases
-        against this revision; no model is involved. “No known impact” means
-        everything that could be followed was compared and nothing relevant
-        changed. It is not a guarantee.
-      </p>
     </>
   );
 }

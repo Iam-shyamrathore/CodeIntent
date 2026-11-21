@@ -1,17 +1,20 @@
 :root {
-  --canvas: #0a0d11;
-  --surface: #11161c;
-  --raised: #1a212a;
-  --ink: #e9edf2;
-  --secondary: #9ba8b5;
-  --muted: #76838f;
-  --line: #232c37;
-  --accent: #7ea3f0;
-  --accent-soft: rgba(126, 163, 240, 0.12);
+  /* One palette for the whole site; the workbench pages read the same tokens. */
+  --canvas: #0b0b0a;
+  --surface: #141412;
+  --raised: #1d1c19;
+  --ink: #edebe4;
+  --secondary: #b5b2a8;
+  --muted: #8f8c83;
+  --line: #2b2a26;
+  --accent: #6be4ff;
+  --accent-soft: rgba(107, 228, 255, 0.1);
   --mark: #e9d8a6;
-  --error: #e07076;
-  --font-sans: "IBM Plex Sans", sans-serif;
-  --font-mono: "IBM Plex Mono", monospace;
+  --error: #ff6b5e;
+  --break: #ff4b3e;
+  --font-sans: var(--font-body), "Helvetica Neue", sans-serif;
+  --font-mono: var(--font-code), ui-monospace, monospace;
+  --font-numerals: var(--font-dots), var(--font-code), monospace;
   color-scheme: dark;
 }
 * {
@@ -93,33 +96,25 @@ code {
 .brand {
   display: inline-flex;
   align-items: center;
-  gap: 9px;
-  font-size: 23px;
-  letter-spacing: -0.8px;
-  font-weight: 500;
+  gap: 10px;
+  font-size: 17px;
+  font-weight: 600;
+  font-variation-settings: "wdth" 112;
+  letter-spacing: -0.01em;
   white-space: nowrap;
+  color: var(--ink);
 }
 .brand-mark {
-  font-family: var(--font-mono);
-  font-size: 27px;
-  font-weight: 400;
-  letter-spacing: -5px;
-  margin-right: 7px;
-}
-.brand-mark span {
-  color: var(--accent);
-  display: inline-block;
-  padding: 0 3px;
-}
-.brand-period {
-  color: var(--accent);
-  margin-left: -8px;
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
 }
 .brand-small {
-  font-size: 19px;
+  font-size: 15px;
 }
 .brand-small .brand-mark {
-  font-size: 23px;
+  width: 22px;
+  height: 22px;
 }
 .site-header {
   height: 104px;
