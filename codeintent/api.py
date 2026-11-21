@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
+import base64
 import hmac
 import logging
 import os
 import threading
 from contextlib import asynccontextmanager
+from datetime import datetime
 from uuid import UUID
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Request
+from fastapi import Depends, FastAPI, Header, HTTPException, Path, Query, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, field_validator
 from starlette.concurrency import run_in_threadpool
@@ -380,6 +382,251 @@ async def github_webhook(
         logger.warning("Webhook %s failed (%s)", x_github_event, type(exc).__name__)
         raise HTTPException(500, "Webhook could not be recorded") from None
     return JSONResponse(status_code=code, content=content)
+
+
+# --- GitHub App dashboard (read-only; the web server calls these with the service secret) ---------
+
+GITHUB_NAME = r"^[A-Za-z0-9](?:[A-Za-z0-9._-]{0,99})$"
+VERDICT_ORDER = ("breaks", "not-checked", "needs-change", "no-known-impact")
+
+
+def _encode_cursor(created_at, ident) -> str:
+    raw = f"{created_at.isoformat()}|{ident}".encode()
+    return base64.urlsafe_b64encode(raw).decode().rstrip("=")
+
+
+def _decode_cursor(cursor: str) -> tuple[datetime, UUID]:
+    try:
+        raw = base64.urlsafe_b64decode(cursor + "=" * (-len(cursor) % 4)).decode()
+        stamp, ident = raw.split("|", 1)
+        moment = datetime.fromisoformat(stamp)
+        if moment.tzinfo is None:
+            raise ValueError
+        return moment, UUID(ident)
+    except (ValueError, UnicodeDecodeError):
+        raise HTTPException(400, "Invalid cursor") from None
+
+
+def _package_summary(row: dict) -> list[dict]:
+    """One line per changed package: the verdict when decided, otherwise the manifest change."""
+    verdicts = row.get("verdicts")
+    if isinstance(verdicts, list) and verdicts:
+        return [
+            {
+                "package": v.get("package"),
+                "start": v.get("start"),
+                "end": v.get("end"),
+                "verdict": v.get("verdict"),
+                "label": v.get("label"),
+            }
+            for v in verdicts
+            if isinstance(v, dict)
+        ]
+    changed = (row.get("diff") or {}).get("changed") or []
+    summary = []
+    for change in changed:
+        if not isinstance(change, dict):
+            continue
+        old, new = change.get("old") or {}, change.get("new") or {}
+        summary.append(
+            {
+                "package": change.get("name"),
+                "start": old.get("locked_version") or old.get("specifier") or None,
+                "end": new.get("locked_version") or new.get("specifier") or None,
+                "verdict": None,
+                "label": None,
+            }
+        )
+    return summary
+
+
+def _pull_row(row: dict) -> dict:
+    return {
+        "id": str(row["id"]),
+        "installation_id": row["installation_id"],
+        "repository": row["repository"],
+        "number": row["number"],
+        "title": row["title"],
+        "head_sha": row["head_sha"],
+        "status": row["status"],
+        "verdict": row["verdict"],
+        "packages": _package_summary(row),
+        "error": row["error"],
+        "created_at": row["created_at"],
+        "updated_at": row["updated_at"],
+    }
+
+
+@app.get("/app/installations", dependencies=[Depends(authenticated)])
+def app_installations():
+    with store.connection() as conn:
+        rows = conn.execute(
+            """SELECT i.id,i.account_login,i.account_type,i.suspended,i.created_at,i.updated_at,
+              (SELECT count(*) FROM ci_installation_repositories r WHERE r.installation_id=i.id) AS repositories,
+              (SELECT count(*) FROM ci_pull_analyses a WHERE a.installation_id=i.id) AS analyses
+            FROM ci_installations i WHERE i.deleted_at IS NULL ORDER BY lower(i.account_login),i.id"""
+        ).fetchall()
+    return {"installations": rows}
+
+
+@app.get(
+    "/app/installations/{installation_id}/repositories",
+    dependencies=[Depends(authenticated)],
+)
+def app_installation_repositories(installation_id: int):
+    if installation_id < 1:
+        raise HTTPException(404, "Installation not found")
+    with store.connection() as conn:
+        installation = conn.execute(
+            """SELECT id,account_login,account_type,suspended,created_at FROM ci_installations
+            WHERE id=%s AND deleted_at IS NULL""",
+            (installation_id,),
+        ).fetchone()
+        if not installation:
+            raise HTTPException(404, "Installation not found")
+        rows = conn.execute(
+            """SELECT r.repository_id,r.full_name,r.private,r.created_at,
+              (SELECT count(*) FROM ci_pull_analyses a
+                WHERE a.installation_id=r.installation_id AND a.repository=r.full_name) AS analyses,
+              (SELECT coalesce(jsonb_object_agg(v.verdict,v.n),'{}'::jsonb) FROM (
+                SELECT a.verdict,count(*) AS n FROM ci_pull_analyses a
+                WHERE a.installation_id=r.installation_id AND a.repository=r.full_name AND a.verdict IS NOT NULL
+                GROUP BY a.verdict) v) AS verdict_counts,
+              last.id AS last_id,last.number AS last_number,last.title AS last_title,
+              last.status AS last_status,last.verdict AS last_verdict,last.created_at AS last_created_at,
+              decided.id AS decided_id,decided.number AS decided_number,decided.title AS decided_title,
+              decided.verdict AS decided_verdict,decided.created_at AS decided_created_at
+            FROM ci_installation_repositories r
+            LEFT JOIN LATERAL (
+              SELECT a.id,a.number,a.title,a.status,a.verdict,a.created_at FROM ci_pull_analyses a
+              WHERE a.installation_id=r.installation_id AND a.repository=r.full_name
+              ORDER BY a.created_at DESC,a.id DESC LIMIT 1) last ON true
+            LEFT JOIN LATERAL (
+              SELECT a.id,a.number,a.title,a.verdict,a.created_at FROM ci_pull_analyses a
+              WHERE a.installation_id=r.installation_id AND a.repository=r.full_name AND a.verdict IS NOT NULL
+              ORDER BY a.created_at DESC,a.id DESC LIMIT 1) decided ON true
+            WHERE r.installation_id=%s ORDER BY lower(r.full_name)""",
+            (installation_id,),
+        ).fetchall()
+    repositories = []
+    for row in rows:
+        last = None
+        if row["last_id"]:
+            last = {
+                "id": str(row["last_id"]),
+                "number": row["last_number"],
+                "title": row["last_title"],
+                "status": row["last_status"],
+                "verdict": row["last_verdict"],
+                "created_at": row["last_created_at"],
+            }
+        decided = None
+        if row["decided_id"]:
+            decided = {
+                "id": str(row["decided_id"]),
+                "number": row["decided_number"],
+                "title": row["decided_title"],
+                "verdict": row["decided_verdict"],
+                "created_at": row["decided_created_at"],
+            }
+        repositories.append(
+            {
+                "repository_id": row["repository_id"],
+                "full_name": row["full_name"],
+                "private": row["private"],
+                "created_at": row["created_at"],
+                "analyses": row["analyses"],
+                "verdict_counts": {
+                    k: row["verdict_counts"].get(k, 0) for k in VERDICT_ORDER
+                },
+                "last_analysis": last,
+                "last_verdict": decided,
+            }
+        )
+    return {"installation": installation, "repositories": repositories}
+
+
+@app.get(
+    "/app/repositories/{owner}/{name}/pulls", dependencies=[Depends(authenticated)]
+)
+def app_repository_pulls(
+    owner: str = Path(pattern=GITHUB_NAME, max_length=100),
+    name: str = Path(pattern=GITHUB_NAME, max_length=100),
+    installation: int | None = Query(default=None, ge=1),
+    limit: int = Query(default=20, ge=1, le=100),
+    cursor: str | None = Query(default=None, max_length=200),
+):
+    after = _decode_cursor(cursor) if cursor else None
+    with store.connection() as conn:
+        # Resolve the repository through live installations only, so removed or uninstalled
+        # repositories and other installations' data never surface here.
+        homes = conn.execute(
+            """SELECT r.installation_id,r.full_name,r.private,i.account_login FROM ci_installation_repositories r
+            JOIN ci_installations i ON i.id=r.installation_id AND i.deleted_at IS NULL
+            WHERE lower(r.full_name)=lower(%s) AND (%s::bigint IS NULL OR r.installation_id=%s)
+            ORDER BY r.installation_id""",
+            (f"{owner}/{name}", installation, installation),
+        ).fetchall()
+        if not homes:
+            raise HTTPException(404, "Repository not found")
+        ids = [h["installation_id"] for h in homes]
+        full_name = homes[0]["full_name"]
+        rows = conn.execute(
+            """SELECT id,installation_id,repository,number,title,head_sha,status,verdict,verdicts,
+              jsonb_build_object('changed',diff->'changed') AS diff,error,created_at,updated_at
+            FROM ci_pull_analyses
+            WHERE installation_id=ANY(%s) AND repository=%s
+              AND (%s::timestamptz IS NULL OR (created_at,id)<(%s::timestamptz,%s::uuid))
+            ORDER BY created_at DESC,id DESC LIMIT %s""",
+            (
+                ids,
+                full_name,
+                after and after[0],
+                after and after[0],
+                after and after[1],
+                limit + 1,
+            ),
+        ).fetchall()
+    more = len(rows) > limit
+    rows = rows[:limit]
+    return {
+        "repository": {
+            "full_name": full_name,
+            "private": any(h["private"] for h in homes),
+            "installation_id": ids[0],
+            "account_login": homes[0]["account_login"],
+        },
+        "pulls": [_pull_row(r) for r in rows],
+        "next_cursor": _encode_cursor(rows[-1]["created_at"], rows[-1]["id"])
+        if more
+        else None,
+    }
+
+
+@app.get("/app/pulls/{analysis_id}", dependencies=[Depends(authenticated)])
+def app_pull(analysis_id: UUID, installation: int | None = Query(default=None, ge=1)):
+    with store.connection() as conn:
+        row = conn.execute(
+            """SELECT a.id,a.installation_id,a.repository,a.number,a.title,a.head_sha,a.base_sha,
+              a.status,a.verdict,a.verdicts,a.diff,a.error,a.created_at,a.updated_at,
+              i.account_login,coalesce(r.private,true) AS private
+            FROM ci_pull_analyses a
+            JOIN ci_installations i ON i.id=a.installation_id AND i.deleted_at IS NULL
+            LEFT JOIN ci_installation_repositories r
+              ON r.installation_id=a.installation_id AND r.full_name=a.repository
+            WHERE a.id=%s AND (%s::bigint IS NULL OR a.installation_id=%s)""",
+            (analysis_id, installation, installation),
+        ).fetchone()
+    if not row:
+        raise HTTPException(404, "Analysis not found")
+    return {
+        **_pull_row(row),
+        "base_sha": row["base_sha"],
+        "account_login": row["account_login"],
+        "private": row["private"],
+        "diff": row["diff"],
+        "verdicts": row["verdicts"] if isinstance(row["verdicts"], list) else [],
+    }
 
 
 @app.exception_handler(store.QuotaExceeded)
