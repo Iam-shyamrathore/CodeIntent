@@ -221,6 +221,10 @@ def _relocated(verdict: UpgradeVerdict, project: str) -> UpgradeVerdict:
                 u.model_copy(update={"location": _within(project, u.location)})
                 for u in verdict.limits
             ),
+            "usages": tuple(
+                u.model_copy(update={"location": _within(project, u.location)})
+                for u in verdict.usages
+            ),
         }
     )
 

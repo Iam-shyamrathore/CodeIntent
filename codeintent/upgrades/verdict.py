@@ -17,6 +17,7 @@ import griffe
 import httpx
 from packaging.utils import canonicalize_name
 from packaging.version import InvalidVersion, Version
+from pydantic import Field
 
 from codeintent.upgrades import advisories as osv
 from codeintent.upgrades import artifacts, manifests
@@ -27,6 +28,7 @@ from codeintent.upgrades.models import (
     Record,
     ReleaseRange,
     Unchecked,
+    Usage,
     UsageCheck,
 )
 from codeintent.upgrades.releases import locate
@@ -86,6 +88,8 @@ class UpgradeVerdict(Record):
     advisories: tuple[AdvisoryCheck, ...] = ()
     decisions: tuple[UpstreamDecision, ...] = ()
     """The upstream pull request behind each finding, in the order of ``findings``."""
+    usages: tuple[Usage, ...] = Field(default=(), exclude=True)
+    """Every use of the package that was found (not serialised; runs keep them for the workspace graph)."""
 
 
 def _severity(change: APIChange, guard: str | None) -> tuple[Severity, bool]:
@@ -255,6 +259,7 @@ def decide(
             f"and none changed; {len(limits)} could not be followed, but touch nothing this upgrade changed"
         )
     return UpgradeVerdict(
+        usages=usages.usages,
         package=package,
         start=start,
         end=end,

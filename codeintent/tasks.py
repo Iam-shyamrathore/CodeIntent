@@ -315,7 +315,10 @@ def analyze_pull_request(context, analysis_id: str):
                     "unreadable": unreadable,
                     "conclusion": result["conclusion"],
                 },
-                result={"verdicts": dumped},
+                result={
+                    "verdicts": dumped,
+                    "usages": {v.package: runs.usage_rows(v) for v in verdicts},
+                },
             )
         try:
             notify_telegram.defer(analysis_id=analysis_id)
@@ -460,6 +463,46 @@ def notify_upcoming(installation_id: int):
     except Exception as exc:
         logger.warning("Upcoming alert failed (%s)", type(exc).__name__)
         raise RuntimeError(type(exc).__name__) from None
+
+
+@app.task(
+    name="project_run",
+    queue="maintenance",
+    retry=procrastinate.RetryStrategy(max_attempts=5, wait=60),
+)
+def project_run(run_id: str):
+    """Copy a finished run into its workspace graph in Neo4j."""
+    from codeintent import workspace_graph
+
+    if not workspace_graph.configured():
+        return
+    try:
+        counts = workspace_graph.project(run_id)
+    except Exception as exc:
+        logger.warning("Graph projection of %s failed (%s)", run_id, type(exc).__name__)
+        raise RuntimeError(type(exc).__name__) from None
+    if counts:
+        logger.info(
+            "Projected run %s: %s nodes, %s relationships",
+            run_id,
+            counts["nodes"],
+            counts["relationships"],
+        )
+
+
+@app.periodic(cron="*/5 * * * *")
+@app.task(name="project_pending_runs", queue="maintenance")
+def project_pending_runs(timestamp: int):
+    """Catch up runs whose projection never happened (Neo4j unreachable, or queued before a restart)."""
+    from codeintent import runs
+
+    with store.connection() as conn:
+        pending = conn.execute(
+            """SELECT id FROM ci_runs WHERE finished_at IS NOT NULL AND projected_at IS NULL
+              AND finished_at < now()-interval '2 minutes' ORDER BY finished_at LIMIT 50"""
+        ).fetchall()
+    for row in pending:
+        runs.queue_projection(str(row["id"]))
 
 
 @app.periodic(cron="*/10 * * * *")

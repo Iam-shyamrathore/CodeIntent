@@ -1041,6 +1041,121 @@ def app_breaks(
     }
 
 
+PACKAGE_NAME = r"^[A-Za-z0-9](?:[A-Za-z0-9._-]{0,98}[A-Za-z0-9])?$"
+
+
+def _workspaces(scope: list[int] | None) -> list[int]:
+    """The workspace graphs a caller may read: the scoped installations, or every live one."""
+    with store.connection() as conn:
+        return [
+            r["id"]
+            for r in conn.execute(
+                """SELECT id FROM ci_installations WHERE deleted_at IS NULL
+                AND (%s::bigint[] IS NULL OR id=ANY(%s::bigint[])) ORDER BY id""",
+                (scope, scope),
+            ).fetchall()
+        ]
+
+
+def _graph():
+    from codeintent import graph, workspace_graph
+
+    if not workspace_graph.configured():
+        raise HTTPException(503, "The workspace graph is not configured")
+    return graph.driver()
+
+
+@app.get("/app/graph/impact", dependencies=[Depends(authenticated)])
+def app_graph_impact(
+    package: str = Query(pattern=PACKAGE_NAME, max_length=100),
+    version: str | None = Query(default=None, max_length=64),
+    installations: list[int] | None = Query(default=None),
+):
+    """Every line in your repositories that a known change in ``package`` touches, from the graph."""
+    from packaging.utils import canonicalize_name
+
+    from codeintent import workspace_graph
+
+    scope = _installation_scope(installations)
+    name = canonicalize_name(package)
+    try:
+        with _graph() as db:
+            lines = [
+                {**row, "installation_id": ws}
+                for ws in _workspaces(scope)
+                for row in workspace_graph.impact(db, ws, name, version)
+            ]
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.warning("Graph impact query failed (%s)", type(exc).__name__)
+        raise HTTPException(503, "The workspace graph is unavailable") from None
+    return {
+        "package": name,
+        "version": version,
+        "repositories": sorted({line["repository"] for line in lines}),
+        "lines": lines,
+    }
+
+
+@app.get("/app/graph/usages", dependencies=[Depends(authenticated)])
+def app_graph_usages(
+    package: str = Query(pattern=PACKAGE_NAME, max_length=100),
+    symbol: str | None = Query(default=None, max_length=300),
+    installations: list[int] | None = Query(default=None),
+):
+    """Where your default branches use ``package`` (or one symbol of it), from the graph."""
+    from packaging.utils import canonicalize_name
+
+    from codeintent import workspace_graph
+
+    scope = _installation_scope(installations)
+    try:
+        with _graph() as db:
+            rows = [
+                {**row, "installation_id": ws}
+                for ws in _workspaces(scope)
+                for row in workspace_graph.usages(
+                    db, ws, canonicalize_name(package), symbol
+                )
+            ]
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.warning("Graph usage query failed (%s)", type(exc).__name__)
+        raise HTTPException(503, "The workspace graph is unavailable") from None
+    return {"usages": rows}
+
+
+@app.get("/app/runs/{run_id}/graph", dependencies=[Depends(authenticated)])
+def app_run_graph(run_id: UUID, installations: list[int] | None = Query(default=None)):
+    """The run's part of the workspace graph, for drawing: nodes and edges."""
+    from codeintent import workspace_graph
+
+    scope = _installation_scope(installations)
+    with store.connection() as conn:
+        row = conn.execute(
+            """SELECT installation_id,projected_at FROM ci_runs WHERE id=%s
+              AND (%s::bigint[] IS NULL OR installation_id=ANY(%s::bigint[]))""",
+            (run_id, scope, scope),
+        ).fetchone()
+    if not row:
+        raise HTTPException(404, "Run not found")
+    if not row["projected_at"]:
+        return {"projected": False, "nodes": [], "edges": []}
+    try:
+        with _graph() as db:
+            found = workspace_graph.run_graph(
+                db, row["installation_id"] or 0, str(run_id)
+            )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.warning("Run graph query failed (%s)", type(exc).__name__)
+        raise HTTPException(503, "The workspace graph is unavailable") from None
+    return {"projected": True, **found}
+
+
 @app.get("/app/ops", dependencies=[Depends(operator)])
 def app_ops():
     """Operator view of the deployment: queue, worker, webhooks, verdicts, scans, Telegram, MCP."""

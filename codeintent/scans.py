@@ -228,6 +228,12 @@ def _scan(installation_id: int, repository: str, client, pypi, previous, run) ->
                 )
             items += found_items
         dumped = [i.model_dump(mode="json") for i in items]
+        usages: dict[str, list] = {}
+        for item in items:
+            if item.verdict:
+                usages.setdefault(item.package, []).extend(
+                    runs.usage_rows(item.verdict)
+                )
         with run.step("record breaks") as note, store.connection() as conn:
             counts = breaks.record(
                 conn,
@@ -264,7 +270,7 @@ def _scan(installation_id: int, repository: str, client, pypi, previous, run) ->
             "liftable_pins": sum(1 for i in dumped if i.get("lift") == "can-be-lifted"),
             "unreadable": unreadable,
         },
-        result={"items": dumped},
+        result={"items": dumped, "usages": usages},
     )
     return "done"
 

@@ -150,6 +150,37 @@ def recorded(
                 run.finish("failed", error=category(exc))
             except Exception:
                 logger.warning("Could not record the failure of run %s", ident)
+        queue_projection(ident)
         raise
     if not run.finished:
         run.finish()
+    queue_projection(ident)
+
+
+def queue_projection(run_id: str) -> None:
+    """Queue the run's copy into the workspace graph; works from the API, worker and scan processes."""
+    try:
+        from codeintent.tasks import project_run
+
+        with store.connection() as conn:
+            project_run.configure(connection=conn).defer(run_id=run_id)
+    except Exception as exc:
+        # The periodic catch-up projects it later; a run never fails because of the graph.
+        logger.warning("Could not queue the graph projection (%s)", type(exc).__name__)
+
+
+MAX_USAGES = 2000
+
+
+def usage_rows(verdict) -> list[dict]:
+    """Every use of an ``UpgradeVerdict``'s package, compact, for the run's result and the graph."""
+    return [
+        {
+            "symbol": u.symbol,
+            "kind": u.kind,
+            "keywords": list(u.keywords),
+            "file": u.location.file,
+            "line": u.location.line,
+        }
+        for u in verdict.usages[:MAX_USAGES]
+    ]
