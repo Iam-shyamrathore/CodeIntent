@@ -106,7 +106,18 @@ def run(installation_id: int, repository: str, client, pypi) -> str:
             ON CONFLICT(installation_id,repository) DO UPDATE SET status='running',error=NULL,updated_at=now()""",
             (installation_id, repository),
         )
-    meta = client.json(f"/repos/{repository}")
+    response = client.get(f"/repos/{repository}")
+    if response.status_code == 404:
+        # No longer readable by this installation (deselected, deleted or made private elsewhere):
+        # re-read the installation's list from GitHub rather than trusting a missed webhook.
+        from codeintent.github_app import accessible_repositories, reconcile
+
+        with store.connection() as conn:
+            reconcile(conn, installation_id, accessible_repositories(client))
+        fail(installation_id, repository, "not-found")
+        return "removed"
+    response.raise_for_status()
+    meta = response.json()
     branch = meta.get("default_branch")
     if meta.get("archived") or not branch:
         _finish(

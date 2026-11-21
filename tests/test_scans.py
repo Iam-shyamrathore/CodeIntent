@@ -164,11 +164,24 @@ def test_only_merges_into_the_default_branch_rescan(schema):
 class GitHubStub:
     """The three GitHub reads a scan makes before it downloads anything, as GitHub shapes them."""
 
-    def __init__(self, paths: list[str]):
-        self.paths, self.calls = paths, []
+    def __init__(self, paths: list[str], accessible: list[dict] | None = None):
+        self.paths, self.calls, self.accessible = paths, [], accessible
+
+    def get(self, path: str, params=None):
+        request = httpx.Request("GET", "https://api.github.com" + path)
+        if self.accessible is not None and not any(
+            path == f"/repos/{r['full_name']}" for r in self.accessible
+        ):
+            return httpx.Response(404, json={"message": "Not Found"}, request=request)
+        return httpx.Response(200, json=self.json(path, params), request=request)
 
     def json(self, path: str, params=None):
         self.calls.append(path)
+        if path == "/installation/repositories":
+            return {
+                "total_count": len(self.accessible or []),
+                "repositories": self.accessible or [],
+            }
         if path.endswith("/branches/main"):
             return {"name": "main", "commit": {"sha": SHA}}
         if "/git/trees/" in path:
@@ -223,6 +236,33 @@ def test_unwatched_repositories_drop_their_scan(schema):
         assert not conn.execute(
             "SELECT 1 FROM ci_repository_scans WHERE repository='acme/gone'"
         ).fetchone()
+
+
+@integration
+def test_a_repository_gone_on_github_reconciles_the_installation(schema):
+    """GitHub sent no removal webhook: the scan's 404 re-reads the list and drops what is gone."""
+    watch()
+    with store.connection() as conn:
+        conn.execute(
+            "INSERT INTO ci_installation_repositories(installation_id,repository_id,full_name) VALUES (21,2,'acme/old')"
+        )
+    demo = {"id": 3, "full_name": "acme/demo", "private": False}
+    stub = GitHubStub(["requirements.txt"], accessible=[demo])
+    assert scans.run(21, "acme/app", stub, None) == "removed"
+    with store.connection() as conn:
+        assert [
+            r["full_name"]
+            for r in conn.execute(
+                "SELECT full_name FROM ci_installation_repositories ORDER BY full_name"
+            ).fetchall()
+        ] == ["acme/demo"]
+        assert [
+            r["repository"]
+            for r in conn.execute(
+                "SELECT repository FROM ci_repository_scans"
+            ).fetchall()
+        ] == ["acme/demo"]
+    assert [j["args"]["repository"] for j in jobs()] == ["acme/demo"]
 
 
 @pytest.fixture
@@ -303,8 +343,11 @@ class PublicGitHub:
             timeout=30,
         )
 
+    def get(self, path: str, params=None):
+        return self.http.get(path, params=params)
+
     def json(self, path: str, params=None):
-        response = self.http.get(path, params=params)
+        response = self.get(path, params=params)
         response.raise_for_status()
         return response.json()
 

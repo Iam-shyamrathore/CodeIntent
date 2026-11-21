@@ -401,6 +401,50 @@ def _remove_repositories(conn, installation_id: int, repositories: list[dict]):
         )
 
 
+def accessible_repositories(client: Client) -> list[dict]:
+    """Every repository the installation can read now (GET /installation/repositories)."""
+    repositories, page = [], 1
+    while True:
+        body = client.json(
+            "/installation/repositories", params={"per_page": 100, "page": page}
+        )
+        batch = body.get("repositories") or []
+        repositories += batch
+        if len(batch) < 100 or len(repositories) >= body.get("total_count", 0):
+            return repositories
+        page += 1
+
+
+def reconcile(conn, installation_id: int, repositories: list[dict]) -> dict:
+    """Make the recorded repositories match GitHub's list, since webhooks can be missed.
+
+    Returns the full names added and removed; added ones are queued for a scan.
+    """
+    recorded = {
+        r["repository_id"]: r["full_name"]
+        for r in conn.execute(
+            "SELECT repository_id,full_name FROM ci_installation_repositories WHERE installation_id=%s",
+            (installation_id,),
+        ).fetchall()
+    }
+    current = {int(r["id"]): r for r in repositories}
+    gone = [{"id": i} for i in recorded if i not in current]
+    new = [r for i, r in current.items() if i not in recorded]
+    _remove_repositories(conn, installation_id, gone)
+    _add_repositories(conn, installation_id, list(current.values()))
+    conn.execute(
+        """DELETE FROM ci_repository_scans s WHERE s.installation_id=%s AND NOT EXISTS(
+          SELECT 1 FROM ci_installation_repositories r
+          WHERE r.installation_id=s.installation_id AND r.full_name=s.repository)""",
+        (installation_id,),
+    )
+    _scan(conn, installation_id, new)
+    return {
+        "added": sorted(r["full_name"] for r in new),
+        "removed": sorted(recorded[g["id"]] for g in gone),
+    }
+
+
 def _scan(conn, installation_id: int, repositories: list[dict] | None):
     from codeintent import scans
 

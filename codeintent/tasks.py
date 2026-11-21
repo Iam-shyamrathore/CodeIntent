@@ -341,8 +341,38 @@ def scan_repository(installation_id: int, repository: str):
 @app.task(name="scan_all_repositories", queue="maintenance")
 def scan_all_repositories(timestamp: int):
     """Daily: new releases appear without any change to the repository, so every watched one is rescanned."""
+    from codeintent import github_app as gh
     from codeintent import scans
 
+    with store.connection() as conn:
+        installations = [
+            r["id"]
+            for r in conn.execute(
+                "SELECT id FROM ci_installations WHERE deleted_at IS NULL AND NOT suspended"
+            ).fetchall()
+        ]
+    for installation_id in installations:
+        client = gh.Client.for_installation(installation_id)
+        try:
+            repositories = gh.accessible_repositories(client)
+            with store.connection() as conn:
+                changed = gh.reconcile(conn, installation_id, repositories)
+            if changed["added"] or changed["removed"]:
+                logger.info(
+                    "Installation %s: %s repositories added, %s removed since the last webhook",
+                    installation_id,
+                    len(changed["added"]),
+                    len(changed["removed"]),
+                )
+        except Exception as exc:
+            # Keep the recorded list; a later sweep tries again.
+            logger.warning(
+                "Could not list repositories of installation %s (%s)",
+                installation_id,
+                type(exc).__name__,
+            )
+        finally:
+            client.close()
     with store.connection() as conn:
         queued = scans.defer_all(conn)
     logger.info("Queued %s repository scans", queued)
