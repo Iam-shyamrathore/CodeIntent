@@ -170,6 +170,13 @@ def test_tool_errors_and_unknown_tools_go_back_to_the_model(model, repo):
     assert errors[1] == "error: there is no tool named rm_rf"
 
 
+def test_answer_schemas_keep_fields_named_like_schema_keywords():
+    schema = harness._inline(news.Reports.model_json_schema())
+    report = schema["properties"]["items"]["items"]
+    assert "title" in report["properties"] and "title" in report["required"]
+    assert "$ref" not in str(schema) and "title" not in schema
+
+
 def test_long_results_keep_head_and_tail():
     cut = harness.clip("a" * 5000 + "b" * 5000, 1000)
     assert cut.startswith("a" * 500) and cut.endswith("b" * 500)

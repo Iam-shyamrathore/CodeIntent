@@ -127,11 +127,16 @@ def _inline(schema: dict) -> dict:
     """A JSON schema with ``$ref``s replaced by their definitions, as function declarations want."""
     defs = schema.get("$defs", {})
 
-    def walk(node):
+    def walk(node, fields: bool = False):
+        """``fields``: ``node`` maps property names to schemas, so a key named ``title`` is a field."""
         if isinstance(node, dict):
-            if "$ref" in node:
+            if "$ref" in node and not fields:
                 return walk(defs[node["$ref"].split("/")[-1]])
-            return {k: walk(v) for k, v in node.items() if k not in ("$defs", "title")}
+            return {
+                k: walk(v, fields=not fields and k == "properties")
+                for k, v in node.items()
+                if fields or k not in ("$defs", "title")
+            }
         if isinstance(node, list):
             return [walk(v) for v in node]
         return node
