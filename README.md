@@ -19,6 +19,27 @@ changes, security news), and their output is always labelled as the agent's.
 | API and MCP endpoint | `https://codeintent-api-ded80aad7f4b.herokuapp.com/mcp` |
 | Five-minute walkthrough | [docs/evaluator-guide.md](docs/evaluator-guide.md) |
 
+## Why teams need it
+
+Dependabot and Renovate open upgrade PRs; nobody tells you which ones are safe to merge. Teams either let
+them pile up, which keeps vulnerable versions in production, or merge on green CI and find the break
+later. Version numbers don't help: in our labelled set of real upgrades, **6 of the 15 that broke real
+projects were minor-version bumps** (click 8.1, jinja2 3.1, markupsafe 2.1, itsdangerous 2.1,
+werkzeug 2.1, httpx 0.28).
+
+- **Not an AI reviewer:** a dependency PR's diff is one line in a lock file. The break is in the
+  library, so CodeIntent compares both releases against the calls you actually make.
+- **Not a replacement for your agent:** Claude Code, Cursor and Codex are customers of CodeIntent through
+  MCP. It tells them exactly what to fix and how to verify it.
+- **Not a crowd score:** compatibility scores average other repositories' CI. CodeIntent answers for
+  *your* call sites, with a line number and the upstream PR.
+- **It gets stronger with use:** release API diffs and the ecosystem graph are computed once and shared
+  across workspaces, while private code stays isolated.
+
+Free for public repositories; Team for private repositories and AI agents; self-hosted for teams whose
+code can't leave their network. Billing isn't live during the beta. Users, alternatives, business model,
+go-to-market and risks: [docs/market.md](docs/market.md).
+
 ## What a developer gets
 
 On a dependency pull request, CodeIntent adds one check run and one comment, and edits the comment in
@@ -269,7 +290,7 @@ Heroku Postgres. See [docs/deployment.md](docs/deployment.md) and [docs/operatio
 
 ## Documentation
 
-[Architecture](docs/architecture.md) · [Agents](docs/agents.md) · [MCP](docs/mcp.md) ·
+[Market fit](docs/market.md) · [Architecture](docs/architecture.md) · [Agents](docs/agents.md) · [MCP](docs/mcp.md) ·
 [Neo4j](docs/neo4j.md) · [Threat model](docs/security/threat-model.md) ·
 [Security log](docs/security/remediation-log.md) · [Operations](docs/operations.md) ·
 [Deployment](docs/deployment.md) · [Third-party notices](THIRD_PARTY_NOTICES.md)
