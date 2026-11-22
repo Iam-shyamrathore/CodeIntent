@@ -7,6 +7,7 @@ pull request checks, which keep their own two slots.
 """
 
 import asyncio
+import os
 import signal
 
 from codeintent.tasks import app, heartbeat
@@ -45,5 +46,7 @@ async def main() -> None:
 
 
 if __name__ == "__main__":
+    # Child processes (scans, agent reviews) inherit this; see ``runs.queue_projection``.
+    os.environ["CODEINTENT_PROCESS"] = "worker"
     heartbeat.func(0)
     asyncio.run(main())

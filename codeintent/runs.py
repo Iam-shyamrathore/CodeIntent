@@ -158,7 +158,21 @@ def recorded(
 
 
 def queue_projection(run_id: str) -> None:
-    """Queue the run's copy into the workspace graph; works from the API, worker and scan processes."""
+    """Copy the run into the workspace graph: at once in worker processes (checks, scans, agents), where
+    jobs queued from inside a running job were being lost; as a queued job from the API (MCP calls), so an
+    agent's answer never waits on Neo4j. The periodic catch-up covers anything that slips through."""
+    import os
+
+    if os.getenv("CODEINTENT_PROCESS") == "worker":
+        try:
+            from codeintent import workspace_graph
+
+            if workspace_graph.configured():
+                workspace_graph.project(run_id)
+            return
+        except Exception as exc:
+            logger.warning("Could not project run %s (%s)", run_id, type(exc).__name__)
+            return
     try:
         from codeintent.tasks import project_run
 
