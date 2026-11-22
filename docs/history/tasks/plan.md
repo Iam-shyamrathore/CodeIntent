@@ -8,7 +8,7 @@ CodeIntent tells a team whether a Python dependency upgrade breaks their code an
 
 ## Architecture decisions
 
-- **Research record:** [docs/research/phase-1-verdict-engine.md](../docs/research/phase-1-verdict-engine.md) holds the reuse decisions, experiments and sources behind this plan.
+- **Research record:** [docs/research/phase-1-verdict-engine.md](../../research/phase-1-verdict-engine.md) holds the reuse decisions, experiments and sources behind this plan.
 - **Verdicts are consumer-driven.** For every symbol and keyword argument the consumer uses, resolve it in both library versions using griffe's static model (`allow_inspection=False`), including non-public aliases. griffe's own breakage list alone caught only 2 of the 4 real outages; consumer-driven resolution caught 4 of 4.
 - **Usage extraction uses LibCST** (scope and qualified-name metadata), following module-level aliases, local subclasses of library classes and `**kwargs` forwarding to `super().__init__` (needed for the real openai-python break).
 - **Verdicts are deterministic. The model only explains.** "Breaks you" comes from static facts: the symbols and arguments your code uses, intersected with the API difference between the two library versions. The model links each difference to the upstream PR that explains it and drafts the replacement text, and every quote goes through the existing citation validation. A verdict never depends on model judgement alone.

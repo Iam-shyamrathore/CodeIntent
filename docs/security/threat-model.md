@@ -1,7 +1,8 @@
 # CodeIntent threat model
 
 Scope: the GitHub App (webhooks, checks, comments), the API and worker on Heroku, the web dashboard on
-Vercel, the Telegram bot, the MCP endpoint, and the analysis engine. Last reviewed 21 Nov 2026.
+Vercel, the Telegram bot, the MCP endpoint, the analysis engine, the Neo4j code graph and the LLM agents.
+Last reviewed 22 Nov 2026.
 
 ## Assets
 
@@ -11,6 +12,8 @@ Vercel, the Telegram bot, the MCP endpoint, and the analysis engine. Last review
 | GitHub App private key, webhook secret | Heroku config only | The key mints installation tokens for every customer |
 | Installation tokens | In memory, cached until 5 minutes before expiry | One hour of read access to an installation's repositories |
 | Verdicts, scans, pin origins | PostgreSQL, scoped by `installation_id` | Reveal dependency and code structure of private repositories |
+| Code maps and the workspace graph | PostgreSQL (`code_maps`) and Neo4j, every workspace node carrying its installation id | Reveal the structure of private code: files, functions, calls |
+| Gemini (Vertex) credentials, Serper key | Heroku config only | Spend, and the agents' access to models and web search |
 | Telegram bot token, MCP tokens | Heroku config; MCP tokens only as SHA-256 | Send messages as the bot; read a workspace's verdicts and repositories |
 | Service secret, operator key, session secret | Heroku and Vercel config | The web server's authority over the API |
 
@@ -24,6 +27,9 @@ Vercel, the Telegram bot, the MCP endpoint, and the analysis engine. Last review
 4. **Agents → API** (`/mcp`): bearer tokens, each bound to one installation.
 5. **Telegram → API** (`/telegram/webhook`): Telegram's `secret_token` header, compared in constant time.
 6. **Engine → third-party code**: library releases and customer repositories are untrusted input.
+7. **Agents → untrusted text**: repository code, release notes, PR text and web pages that an agent reads
+   are data, never instructions.
+8. **Workspace graph → shared graph**: public package facts are shared; workspace nodes are not.
 
 ## Threats and mitigations
 
@@ -41,6 +47,12 @@ Vercel, the Telegram bot, the MCP endpoint, and the analysis engine. Last review
 | T9 | Supply chain of CI itself | Actions pinned by commit; read-only job token; checkout keeps no credentials | `.github/workflows/ci.yml` |
 | T10 | A missed webhook leaves access to deselected repositories recorded | The daily sweep and any scan that gets a 404 re-read the installation's repositories from GitHub and drop what is gone, with their scans | `tests/test_scans.py::test_a_repository_gone_on_github_reconciles_the_installation` |
 | T11 | Resource exhaustion from huge repositories or many scans | 300 MB tarball cap, 40 packages and 8 projects per scan, scans one at a time in a child process, MCP concurrency 1 on the web dyno | Production run: 1.1 GB before isolation, no R14/R15 after |
+| T12 | Prompt injection: a web page, release note or repository file tells an agent to leak data or act | Every agent tool only reads, so no tool can write, post or send data out; prompts ship with CodeIntent, and repository content goes in only as quoted data; agents run on their own queue in a child process and can't change a verdict | `tests/test_agent.py` |
+| T13 | SSRF or data exfiltration through the news agent's page reader | `read_page` opens only links returned by `web_search` in the same session, and only when every address its host resolves to is public (no private, loopback, link-local or metadata addresses); redirects are checked again | `tests/test_agent.py::test_web_pages_only_open_from_this_sessions_search`, `::test_private_addresses_are_not_web_pages`, `::test_names_that_resolve_to_private_addresses_are_not_web_pages` |
+| T14 | An agent fabricates evidence or a fix and it is shown as fact | Answers must match a schema; quotes must appear in the file or release note that was read; news needs a page that was read and a real advisory id; edits must match the file and are confirmed only by CodeIntent analysing the patched copy; the label says only what was checked | `tests/test_agent.py` (`test_assessments_need_quotes_from_the_file`, `test_news_reports_need_a_page_that_was_read_and_a_real_id`, `test_codeintent_confirms_a_patch_by_analysing_the_patched_copy`) |
+| T15 | Markdown or HTML injection into a PR comment through agent output | Agent prose has links, images and HTML removed; code and diffs are fenced | `tests/test_agent.py::test_agent_prose_cannot_carry_links_or_html` |
+| T16 | One workspace's code graph is read through another's query, or leaks into the shared graph | Workspace ids are prefixed `ws\|` and carry the installation id, which every graph query filters on; public `pub\|` nodes hold no workspace data; Neo4j is rebuilt from PostgreSQL, so a projection bug can't lose data | `tests/test_workspace_graph.py::test_impact_finds_lines_no_run_compared_and_stays_in_its_workspace` |
+| T17 | Runaway agent cost or a hung job | A turn budget for each agent with a forced final submit; tool output capped at 8,000 characters; one agent worker slot; timeouts and retries, then a fallback model | `tests/test_agent.py::test_the_last_turn_may_only_submit` |
 
 ## Residual risks
 
@@ -48,4 +60,6 @@ Vercel, the Telegram bot, the MCP endpoint, and the analysis engine. Last review
 | --- | --- | --- |
 | Access is per installation, not per repository: in an organisation, anyone who can reach one installed repository sees verdicts for all of that installation's repositories | Matches how GitHub scopes the App; acceptable for single-team installations | Check repository access per user via `GET /user/installations/{id}/repositories` |
 | The GitHub response cache on the worker's disk can hold data from private repositories | Cache entries are only reached after an authenticated read of the same repository succeeded; the disk is ephemeral and single-tenant | Key cache entries by installation, or skip the cache for private repositories |
-| Credentials pasted into chat during setup (webhook secret, Telegram token, a client secret) and the App private key printed in an operator session | Exposure was limited to the setup conversation | Rotate all four (see the remediation log) |
+| Credentials pasted into chat during setup (webhook secret, Telegram token, a client secret, the Serper key and the Neo4j password) and the App private key printed in an operator session | Exposure was limited to the setup conversation | Rotate all of them (see the remediation log) |
+| Security-news reports come from web pages and may be wrong | Shown as reports with their source, and checked against OSV.dev; CodeIntent alone decides whether the locked version is in range | Ask a second source to corroborate a report before it alerts |
+| DNS rebinding between the page reader's address check and its connection | Only links from that session's own search results can be opened, and the reader sends no credentials or workspace data | Pin the connection to the address that was checked |

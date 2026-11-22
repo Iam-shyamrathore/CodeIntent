@@ -1,7 +1,7 @@
 [project]
 name = "code-intent"
 version = "1.0.0"
-description = "Evidence-backed software decision investigations"
+description = "Dependency-upgrade impact analysis for GitHub pull requests, with a Neo4j code graph and MCP tools"
 requires-python = ">=3.12,<3.13"
 dependencies = [
   "fastapi==0.162.0",

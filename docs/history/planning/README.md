@@ -2,7 +2,7 @@
 
 Planning baseline: 1 November 2026. Working product name: Code Intent.
 
-This directory retains the original product, design and technical planning baseline. A deployable bounded public-workspace release now exists. Use the root [README](../README.md), [deployment guide](../docs/deployment.md), and [validation report](../docs/validation.md) for current setup and verified results. The feasibility report is historical; original targets are not blanket claims of completed hosted or human-reviewed evaluation.
+This directory retains the original product, design and technical planning baseline. A deployable bounded public-workspace release now exists. Use the root [README](../../../README.md), [deployment guide](../../deployment.md), and [validation report](../../validation.md) for current setup and verified results. The feasibility report is historical; original targets are not blanket claims of completed hosted or human-reviewed evaluation.
 
 ## Decisions already made
 

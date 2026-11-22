@@ -11,7 +11,7 @@ The supported portable target is Docker Compose on a VM, or the same web/API/wor
 | Worker | same API image | no ingress | seed demo then Procrastinate worker |
 | PostgreSQL | `postgres:17-alpine` | 5432, internal | canonical ledger, reports, queue |
 | Neo4j | `neo4j:5.26-community` | Bolt 7687, internal | rebuildable scoped evidence projection |
-| Caddy, optional | `compose.https.yaml` | 80/443 | TLS termination and web reverse proxy |
+| Caddy, optional | `infra/compose.https.yaml` | 80/443 | TLS termination and web reverse proxy |
 
 The exact application packages are locked in `package-lock.json`, `uv.lock` and `requirements.txt`. Database base images use the declared maintenance tags; record the resolved digests when promoting a release. Do not reuse another running database's volume. This project uses separate `*_ledger_v1` and `*_graph_v1` volumes; changing `COMPOSE_PROJECT_NAME` isolates an additional stack.
 
@@ -45,10 +45,10 @@ There are no `NEXT_PUBLIC_*` secrets. API and worker need no browser credentials
 
 1. **Express Mode:** set `GOOGLE_API_KEY`; all other credential mechanisms can remain empty.
 2. **Attached Google Cloud identity / ADC:** leave the key and file settings empty, set project and location, and grant the runtime identity the Vertex permissions appropriate to that project. Runtime SDK calls use ADC; this does not silently switch provider.
-3. **Service-account JSON:** set an absolute host path in `GOOGLE_APPLICATION_CREDENTIALS` and combine `compose.credentials.yaml` with the base Compose file. Both Python services receive the file as a read-only mount at `/run/vertex.json`. Ensure UID 10001 can read the mount through your secret mechanism. Do not add the JSON to the build context.
+3. **Service-account JSON:** set an absolute host path in `GOOGLE_APPLICATION_CREDENTIALS` and combine `infra/compose.credentials.yaml` with the base Compose file. Both Python services receive the file as a read-only mount at `/run/vertex.json`. Ensure UID 10001 can read the mount through your secret mechanism. Do not add the JSON to the build context.
 
 ```sh
-docker compose -f compose.yaml -f compose.credentials.yaml up -d --build
+docker compose -f compose.yaml -f infra/compose.credentials.yaml up -d --build
 ```
 
 For local development only, `CODEINTENT_VERTEX_ENV_FILE` can reference an existing external `.env` containing `GOOGLE_API_KEY` and explicit `GOOGLE_GENAI_USE_VERTEX=true`. It is not a portable host path inside a container; use the production methods above.

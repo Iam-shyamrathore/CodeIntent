@@ -12,7 +12,7 @@ node_modules
 /scripts
 /migrations
 /tests
-/planning
+/docs/history
 /artifacts
 /infra
 fixtures/corpus

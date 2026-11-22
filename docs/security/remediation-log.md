@@ -19,6 +19,9 @@ Target: https://code-intent-tawny.vercel.app (web) and https://codeintent-api-de
 | 21 Nov | Worker exceeded memory (1.1 GB on a 512 MB dyno, R15) during the first repository sweep and was killed | High (availability) | Heroku logs | Scans run one at a time in a spawned child process (`fb7d894`) | Production scan completed with no R14/R15 |
 | 21 Nov | Third-party Actions referenced by mutable tags; default job token permissions | Medium (supply chain) | Actions review | Pinned by commit, `contents: read`, `persist-credentials: false` | `.github/workflows/ci.yml` |
 | 21 Nov | Secrets exposed in the setup conversation: webhook secret, Telegram bot token, a GitHub client secret; the App private key was printed in an operator terminal session | High | Operator review | **Open: rotate all four** (App settings → generate a new private key and webhook secret; @BotFather `/revoke`; new client secret), then update Heroku and Vercel config | Pending |
+| 22 Nov | The page reader accepted any hostname, so a search result whose name resolves to a private or metadata address (169.254.169.254) could be fetched (SSRF) | Medium | Code review | Resolve the host and require every address to be public; redirects re-checked | `tests/test_agent.py::test_names_that_resolve_to_private_addresses_are_not_web_pages` |
+| 22 Nov | Finished PR checks were not always projected into Neo4j | Low (integrity) | Production data | Catch-up job projects stuck runs directly; projection runs as worker jobs finish (`475b79e`, `f62b0ab`) | PR #4 run reached Neo4j automatically |
+| 22 Nov | The Serper key and the Neo4j password were exposed in the setup conversation | High | Operator review | **Open: rotate both**, then update Heroku config | Pending |
 
 ## ArgosX baseline scan
 

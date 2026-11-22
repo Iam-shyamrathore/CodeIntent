@@ -14,6 +14,6 @@ __pycache__
 *.log
 *.tsbuildinfo
 artifacts
-planning
+docs/history
 service-account*.json
 credentials*.json

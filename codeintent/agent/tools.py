@@ -15,6 +15,7 @@ import html
 import ipaddress
 import os
 import re
+import socket
 from dataclasses import dataclass, field
 from html.parser import HTMLParser
 from pathlib import Path
@@ -314,10 +315,12 @@ def _public(url: str) -> bool:
     if host in ("localhost",) or host.endswith((".local", ".internal")):
         return False
     try:
-        address = ipaddress.ip_address(host)
-    except ValueError:
-        return True
-    return address.is_global
+        resolved = {info[4][0] for info in socket.getaddrinfo(host, parsed.port or 443)}
+    except (socket.gaierror, UnicodeError):
+        return False
+    return bool(resolved) and all(
+        ipaddress.ip_address(a.split("%")[0]).is_global for a in resolved
+    )
 
 
 class _Text(HTMLParser):

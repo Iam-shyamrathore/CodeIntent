@@ -26,12 +26,17 @@ claude mcp add --transport http codeintent https://codeintent-api-ded80aad7f4b.h
 
 ## Tools
 
-All four tools are read-only (`readOnlyHint: true`). Each one returns structured JSON and declares
+All nine tools are read-only (`readOnlyHint: true`). Each one returns structured JSON and declares
 an output schema. A failure comes back as a tool error (`isError: true`) with a short message the
 agent can act on, never a stack trace.
 
 | Tool | Arguments | Returns |
 | --- | --- | --- |
+| `fix_brief` | `repo`, `pull` | For a dependency PR CodeIntent has checked: each package's verdict and every edit (file, line, current code, containing function, what changed and the upstream PR, the replacement); from the workspace graph, the callers, importing files, routes/commands and tests that reach each line; manifest and lock changes; an ordered checklist and tests to run; the agent's patch, assessments, behaviour changes and security news, labelled as the agent's. Reads the stored check, so nothing is downloaded. Needs a workspace token |
+| `impact` | `package`, optional `version` | Every line in the workspace's repositories that a known change in the library touches |
+| `who_uses` | `package`, optional `symbol` | Where the workspace's default branches use a library, or one name in it, with file and line |
+| `dependency_path` | `repo`, `package` | The shortest chains of releases that explain why a package is installed, plus the repository's own uses of the package at the top of each chain |
+| `dependents` | `package` | From the ecosystem graph: its source repository (stars, licence, OpenSSF Scorecard), its dependencies and dependents, advisories, and every workspace repository and indexed open-source project that depends on it |
 | `upgrade_brief` | `repo` (`owner/name` or `owner/name@ref`), `package`, `to_version` (exact or `latest`), optional `from_version` | `verdict` (`breaks` / `needs-change` / `not-checked` / `no-known-impact`), `reason`, ordered `steps`, `findings` (consumer `file:line` locations, what changed, the replacement and the library's own deprecation message), `unchecked` uses with reasons, OSV `advisories` for both versions, `declarations`, `release`, `coverage` |
 | `why_pinned` | `repo`, `package` | Every declaration of the package with `file:line`, specifier, pins (`exact`, `upper_bound`, `exclusion`, ...), group, and locked version. For each deliberate pin, `introduced_by`: the commit and pull request that added it (git blame walked back past edits that kept the clause), so the author's reason can be read before relaxing it. `==` lines in requirements files are locks and are not traced. |
 | `list_dependencies` | `repo` | Direct dependencies: current (locked or `==`) version, declarations, latest non-yanked PyPI release, `newer_available`, and `blocked_by` (declarations whose specifier excludes the latest). Capped at 300. |

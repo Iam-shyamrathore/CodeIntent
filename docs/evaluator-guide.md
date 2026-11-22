@@ -9,14 +9,20 @@ use instead. It also checks the latest releases every day before any pull reques
 The public demo repository pins `httpx==0.27.2` and calls `httpx.Client(proxies=...)`, which httpx 0.28
 removed. Dependabot opened the upgrade; CodeIntent answered on its own.
 
-- **Breaks you:** https://github.com/Iam-shyamrathore/codeintent-demo/pull/1 (check run and comment:
-  `weather/client.py:12`, use `proxy=` or `mounts=`, removed in encode/httpx#3319)
-- **No known impact:** https://github.com/Iam-shyamrathore/codeintent-demo/pull/2 (requests, plus the three
-  advisories the upgrade leaves behind)
+- **Breaks you + graph trace + agent review:** https://github.com/Iam-shyamrathore/codeintent-demo/pull/4
+  (httpx and requests together). The comment shows:
+  - **Breaks you** at `weather/client.py:12`: use `proxy=` or `mounts=`, removed in encode/httpx#3319.
+  - **Where httpx reaches your code** and **What else this breaks**: `make_client()`, called by
+    `forecast()` and imported by `main.py`, read from the Neo4j code graph.
+  - **Agent review**: the suggested edit `proxy=proxy`, which CodeIntent re-analysed, plus the behaviour
+    changes quoted from the release notes.
+  - **No known impact** for requests, with the advisories still open on the new version.
+- Earlier, single-package examples: https://github.com/Iam-shyamrathore/codeintent-demo/pull/1 (httpx)
+  and https://github.com/Iam-shyamrathore/codeintent-demo/pull/2 (requests).
 
 ## 2. Install it on your own repository (3 minutes)
 
-1. Open https://code-intent-tawny.vercel.app and choose **Install on GitHub**. Pick one repository with a
+1. Open https://codeintent.shyam.codes and choose **Install on GitHub**. Pick one repository with a
    `pyproject.toml`, `requirements*.txt`, `uv.lock` or `poetry.lock`.
 2. Within a minute or two, the dashboard's **Before you upgrade** tile lists any dependency whose latest
    release breaks or changes code you use, known advisories on the versions you run, and pins that can be
@@ -43,12 +49,19 @@ claude mcp add --transport http codeintent https://codeintent-api-ded80aad7f4b.h
   --header "Authorization: Bearer ci_mcp_…"
 ```
 
-Then ask the agent, for example: *"Use codeintent's upgrade_brief for httpx to latest on
-Iam-shyamrathore/codeintent-demo and apply the steps."* Tools: `upgrade_brief`, `why_pinned`,
-`list_dependencies`, `advisories` ([docs/mcp.md](mcp.md)). The token reads your installation's repositories,
+Then ask the agent, for example: *"Use codeintent's fix_brief for Iam-shyamrathore/codeintent-demo PR 4
+and apply the edits."* It also offers `upgrade_brief`, `impact`, `who_uses`, `dependency_path`,
+`dependents`, `why_pinned`, `list_dependencies` and `advisories` ([docs/mcp.md](mcp.md)). The token reads your installation's repositories,
 private ones included, and can be revoked from the same tile.
 
-## 5. Run the engine locally
+## 5. See the graph in Neo4j
+
+Open Neo4j Browser, drag in `docs/neo4j/codeintent.grass`, and run the queries in
+[docs/neo4j.md](neo4j.md). They show why `h11` is installed when the demo never imports it, PR #4 traced
+from the run to the broken line and everything that calls it, and the shared graph of open-source
+projects that lock httpx.
+
+## 6. Run the engine locally
 
 ```bash
 uv sync
