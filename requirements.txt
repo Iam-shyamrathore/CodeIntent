@@ -215,7 +215,7 @@ truststore==0.10.5 ; sys_platform != 'emscripten'
     #   httpx2
 types-pytz==2026.6.0.20261031
     # via pydriller
-types-pyyaml==6.0.12.20261030
+types-pyyaml==6.0.12.20261113
     # via neo4j-graphrag
 typing-extensions==4.16.0
     # via
