@@ -31,7 +31,7 @@ charset-normalizer==3.5.2
     # via requests
 click==8.5.0
     # via uvicorn
-croniter==6.2.4
+croniter==7.0.0
     # via procrastinate
 cryptography==50.0.2
     # via
