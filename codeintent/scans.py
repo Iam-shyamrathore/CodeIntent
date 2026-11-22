@@ -24,7 +24,7 @@ MAX_TREE_ENTRIES = 100_000
 
 def defer(conn, installation_id: int, repository: str) -> bool:
     """Queue a scan in the caller's transaction. Returns False when one is already queued."""
-    from codeintent.tasks import scan_repository
+    from codeintent.tasks import on, scan_repository
 
     conn.execute(
         """INSERT INTO ci_repository_scans(installation_id,repository,status) VALUES (%s,%s,'queued')
@@ -37,7 +37,7 @@ def defer(conn, installation_id: int, repository: str) -> bool:
         # A savepoint, so a duplicate leaves the caller's transaction usable.
         with conn.transaction():
             scan_repository.configure(
-                connection=conn,
+                **on(conn),
                 # One scan at a time across the worker: each loads many library releases.
                 lock="repository-scans",
                 queueing_lock=f"scan:{installation_id}:{repository}",

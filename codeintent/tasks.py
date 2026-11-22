@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import contextlib
 import logging
+import os
 
 import procrastinate
 
@@ -16,6 +17,15 @@ app = procrastinate.App(
         conninfo=required("DATABASE_URL"), min_size=1, max_size=6
     )
 )
+
+
+def on(conn) -> dict:
+    """``configure()`` options that queue a job inside ``conn``'s transaction, where that is possible.
+
+    In the worker, Procrastinate's pool is async and cannot use a sync connection (it raises
+    ``TypeError``), so jobs queued from inside a running job go through the pool instead.
+    """
+    return {} if os.getenv("CODEINTENT_PROCESS") == "worker" else {"connection": conn}
 
 
 @app.task(

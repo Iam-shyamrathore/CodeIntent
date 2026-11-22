@@ -24,3 +24,6 @@ artifacts/releases/
 
 .DS_Store
 .vercel/
+
+# Local demo-video captures (include a browser profile); never commit
+brag-output/

@@ -239,13 +239,14 @@ def _defer(rows) -> int:
     from procrastinate.exceptions import AlreadyEnqueued
 
     from codeintent.tasks import index_release as task
+    from codeintent.tasks import on
 
     queued = 0
     with store.connection() as conn:
         for row in rows:
             try:
                 task.configure(
-                    connection=conn,
+                    **on(conn),
                     queueing_lock=f"eco:{row['package']}@{row['version']}",
                     priority=-20,
                 ).defer(package=row["package"], version=row["version"])
