@@ -1055,9 +1055,9 @@ def _reversal(target: Target, files: list[str], ctx: Context) -> str | None:
             if f["filename"] != path:
                 continue
             removed, added = _diff_lines(f["patch"])
-            if target.module and f["status"] == "added":
-                restored = True
-            elif sum(map(target.defines, added)) > sum(map(target.defines, removed)):
+            if (target.module and f["status"] == "added") or sum(
+                map(target.defines, added)
+            ) > sum(map(target.defines, removed)):
                 restored = True
         if not restored:
             continue
@@ -1194,7 +1194,7 @@ def _context(repo: Repo, release: ReleaseRange) -> Context:
             f"compare {release.start.version}...{release.end.version} lists {data.get('total_commits')} commits; read {len(data['commits'])}"
         )
     end_commit = repo.commit(end)
-    ctx = Context(
+    return Context(
         repo=repo,
         release=release,
         start_tree=repo.tree(start),
@@ -1209,7 +1209,6 @@ def _context(repo: Repo, release: ReleaseRange) -> Context:
         end_date=end_commit["date"] if end_commit else None,
         base_limits=limits,
     )
-    return ctx
 
 
 def explain(

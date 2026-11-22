@@ -293,7 +293,7 @@ class FileScan(cst.CSTVisitor):
     ):
         if local in seen:
             return
-        info, via = self.classes[local], via + (local,)
+        info, via = self.classes[local], (*via, local)
         if info.init is not None:
             if not info.init.forwards:
                 return
@@ -714,7 +714,7 @@ def _scan(root: Path, modules: tuple[str, ...]) -> UsageScan:
         keys.append(key)
         jobs.append((name, text))
     fresh = _scan_all(jobs, modules)
-    for key, result in zip(keys, fresh):
+    for key, result in zip(keys, fresh, strict=True):
         cache.write_json(_cache_path(key), result)
     usages: list[Usage] = []
     unchecked: list[Unchecked] = []

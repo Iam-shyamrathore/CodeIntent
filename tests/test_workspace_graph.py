@@ -256,7 +256,7 @@ def test_agents_and_telegram_ask_the_same_graph(workspaces, monkeypatch):
 
     from codeintent import mcp_server, telegram
 
-    a, b = workspaces
+    a, _b = workspaces
     recorded(a, "acme/app", scan_result(BREAKS, ["proxies"]))
     recorded(a, "acme/cli", scan_result(None, ["proxies"], line=40) | {"items": []})
     with pytest.raises(ToolError):
@@ -279,7 +279,8 @@ def test_agents_and_telegram_ask_the_same_graph(workspaces, monkeypatch):
     monkeypatch.setenv("CODEINTENT_PUBLIC_URL", "https://codeintent.example")
     text = telegram.impact(555, "httpx 0.28.1")
     assert "2 line(s) in 2 repositories" in text
-    assert "weather/client.py:40" in text and "found through the graph" in text
+    assert "weather/client.py:40" in text
+    assert "found through the graph" in text
     assert telegram.impact(556, "httpx") == telegram.NOT_LINKED
     assert "not a Python package" in telegram.impact(555, "httpx <script>")
 
@@ -364,7 +365,8 @@ def test_reach_finds_own_uses_and_chains_through_other_packages(workspaces, mapp
         "h11@0.14.0",
     ]
     assert through["through"][0]["uses"] >= 1
-    assert other["uses"] == 0 and other["through"] == []
+    assert other["uses"] == 0
+    assert other["through"] == []
 
 
 @integration

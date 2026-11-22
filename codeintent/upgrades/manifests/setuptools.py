@@ -118,7 +118,7 @@ def setup_py(text: str, file: str) -> Collected:
                         keyword.value.lineno,
                     )
                     continue
-                for name, items in zip(value.keys, value.values):
+                for name, items in zip(value.keys, value.values, strict=True):
                     if isinstance(name, ast.Constant) and isinstance(name.value, str):
                         _collect(
                             out,
@@ -145,3 +145,4 @@ def _collect(out: Collected, node, group: str, assignments):
         )
     for item in items:
         out.add(item.value.strip(), group, item.lineno, "setup.py")
+    return None

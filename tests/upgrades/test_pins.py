@@ -33,7 +33,7 @@ def test_lock_style_exact_pins_are_not_deliberate_outside_project_files():
 
 
 @pytest.mark.parametrize(
-    "specifier,version,expected",
+    ("specifier", "version", "expected"),
     [
         ("<0.28", "0.28.1", False),
         ("<0.29", "0.28.1", True),

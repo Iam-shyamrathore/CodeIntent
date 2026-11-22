@@ -10,7 +10,7 @@ from codeintent.temporal import (
 
 
 @pytest.mark.parametrize(
-    "value,expected",
+    ("value", "expected"),
     [
         ("https://github.com/Encode/HTTPX", "encode/httpx"),
         ("encode/httpx.git", "encode/httpx"),
@@ -35,7 +35,7 @@ def test_canonical_github(value, expected):
     ],
 )
 def test_repository_network_boundary(value):
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="repository"):
         canonical_repository(value)
 
 

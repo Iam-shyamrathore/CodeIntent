@@ -247,7 +247,8 @@ def test_pulls_paginate_newest_first_and_stay_in_their_installation(client, seed
 def test_pull_detail_returns_verdicts_and_never_deleted_installations(client, seeded):
     body = client.get(f"/app/pulls/{seeded['breaks']}").json()
     assert body["verdicts"] == [HTTPX]
-    assert body["private"] is False and body["account_login"] == "acme"
+    assert body["private"] is False
+    assert body["account_login"] == "acme"
     assert body["diff"]["changed"][0]["name"] == "httpx"
     assert client.get(f"/app/pulls/{seeded['private']}").json()["private"] is True
     assert client.get(f"/app/pulls/{seeded['gone']}").status_code == 404

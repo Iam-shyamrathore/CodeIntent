@@ -165,7 +165,7 @@ def fit(blocks: list[str], more: str | None = None) -> str:
     )
     kept = []
     for block in blocks:
-        if len("\n\n".join(kept + [block])) + len(tail) > MAX_MESSAGE:
+        if len("\n\n".join([*kept, block])) + len(tail) > MAX_MESSAGE:
             break
         kept.append(block)
     if not kept:
@@ -218,8 +218,10 @@ def target_advisories(verdict: dict) -> list[dict]:
 def package_block(verdict: dict, findings: int = 3, places: int = 3) -> str:
     label = LABELS.get(verdict.get("verdict"), verdict.get("label") or "Verdict")
     lines = [
-        f"<b>{esc(label)}</b>: <code>{esc(verdict.get('package'), 100)}</code> "
-        f"{esc(verdict.get('start'), 40)} → {esc(verdict.get('end'), 40)}"
+        (
+            f"<b>{esc(label)}</b>: <code>{esc(verdict.get('package'), 100)}</code> "
+            f"{esc(verdict.get('start'), 40)} → {esc(verdict.get('end'), 40)}"
+        )
     ]
     reason = str(verdict.get("reason") or "")
     if reason:
@@ -793,8 +795,10 @@ def upcoming_text(repository: str, entries: list[tuple[dict, set[str]]]) -> str:
         else None
     )
     blocks = [
-        f"<b>{esc(repository, 200)}</b>\n"
-        "Checked against the latest releases on PyPI, before any pull request:"
+        (
+            f"<b>{esc(repository, 200)}</b>\n"
+            "Checked against the latest releases on PyPI, before any pull request:"
+        )
     ]
     blocks += [upcoming_block(item, kinds) for item, kinds in entries]
     if page:

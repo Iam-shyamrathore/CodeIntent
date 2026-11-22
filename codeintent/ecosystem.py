@@ -16,6 +16,7 @@ from __future__ import annotations
 import logging
 import tempfile
 from datetime import timedelta
+from itertools import pairwise
 from pathlib import Path
 from urllib.parse import quote
 
@@ -400,7 +401,7 @@ def tree(db, ws: int, repository: str, depth: int = 4) -> dict:
         )
         nodes[key]["direct"] = nodes[key]["direct"] or bool(row["direct"])
         for chain in row["chains"]:
-            for a, z in zip(chain, chain[1:]):
+            for a, z in pairwise(chain):
                 for item in (a, z):
                     name, _, at = item.rpartition("@")
                     nodes.setdefault(

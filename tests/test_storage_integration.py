@@ -80,16 +80,15 @@ def test_queue_submission_and_ledger_rollback_together(isolated):
     from codeintent.tasks import import_repository
 
     ident = str(uuid.uuid4())
-    with pytest.raises(RuntimeError):
-        with store.connection() as conn:
-            conn.execute(
-                "INSERT INTO ci_imports(id,repository,options) VALUES (%s,'fixture/rollback','{}')",
-                (ident,),
-            )
-            import_repository.configure(connection=conn, queue="isolated-test").defer(
-                import_id=ident
-            )
-            raise RuntimeError("Simulated process failure before commit")
+    with pytest.raises(RuntimeError), store.connection() as conn:
+        conn.execute(
+            "INSERT INTO ci_imports(id,repository,options) VALUES (%s,'fixture/rollback','{}')",
+            (ident,),
+        )
+        import_repository.configure(connection=conn, queue="isolated-test").defer(
+            import_id=ident
+        )
+        raise RuntimeError("Simulated process failure before commit")
     with store.connection() as conn:
         assert (
             conn.execute("SELECT count(*) AS count FROM ci_imports").fetchone()["count"]

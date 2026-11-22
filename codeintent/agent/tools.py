@@ -222,8 +222,10 @@ def release_notes(repository: str, start: str, end: str, http: httpx.Client) -> 
                 notes.append(
                     (
                         version,
-                        f"## {release.get('tag_name')} ({(release.get('published_at') or '')[:10]})\n"
-                        f"{release['body'].strip()}",
+                        (
+                            f"## {release.get('tag_name')} ({(release.get('published_at') or '')[:10]})\n"
+                            f"{release['body'].strip()}"
+                        ),
                     )
                 )
         if len(rows) < 100:
@@ -324,7 +326,7 @@ def _public(url: str) -> bool:
 
 
 class _Text(HTMLParser):
-    SKIP = {"script", "style", "noscript", "svg", "nav", "footer", "header"}
+    SKIP = frozenset({"script", "style", "noscript", "svg", "nav", "footer", "header"})
 
     def __init__(self):
         super().__init__()

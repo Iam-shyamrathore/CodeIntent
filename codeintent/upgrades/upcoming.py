@@ -129,7 +129,9 @@ def scan(
             pending.append(name)
     lookup = [n for n, item in seen.items() if item.current or item.pins]
     with ThreadPoolExecutor(max_workers=8) as pool:
-        newest_of = dict(zip(lookup, pool.map(lambda n: latest(n, client), lookup)))
+        newest_of = dict(
+            zip(lookup, pool.map(lambda n: latest(n, client), lookup), strict=True)
+        )
     for name in lookup:
         if name not in pending:
             seen[name] = seen[name].model_copy(update={"latest": newest_of[name]})
@@ -144,7 +146,7 @@ def scan(
             status = "compared"
         seen[name] = item.model_copy(update={"latest": newest, "status": status})
     in_use = [(name, seen[name].current) for name in pending]
-    for (name, _), check in zip(in_use, osv.check(in_use, client)):
+    for (name, _), check in zip(in_use, osv.check(in_use, client), strict=True):
         seen[name] = seen[name].model_copy(update={"advisories": check})
     results = []
     compared = 0

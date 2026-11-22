@@ -146,8 +146,8 @@ CLEAN = UpgradeVerdict.model_validate(
 class TelegramHTML(HTMLParser):
     """Telegram's HTML parse mode: only these tags; <a> only with href; entities limited; balanced."""
 
-    ALLOWED = {"b", "i", "code", "pre", "a"}
-    ENTITIES = {"lt", "gt", "amp", "quot"}
+    ALLOWED = frozenset({"b", "i", "code", "pre", "a"})
+    ENTITIES = frozenset({"lt", "gt", "amp", "quot"})
 
     def __init__(self):
         super().__init__(convert_charrefs=False)
@@ -156,9 +156,8 @@ class TelegramHTML(HTMLParser):
     def handle_starttag(self, tag, attrs):
         assert tag in self.ALLOWED, tag
         if tag == "a":
-            assert [k for k, _ in attrs] == ["href"] and re.match(
-                r"^https?://", attrs[0][1]
-            )
+            assert [k for k, _ in attrs] == ["href"]
+            assert re.match(r"^https?://", attrs[0][1])
         else:
             assert not attrs
         if tag in {"code", "pre"}:
@@ -166,10 +165,12 @@ class TelegramHTML(HTMLParser):
         self.stack.append(tag)
 
     def handle_endtag(self, tag):
-        assert self.stack and self.stack.pop() == tag, tag
+        assert self.stack, tag
+        assert self.stack.pop() == tag, tag
 
     def handle_data(self, data):
-        assert "<" not in data and ">" not in data
+        assert "<" not in data
+        assert ">" not in data
         self.text.append(data)
 
     def handle_entityref(self, name):
@@ -389,15 +390,18 @@ def test_transport_errors_never_carry_the_token(monkeypatch):
     monkeypatch.setenv("TELEGRAM_BOT_TOKEN", TOKEN)
     with pytest.raises(telegram.TelegramError) as caught:
         telegram.send(1, "hello")
-    assert TOKEN not in str(caught.value) and TOKEN not in repr(caught.value)
-    assert caught.value.__context__ is None and caught.value.__cause__ is None
+    assert TOKEN not in str(caught.value)
+    assert TOKEN not in repr(caught.value)
+    assert caught.value.__context__ is None
+    assert caught.value.__cause__ is None
 
 
 def test_api_errors_are_reported_without_the_token(recorder, monkeypatch):
     monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "999:wrong-token")
     with pytest.raises(telegram.TelegramError) as caught:
         telegram.send(1, "hello")
-    assert caught.value.code == 401 and "999:wrong-token" not in str(caught.value)
+    assert caught.value.code == 401
+    assert "999:wrong-token" not in str(caught.value)
 
 
 # --- end to end against Postgres -----------------------------------------------------------------
@@ -471,16 +475,16 @@ def test_link_code_is_one_time_hashed_and_expires(client, seeded, recorder):
     assert timedelta(minutes=14) < expires - datetime.now(UTC) <= timedelta(minutes=15)
     with store.connection() as conn:
         stored = conn.execute("SELECT code_hash FROM ci_telegram_links").fetchall()
-    assert [r["code_hash"] for r in stored] != [made["code"]] and len(
-        stored[0]["code_hash"]
-    ) == 64
+    assert [r["code_hash"] for r in stored] != [made["code"]]
+    assert len(stored[0]["code_hash"]) == 64
 
     # Deep link: the private chat sends "/start CODE".
     assert post(client, update(PRIVATE, f"/start {made['code']}")).json() == {
         "ok": True
     }
     reply = recorder.sent()[-1]
-    assert reply["chat_id"] == PRIVATE["id"] and reply["parse_mode"] == "HTML"
+    assert reply["chat_id"] == PRIVATE["id"]
+    assert reply["parse_mode"] == "HTML"
     assert "Linked to acme" in check_html(reply["text"])
     assert recorder.calls[-1]["token"] == TOKEN
 
@@ -499,7 +503,8 @@ def test_link_code_is_one_time_hashed_and_expires(client, seeded, recorder):
     post(client, update(GROUP, f"/link@{BOT} {fresh['code']}"))
     assert "Linked to acme" in check_html(recorder.sent()[-1]["text"])
     chats = client.get("/app/installations/11/telegram").json()
-    assert chats["configured"] is True and chats["bot_username"] == BOT
+    assert chats["configured"] is True
+    assert chats["bot_username"] == BOT
     assert [c["title"] for c in chats["chats"]] == [
         "Platform <team> & ops",
         "Private chat with @ada",
@@ -700,7 +705,8 @@ def test_upcoming_alerts_once_per_finding_and_again_for_a_newer_release(
         "Pin can be lifted: markupsafe<3 blocks 3.0.2, which changes nothing your code uses.\n"
         "  Pinned at pyproject.toml:9\n  Added in Pin markupsafe below 3 until Jinja catches up"
     ) in visible
-    assert "idna" not in visible and "other/secret" not in visible
+    assert "idna" not in visible
+    assert "other/secret" not in visible
     assert (
         "https://codeintent.example/dashboard/acme/app"
         in recorder.sent()[before]["text"]
@@ -710,7 +716,8 @@ def test_upcoming_alerts_once_per_finding_and_again_for_a_newer_release(
     store_scan(11, "acme/app", upcoming_items(latest="0.28.1"))
     assert telegram.notify_upcoming(11) == 1
     again = check_html(recorder.sent()[-1]["text"])
-    assert "0.27.2 → 0.28.1" in again and "jinja2" not in again
+    assert "0.27.2 → 0.28.1" in again
+    assert "jinja2" not in again
     assert "markupsafe" not in again
 
 

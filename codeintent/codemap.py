@@ -139,9 +139,13 @@ def _entry(decorators: list[ast.expr]) -> str | None:
         if not attr:
             continue
         path = None
-        if call and call.args and isinstance(call.args[0], ast.Constant):
-            if isinstance(call.args[0].value, str):
-                path = call.args[0].value
+        if (
+            call
+            and call.args
+            and isinstance(call.args[0], ast.Constant)
+            and isinstance(call.args[0].value, str)
+        ):
+            path = call.args[0].value
         if attr in ROUTE_METHODS and path is not None:
             return f"{attr.upper()} {path}"
         if attr in ROUTE_ANY and path is not None:
@@ -285,7 +289,7 @@ def _import_names(
     found: dict[str, tuple[str, ...]] = {}
     for name in dependencies:
         key = canonicalize_name(name)
-        candidates = ALIASES.get(key, ()) + (key.replace("-", "_"),)
+        candidates = (*ALIASES.get(key, ()), key.replace("-", "_"))
         if key.startswith("python-"):
             candidates += (key[7:].replace("-", "_"),)
         matched = tuple(c for c in candidates if c.split(".")[0] in external)
@@ -525,12 +529,17 @@ def _nested(root: Path) -> list[Path]:
             p in extractor.SKIP_DIRS or p.startswith(".") for p in rel.parts
         ):
             continue
-        if path.is_file() and path.name in (
+        manifest = path.name in (
             "pyproject.toml",
             "requirements.txt",
             "uv.lock",
             "poetry.lock",
+        )
+        if (
+            manifest
+            and path.is_file()
+            and path.parent != root
+            and path.parent not in out
         ):
-            if path.parent != root and path.parent not in out:
-                out.append(path.parent)
+            out.append(path.parent)
     return out

@@ -1125,7 +1125,7 @@ def _arguments(old, new, usage, before, after, changes, problems):
                 )
             )
         return
-    where = dict(before=old.location(was.owner), after=new.location(now.owner))
+    where = {"before": old.location(was.owner), "after": new.location(now.owner)}
     for keyword in usage.keywords:
         if _accepts(old, was, keyword) is False:
             continue

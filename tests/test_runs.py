@@ -97,14 +97,16 @@ def test_a_failing_step_fails_the_run_with_only_its_category(schema):
     class UpstreamDown(Exception):
         pass
 
-    with pytest.raises(UpstreamDown):
-        with runs.recorded(
+    with (
+        pytest.raises(UpstreamDown),
+        runs.recorded(
             "scan", installation_id=41, repository="acme/app", subject="default branch"
-        ) as run:
-            with run.step("read the repository") as note:
-                note["detail"] = "default branch main"
-            with run.step("download the repository"):
-                raise UpstreamDown("https://api.github.com/... token=secret")
+        ) as run,
+    ):
+        with run.step("read the repository") as note:
+            note["detail"] = "default branch main"
+        with run.step("download the repository"):
+            raise UpstreamDown("https://api.github.com/... token=secret")
     row = run_row(run.id)
     assert (row["status"], row["failed_step"], row["error"]) == (
         "failed",
@@ -151,19 +153,21 @@ def test_breaks_keep_the_code_line_and_resolve_with_later_runs(schema, tmp_path)
             | {"locations": [{"file": "weather/client.py", "line": line}]}
         ]
     }
-    with runs.recorded(
-        "scan", installation_id=41, repository="acme/app", subject="main"
-    ) as first:
-        with store.connection() as conn:
-            counts = breaks.record(
-                conn,
-                installation_id=41,
-                repository="acme/app",
-                source="scan",
-                verdicts=[verdict],
-                root=tmp_path,
-                run_id=first.id,
-            )
+    with (
+        runs.recorded(
+            "scan", installation_id=41, repository="acme/app", subject="main"
+        ) as first,
+        store.connection() as conn,
+    ):
+        counts = breaks.record(
+            conn,
+            installation_id=41,
+            repository="acme/app",
+            source="scan",
+            verdicts=[verdict],
+            root=tmp_path,
+            run_id=first.id,
+        )
     assert counts == {"found": 1, "fixed": 0}
     with store.connection() as conn:
         row = conn.execute("SELECT * FROM ci_breaks").fetchone()
@@ -175,51 +179,54 @@ def test_breaks_keep_the_code_line_and_resolve_with_later_runs(schema, tmp_path)
             "code": 'proxies={"https://": proxy} if proxy else None,',
         }
     ]
-    assert row["decision"]["pr_number"] == 3319 and row["status"] == "open"
+    assert row["decision"]["pr_number"] == 3319
+    assert row["status"] == "open"
 
     # The next scan no longer finds it: the code was fixed.
-    with runs.recorded(
-        "scan", installation_id=41, repository="acme/app", subject="main"
-    ) as second:
-        with store.connection() as conn:
-            assert breaks.record(
-                conn,
-                installation_id=41,
-                repository="acme/app",
-                source="scan",
-                verdicts=[],
-                root=tmp_path,
-                run_id=second.id,
-            ) == {"found": 0, "fixed": 1}
+    with (
+        runs.recorded(
+            "scan", installation_id=41, repository="acme/app", subject="main"
+        ) as second,
+        store.connection() as conn,
+    ):
+        assert breaks.record(
+            conn,
+            installation_id=41,
+            repository="acme/app",
+            source="scan",
+            verdicts=[],
+            root=tmp_path,
+            run_id=second.id,
+        ) == {"found": 0, "fixed": 1}
     with store.connection() as conn:
         row = conn.execute(
             "SELECT status,resolved_at,last_run FROM ci_breaks"
         ).fetchone()
-    assert (
-        row["status"] == "fixed"
-        and row["resolved_at"]
-        and str(row["last_run"]) == second.id
-    )
+    assert row["status"] == "fixed"
+    assert row["resolved_at"]
+    assert str(row["last_run"]) == second.id
 
 
 def test_pull_request_breaks_follow_the_pull_request(schema):
-    with runs.recorded(
-        "pull", installation_id=41, repository="acme/app", subject="#7"
-    ) as run:
-        with store.connection() as conn:
-            breaks.record(
-                conn,
-                installation_id=41,
-                repository="acme/app",
-                source="pull",
-                verdicts=[HTTPX],
-                root=None,
-                run_id=run.id,
-                pull_number=7,
-            )
-            assert breaks.pull_closed(conn, 41, "acme/app", 8, merged=True) == 0
-            assert breaks.pull_closed(conn, 41, "acme/app", 7, merged=True) == 1
-            row = conn.execute("SELECT status,places FROM ci_breaks").fetchone()
+    with (
+        runs.recorded(
+            "pull", installation_id=41, repository="acme/app", subject="#7"
+        ) as run,
+        store.connection() as conn,
+    ):
+        breaks.record(
+            conn,
+            installation_id=41,
+            repository="acme/app",
+            source="pull",
+            verdicts=[HTTPX],
+            root=None,
+            run_id=run.id,
+            pull_number=7,
+        )
+        assert breaks.pull_closed(conn, 41, "acme/app", 8, merged=True) == 0
+        assert breaks.pull_closed(conn, 41, "acme/app", 7, merged=True) == 1
+        row = conn.execute("SELECT status,places FROM ci_breaks").fetchone()
     assert row["status"] == "merged"
     assert row["places"] == [{"file": "weather/client.py", "line": 12, "code": None}]
 
@@ -245,26 +252,28 @@ def test_runs_and_breaks_are_scoped_to_the_callers_installations(schema, monkeyp
             (41,1,'acme/app'),(42,2,'other/secret')"""
         )
     for installation, repository in ((41, "acme/app"), (42, "other/secret")):
-        with pytest.raises(RuntimeError):
-            with runs.recorded(
+        with (
+            pytest.raises(RuntimeError),
+            runs.recorded(
                 "pull",
                 installation_id=installation,
                 repository=repository,
                 subject="#1",
-            ) as run:
-                with store.connection() as conn:
-                    breaks.record(
-                        conn,
-                        installation_id=installation,
-                        repository=repository,
-                        source="pull",
-                        verdicts=[HTTPX],
-                        root=None,
-                        run_id=run.id,
-                        pull_number=1,
-                    )
-                with run.step("write the comment"):
-                    raise RuntimeError("boom")
+            ) as run,
+        ):
+            with store.connection() as conn:
+                breaks.record(
+                    conn,
+                    installation_id=installation,
+                    repository=repository,
+                    source="pull",
+                    verdicts=[HTTPX],
+                    root=None,
+                    run_id=run.id,
+                    pull_number=1,
+                )
+            with run.step("write the comment"):
+                raise RuntimeError("boom")
         if installation == 41:
             mine = run.id
     with TestClient(app, headers={"X-Api-Key": "s" * 32}) as client:

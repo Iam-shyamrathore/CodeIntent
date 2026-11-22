@@ -132,7 +132,8 @@ def test_tools_run_then_a_checked_answer_ends_the_turn(model, repo):
     assert "    7          proxies=proxy," in seen[0]
     assert "Not accepted" in results(fake.sent[2][0])[-1]
     system = fake.sent[0][1].system_instruction
-    assert system.startswith("# CodeIntent agent") and "Safety rules" in system
+    assert system.startswith("# CodeIntent agent")
+    assert "Safety rules" in system
 
 
 def test_the_last_turn_may_only_submit(model, repo):
@@ -140,7 +141,7 @@ def test_the_last_turn_may_only_submit(model, repo):
         said(("search_code", {"text": "httpx"})),
         said(("submit", {"line": 1, "quote": "import httpx"})),
     )
-    answer, trace = harness.run(
+    answer, _trace = harness.run(
         "test",
         "x",
         tools=toolbox(Session(root=repo), "code"),
@@ -174,13 +175,16 @@ def test_tool_errors_and_unknown_tools_go_back_to_the_model(model, repo):
 def test_answer_schemas_keep_fields_named_like_schema_keywords():
     schema = harness._inline(news.Reports.model_json_schema())
     report = schema["properties"]["items"]["items"]
-    assert "title" in report["properties"] and "title" in report["required"]
-    assert "$ref" not in str(schema) and "title" not in schema
+    assert "title" in report["properties"]
+    assert "title" in report["required"]
+    assert "$ref" not in str(schema)
+    assert "title" not in schema
 
 
 def test_long_results_keep_head_and_tail():
     cut = harness.clip("a" * 5000 + "b" * 5000, 1000)
-    assert cut.startswith("a" * 500) and cut.endswith("b" * 500)
+    assert cut.startswith("a" * 500)
+    assert cut.endswith("b" * 500)
     assert "[9000 characters cut]" in cut
 
 
@@ -331,7 +335,9 @@ def test_agent_prose_cannot_carry_links_or_html():
     text = review.plain(
         "See [here](https://evil.example) ![x](https://t.example/p.png) <img src=x> https://a.b/c"
     )
-    assert "evil" not in text and "<" not in text and "https://" not in text
+    assert "evil" not in text
+    assert "<" not in text
+    assert "https://" not in text
 
 
 BODY = """<!-- codeintent:dependency-report -->
@@ -348,7 +354,8 @@ def test_the_agent_section_sits_before_the_hint_and_is_replaced_next_time():
     first = review.merged(BODY, f"{review.START}\nold\n{review.END}")
     assert first.index("old") < first.index("**Fix it with your AI agent:**")
     second = review.merged(first, f"{review.START}\nnew\n{review.END}")
-    assert "old" not in second and second.count(review.START) == 1
+    assert "old" not in second
+    assert second.count(review.START) == 1
     assert review.merged(second, "").count(review.START) == 0
 
 
@@ -368,7 +375,8 @@ def test_the_section_says_whether_codeintent_confirmed_a_fix():
     assert (
         "CodeIntent re-analysed the edited code and no longer finds this break" in block
     )
-    assert "-         proxies=proxy," in block and "+         proxy=proxy," in block
+    assert "-         proxies=proxy," in block
+    assert "+         proxy=proxy," in block
 
 
 @network
@@ -379,7 +387,8 @@ def test_the_patcher_is_told_the_new_signature_with_its_types(tmp_path, monkeypa
     with httpx.Client(timeout=60, follow_redirects=True) as http:
         text = review.describe("httpx", "0.28.1", ["httpx._client.Client"], http)
     assert "proxy: ProxyTypes | None = None" in text
-    assert "mounts:" in text and "proxies" not in text
+    assert "mounts:" in text
+    assert "proxies" not in text
     assert "httpx._types.ProxyTypes = " in text
 
 

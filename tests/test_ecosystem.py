@@ -59,7 +59,8 @@ def test_a_release_becomes_its_resolved_tree_and_source_repository():
     ]
     edges = batch.rels[("Release", "DEPENDS_ON", "Release")]
     pairs = {(a.split("|")[-1], b.split("|")[-1]) for a, b in edges}
-    assert ("httpcore@1.0.9", "h11@0.16.0") in pairs and len(pairs) == 8
+    assert ("httpcore@1.0.9", "h11@0.16.0") in pairs
+    assert len(pairs) == 8
     assert edges[("pub|Release|httpx@0.28.1", "pub|Release|httpcore@1.0.9")][
         "props"
     ] == {"requirement": "==1.*"}
@@ -156,10 +157,8 @@ def test_dependents_span_your_repositories_and_open_source_projects(world):
     found = ecosystem.package(db, ws, "h11")
     by_name = {d["name"]: d for d in found["dependents"]}
     assert by_name["acme/app"]["hops"] == 0  # locks h11 itself
-    assert (
-        by_name["example/cli"]["kind"] == "SourceRepo"
-        and by_name["example/cli"]["hops"] == 1
-    )
+    assert by_name["example/cli"]["kind"] == "SourceRepo"
+    assert by_name["example/cli"]["hops"] == 1
     assert "httpcore" in found["needed_by"]
     assert found["advisories"][0]["name"] == "TEST-h11-0001"
     other = ecosystem.package(db, ws + 1, "h11")

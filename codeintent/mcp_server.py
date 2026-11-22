@@ -1037,10 +1037,13 @@ def list_dependencies(repo: RepoArg) -> DependencyList:
         lookups: dict[str, Any] = {}
         registry = [n for n in names if any(d.source == "registry" for d in direct[n])]
         with ThreadPoolExecutor(max_workers=LATEST_WORKERS) as pool:
-            for package, answer in zip(
-                registry, pool.map(lambda n: latest(n, client), registry)
-            ):
-                lookups[package] = answer
+            lookups.update(
+                zip(
+                    registry,
+                    pool.map(lambda n: latest(n, client), registry),
+                    strict=True,
+                )
+            )
         for package in names:
             entries = direct[package]
             try:
@@ -1565,7 +1568,7 @@ def fix_brief(
         drafted = agent.get(verdict.package) or {}
         drafts = drafted.get("patches") or []
 
-        def drafted_for(loc):
+        def drafted_for(loc, drafts=drafts):
             """The agent's edit for a reported place: same file, within the statement's lines."""
             near = [
                 p

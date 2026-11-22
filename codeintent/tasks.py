@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import logging
 
 import procrastinate
@@ -438,12 +439,10 @@ def security_news_all(timestamp: int):
             ).fetchall()
         ]
     for ident in ids:
-        try:
+        with contextlib.suppress(procrastinate.exceptions.AlreadyEnqueued):
             security_news.configure(queueing_lock=f"news:{ident}").defer(
                 installation_id=ident
             )
-        except procrastinate.exceptions.AlreadyEnqueued:
-            pass
 
 
 def _trace(run, installation_id: int, repo: str, head: str, root, pypi, verdicts):

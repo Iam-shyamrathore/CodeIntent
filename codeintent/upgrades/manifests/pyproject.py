@@ -66,19 +66,21 @@ class PyProject:
         if record.name in self.sources:
             record = record.model_copy(update={"source": self.sources[record.name]})
         self.dependencies.append(record)
+        return None
 
     def array(self, value, group: str, path: tuple[str, ...], key: str):
         items = strings(value)
         if items is None:
             return self.issue(
                 "invalid-structure",
-                f"{'.'.join(path + (key,))} is not a list of requirements",
+                f"{'.'.join((*path, key))} is not a list of requirements",
             )
         for text in items:
             line = self.lines.string(path, key, text)
             if line is None and len(path) > 1:
                 line = self.lines.string(path[:-1], path[-1], text)
             self.add(text, group, line)
+        return None
 
     def project(self):
         project = self.data.get("project", {})
@@ -180,3 +182,4 @@ class PyProject:
                 location=Location(file=self.file, line=line),
             )
         )
+        return None

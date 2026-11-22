@@ -108,8 +108,10 @@ def traced(package: str, found: dict | None) -> list[str]:
     if reach.get("uses"):
         files = reach.get("files") or []
         lines += (
-            f"**Where {_code(package)} reaches your code:** {reach['uses']} use(s) in "
-            f"{len(files)} file(s): {_listed(files, 4)}.",
+            (
+                f"**Where {_code(package)} reaches your code:** {reach['uses']} use(s) in "
+                f"{len(files)} file(s): {_listed(files, 4)}."
+            ),
             "",
         )
     through = reach.get("through") or []
@@ -206,7 +208,7 @@ def section(verdict: UpgradeVerdict, found: dict | None = None) -> str:
         lines.append("")
         why = _why(verdict)
         if why:
-            lines += why + [""]
+            lines += [*why, ""]
         quoted = {
             (
                 f.change.message_version
@@ -225,9 +227,11 @@ def section(verdict: UpgradeVerdict, found: dict | None = None) -> str:
         reasons = sorted({u.reason for u in verdict.unchecked})
         first = verdict.unchecked[0]
         lines += [
-            f"**Not checked:** {len(verdict.unchecked)} use(s) touching changed code could not be "
-            f"followed statically ({', '.join(reasons)}), e.g. {_code(f'{first.location.file}:{first.location.line}')}: "
-            f"{first.detail}.",
+            (
+                f"**Not checked:** {len(verdict.unchecked)} use(s) touching changed code could not be "
+                f"followed statically ({', '.join(reasons)}), e.g. {_code(f'{first.location.file}:{first.location.line}')}: "
+                f"{first.detail}."
+            ),
             "",
         ]
     facts = []

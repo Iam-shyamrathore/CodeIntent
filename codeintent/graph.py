@@ -321,7 +321,8 @@ class EvidenceRetriever(Retriever):
     def get_result_formatter(self):
         return lambda record: RetrieverResultItem(
             content=record["body"],
-            metadata={k: record[k] for k in record.keys() if k != "body"},
+            # A neo4j Record iterates over its values, so its keys must be asked for explicitly.
+            metadata={k: record[k] for k in record.keys() if k != "body"},  # noqa: SIM118
         )
 
 

@@ -312,16 +312,18 @@ def run(
                 if i != submitted and c.name not in by_name:
                     replies[i] = f"error: there is no tool named {c.name}"
             with ThreadPoolExecutor(max_workers=PARALLEL) as pool:
-                for i, out in zip(
-                    [i for i, _ in work],
-                    pool.map(
-                        lambda ic: _call(
-                            by_name[ic[1].name], dict(ic[1].args or {}), trace
+                replies.update(
+                    zip(
+                        [i for i, _ in work],
+                        pool.map(
+                            lambda ic: _call(
+                                by_name[ic[1].name], dict(ic[1].args or {}), trace
+                            ),
+                            work,
                         ),
-                        work,
-                    ),
-                ):
-                    replies[i] = out
+                        strict=True,
+                    )
+                )
             parts = [
                 types.Part.from_function_response(
                     name=calls[i].name, response={"result": replies[i]}

@@ -7,6 +7,7 @@ pull request checks, which keep their own two slots.
 """
 
 import asyncio
+import contextlib
 import os
 import signal
 
@@ -39,10 +40,8 @@ async def main() -> None:
         loop = asyncio.get_running_loop()
         for sig in (signal.SIGTERM, signal.SIGINT):
             loop.add_signal_handler(sig, workers.cancel)
-        try:
+        with contextlib.suppress(asyncio.CancelledError):
             await workers
-        except asyncio.CancelledError:
-            pass
 
 
 if __name__ == "__main__":

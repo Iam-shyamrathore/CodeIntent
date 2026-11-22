@@ -87,9 +87,11 @@ def test_tokens_are_shown_once_scoped_and_revocable(client):
     created = client.post("/app/installations/31/mcp-tokens")
     assert created.status_code == 201
     token = created.json()["token"]
-    assert token.startswith("ci_mcp_") and len(token) > 40
+    assert token.startswith("ci_mcp_")
+    assert len(token) > 40
     listed = client.get("/app/installations/31/mcp-tokens").json()["tokens"]
-    assert [t["hint"] for t in listed] == [token[-4:]] and "token" not in listed[0]
+    assert [t["hint"] for t in listed] == [token[-4:]]
+    assert "token" not in listed[0]
     with store.connection() as conn:
         stored = conn.execute("SELECT token_hash FROM ci_mcp_tokens").fetchone()
     assert token not in json.dumps(stored)
@@ -140,7 +142,8 @@ def test_a_workspace_token_reads_its_own_repositories_with_the_installation_toke
     assert response.status_code == 200, response.text
     structured = result_of(response)["result"]["structuredContent"]
     assert structured["declarations"][0]["specifier"] == "==0.27.2"
-    assert used and set(used) == {31}
+    assert used
+    assert set(used) == {31}
     with store.connection() as conn:
         run = conn.execute(
             "SELECT * FROM ci_runs WHERE kind='mcp' ORDER BY started_at DESC LIMIT 1"
@@ -154,7 +157,8 @@ def test_a_workspace_token_reads_its_own_repositories_with_the_installation_toke
         "why_pinned",
         "succeeded",
     )
-    assert run["repository"] == "Iam-shyamrathore/codeintent-demo" and run["token_id"]
+    assert run["repository"] == "Iam-shyamrathore/codeintent-demo"
+    assert run["token_id"]
     assert run["input"] == {
         "repo": "Iam-shyamrathore/codeintent-demo",
         "package": "httpx",

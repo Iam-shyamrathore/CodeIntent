@@ -45,7 +45,8 @@ async def test_tools_are_read_only_with_structured_output():
     }
     for tool in tools.values():
         assert tool.annotations.read_only_hint is True
-        assert tool.output_schema and tool.description
+        assert tool.output_schema
+        assert tool.description
     assert tools["upgrade_brief"].input_schema["required"] == [
         "repo",
         "package",
@@ -62,8 +63,10 @@ async def test_bad_arguments_are_tool_errors_not_crashes():
         bad_package = await client.call_tool(
             "why_pinned", {"repo": "pallets/flask", "package": "-bad-"}
         )
-    assert bad_repo.is_error and "owner/name" in bad_repo.content[0].text
-    assert bad_package.is_error and "PyPI project name" in bad_package.content[0].text
+    assert bad_repo.is_error
+    assert "owner/name" in bad_repo.content[0].text
+    assert bad_package.is_error
+    assert "PyPI project name" in bad_package.content[0].text
 
 
 def test_bearer_token_is_required(monkeypatch):

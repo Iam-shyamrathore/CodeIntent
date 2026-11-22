@@ -29,7 +29,7 @@ def test_signature_matches_github_documented_vector():
 
 
 @pytest.mark.parametrize(
-    "body,secret,header",
+    ("body", "secret", "header"),
     [
         (b"Hello, World?", DOCS_SECRET, DOCS_SIGNATURE),
         (DOCS_PAYLOAD, "another secret", DOCS_SIGNATURE),
@@ -137,7 +137,7 @@ def test_prefixed_requirements_file_is_read():
 
 
 @pytest.mark.parametrize(
-    "path,root",
+    ("path", "root"),
     [
         ("pyproject.toml", "."),
         ("backend/requirements.txt", "backend"),

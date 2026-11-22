@@ -31,7 +31,7 @@ def main(argv: list[str] | None = None) -> int:
         "--no-advisories", action="store_true", help="skip OSV.dev lookups"
     )
     args = parser.parse_args(argv)
-    options = dict(release=not args.no_release, advisory=not args.no_advisories)
+    options = {"release": not args.no_release, "advisory": not args.no_advisories}
     with httpx.Client(timeout=60, follow_redirects=True) as client:
         if args.path:
             result = evaluate(

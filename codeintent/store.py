@@ -225,6 +225,7 @@ def consume_quota(bucket: str, limit: int, *, conn=None):
     ).fetchone()
     if not row:
         raise QuotaExceeded()
+    return None
 
 
 class QuotaExceeded(Exception):

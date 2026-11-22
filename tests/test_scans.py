@@ -300,10 +300,8 @@ def test_scan_results_are_scoped_to_the_callers_installations(schema, client):
             (Jsonb([item]), datetime.now(UTC)),
         )
     body = client.get("/app/repositories/acme/app/upcoming?installations=21").json()
-    assert (
-        body["scan"]["status"] == "done"
-        and body["scan"]["items"][0]["package"] == "httpx"
-    )
+    assert body["scan"]["status"] == "done"
+    assert body["scan"]["items"][0]["package"] == "httpx"
     assert (
         client.get("/app/repositories/acme/app/upcoming?installations=99").status_code
         == 404
@@ -400,7 +398,8 @@ def test_demo_repository_scan_finds_the_breaking_httpx_release(schema):
         broken = conn.execute(
             "SELECT * FROM ci_breaks WHERE package='httpx'"
         ).fetchone()
-    assert run["status"] in ("succeeded", "partial") and run["summary"]["breaks"] >= 1
+    assert run["status"] in ("succeeded", "partial")
+    assert run["summary"]["breaks"] >= 1
     assert steps[:4] == [
         "read the repository",
         "read the latest commit",
@@ -408,7 +407,8 @@ def test_demo_repository_scan_finds_the_breaking_httpx_release(schema):
         "download the repository",
     ]
     assert steps[-1] == "record breaks"
-    assert broken["source"] == "scan" and broken["status"] == "open"
+    assert broken["source"] == "scan"
+    assert broken["status"] == "open"
     assert {"file": "weather/client.py", "line": 12} in [
         {"file": p["file"], "line": p["line"]} for p in broken["places"]
     ]

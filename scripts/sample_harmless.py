@@ -184,8 +184,8 @@ def bump_kind(old: str, new: str) -> str | None:
         return None
     if b <= a or a.is_prerelease or b.is_prerelease or b.is_devrelease:
         return None
-    ra = (a.release + (0, 0, 0))[:3]
-    rb = (b.release + (0, 0, 0))[:3]
+    ra = ((*a.release, 0, 0, 0))[:3]
+    rb = ((*b.release, 0, 0, 0))[:3]
     if ra[0] != rb[0]:
         return None
     if ra[1] != rb[1]:

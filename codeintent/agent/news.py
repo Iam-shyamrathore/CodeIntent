@@ -220,7 +220,8 @@ def _files(installation_id: int, repository: str, package: str) -> list[str]:
     try:
         with shared() as db:
             return wg.reach(db, installation_id, repository, package)["files"][:3]
-    except Exception:
+    except Exception as error:
+        logger.warning("Graph reach for %s failed (%s)", package, type(error).__name__)
         return []
 
 
@@ -245,8 +246,10 @@ def alert_text(row: dict) -> str:
             )
         )
     lines = [
-        f"🛡 <b>Security report: {tg.esc(row['package'])}</b> (found on the web by CodeIntent's agent; "
-        "not yet in OSV.dev)",
+        (
+            f"🛡 <b>Security report: {tg.esc(row['package'])}</b> (found on the web by CodeIntent's agent; "
+            "not yet in OSV.dev)"
+        ),
         f"<b>{tg.esc(item['title'], 200)}</b>",
         tg.esc(item.get("summary"), 400),
         f"Severity: {tg.esc(item.get('severity'))} · {versions}"

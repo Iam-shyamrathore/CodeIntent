@@ -33,7 +33,7 @@ def reasons(result):
 
 
 @pytest.mark.parametrize(
-    "specifier,kinds",
+    ("specifier", "kinds"),
     [
         ("<0.28", ["upper_bound"]),
         ("<=1.2.3", ["upper_bound"]),
@@ -52,7 +52,7 @@ def test_classify_reports_each_constraint_that_limits_upgrades(specifier, kinds)
 
 
 @pytest.mark.parametrize(
-    "constraint,specifier,kinds",
+    ("constraint", "specifier", "kinds"),
     [
         ("^1.2", "<2.0,>=1.2", ["caret"]),
         ("^0.2.3", "<0.3.0,>=0.2.3", ["caret"]),
@@ -71,7 +71,7 @@ def test_poetry_constraints_become_pep440_with_their_original_pin_kind(
 
 
 def test_poetry_union_constraints_are_not_guessed():
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="no PEP 440 equivalent"):
         from_poetry("^1.2 || ^2.0")
 
 
@@ -157,7 +157,8 @@ def test_requirements_includes_constraints_and_non_registry_sources(tmp_path):
     found = deps(result)
     assert found["httpx"].location.file == "requirements/base.txt"
     assert found["urllib3"].constraint_only is True
-    assert found["b"].source == "vcs" and found["b"].specifier == ""
+    assert found["b"].source == "vcs"
+    assert found["b"].specifier == ""
     assert found["foo"].source == "url"
     assert ("requirements.txt", "include-outside-repository") in reasons(result)
 
@@ -247,7 +248,8 @@ def test_uv_lock_supplies_locked_versions_and_marks_transitive_dependencies(tmp_
     assert found["protobuf"].locked_version == "4.25.5"
     assert found["emoji"].locked_version == "2.14.0"
     locked = deps(scan(root), format="uv.lock")
-    assert locked["protobuf"].direct is True and locked["protobuf"].location.line == 14
+    assert locked["protobuf"].direct is True
+    assert locked["protobuf"].location.line == 14
     assert "uv-lockfiles" not in locked
 
 
@@ -269,7 +271,8 @@ def test_uv_lock_git_sources_and_unknown_versions(tmp_path):
         scan(copy(tmp_path, SCALIBR / "uvlock/source-git.lock", "uv.lock")),
         format="uv.lock",
     )
-    assert git["ruff"].source == "vcs" and git["ruff"].direct is True
+    assert git["ruff"].source == "vcs"
+    assert git["ruff"].direct is True
     future = scan(repo(tmp_path / "f", {"uv.lock": "version = 2\n"}))
     assert ("uv.lock", "unsupported-lock-version") in reasons(future)
 

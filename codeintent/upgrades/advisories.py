@@ -153,7 +153,9 @@ def _post(client: httpx.Client, queries: list[dict]) -> list[dict]:
     try:
         response = client.post(f"{OSV}/v1/querybatch", json={"queries": queries})
     except httpx.HTTPError as error:
-        raise _Failure(f"OSV querybatch failed: {type(error).__name__}: {error}")
+        raise _Failure(
+            f"OSV querybatch failed: {type(error).__name__}: {error}"
+        ) from error
     results = _json(response, "querybatch").get("results")
     if not isinstance(results, list) or len(results) != len(queries):
         raise _Failure("OSV querybatch returned a different number of results")
@@ -171,7 +173,7 @@ def _ids(client: httpx.Client, queries: list[dict]) -> list[list[str]]:
             for i in pending
         ]
         tokens = {}
-        for i, result in zip(pending, _post(client, page)):
+        for i, result in zip(pending, _post(client, page), strict=True):
             found[i] += [v["id"] for v in result.get("vulns") or [] if v.get("id")]
             if token := result.get("next_page_token"):
                 tokens[i] = token
@@ -356,10 +358,12 @@ def _lookup(
     unique = list(dict.fromkeys(i for found in ids for i in found))
     wanted, skipped = unique[:MAX_DETAILS], set(unique[MAX_DETAILS:])
     with ThreadPoolExecutor(max_workers=DETAIL_WORKERS) as pool:
-        details = dict(zip(wanted, pool.map(lambda i: _detail(client, i), wanted)))
+        details = dict(
+            zip(wanted, pool.map(lambda i: _detail(client, i), wanted), strict=True)
+        )
     checked = _now()
     results = []
-    for (name, version, parsed), found in zip(pending, ids):
+    for (name, version, parsed), found in zip(pending, ids, strict=True):
         if over := [i for i in found if i in skipped]:
             reason = f"{len(over)} advisory records exceeded the per-run limit of {MAX_DETAILS}"
             results.append(not_checked(name, version, reason))
@@ -402,7 +406,7 @@ def check(
             (name, dependencies[pending[(name, parsed)][0]][1], parsed)
             for name, parsed in chunk
         ]
-        for key, result in zip(chunk, _lookup(batch, client)):
+        for key, result in zip(chunk, _lookup(batch, client), strict=True):
             _store(key[1], result)
             for index in pending[key]:
                 results[index] = result.model_copy(

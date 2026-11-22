@@ -18,6 +18,7 @@ import logging
 import re
 import shutil
 import tempfile
+from functools import partial
 from pathlib import Path
 from typing import Literal
 
@@ -369,7 +370,7 @@ def recheck(
         (loc.file, loc.line or 0) for f in after.findings for loc in f.locations
     }
     out = []
-    for p, done in zip(patches, applied):
+    for p, done in zip(patches, applied, strict=True):
         span = len(p.after.strip("\n").splitlines()) + 3
         out.append(
             done
@@ -390,7 +391,7 @@ def plain(text: str, limit: int = 400) -> str:
     """Agent prose for a comment: no links, images or HTML (nothing an attacker could plant), clipped."""
     text = LINK.sub(r"\1", text or "")
     text = URL.sub("(link removed)", text)
-    text = text.replace("<", "‹").replace(">", "›").replace("`", "'")
+    text = text.replace("<", "\u2039").replace(">", "\u203a").replace("`", "'")
     text = " ".join(text.split())
     return text if len(text) <= limit else text[: limit - 1] + "…"
 
@@ -448,9 +449,11 @@ def section(review: dict, model: str) -> str:
     if len(lines) == 3:
         return ""
     lines += [
-        "<sub>Drafted by an agent from the code, the workspace graph and the release notes. Quotes are "
-        "checked against their source; suggested fixes are applied to a copy and re-analysed by "
-        "CodeIntent.</sub>",
+        (
+            "<sub>Drafted by an agent from the code, the workspace graph and the release notes. Quotes are "
+            "checked against their source; suggested fixes are applied to a copy and re-analysed by "
+            "CodeIntent.</sub>"
+        ),
         END,
     ]
     return "\n".join(lines)
@@ -566,13 +569,13 @@ def review(run_id: str) -> dict | None:
                     upgrade["patches"] = _attempt(
                         run,
                         f"draft fixes for {verdict.package}",
-                        lambda: _patch(verdict, header, root, ws, repo, traces),
+                        partial(_patch, verdict, header, root, ws, repo, traces),
                     )
                 if verdict.unchecked:
                     upgrade["assessments"] = _attempt(
                         run,
                         f"follow uses of {verdict.package} CodeIntent could not",
-                        lambda: _investigate(verdict, header, root, ws, repo, traces),
+                        partial(_investigate, verdict, header, root, ws, repo, traces),
                     )
                 source = verdict.release.repository if verdict.release else None
                 if source:
@@ -586,8 +589,16 @@ def review(run_id: str) -> dict | None:
                     upgrade["behaviour"] = _attempt(
                         run,
                         f"read {verdict.package} release notes",
-                        lambda: _behaviour(
-                            verdict, header, source, used, ws, repo, http, traces
+                        partial(
+                            _behaviour,
+                            verdict,
+                            header,
+                            source,
+                            used,
+                            ws,
+                            repo,
+                            http,
+                            traces,
                         ),
                     )
                 upgrades.append(upgrade)
@@ -731,7 +742,7 @@ def _patch(verdict, header, root, ws, repo, traces):
     )
     patches = [
         {**p.model_dump(), **_as_applied(root, p), "verified": good}
-        for p, good in zip(answer.patches, ok)
+        for p, good in zip(answer.patches, ok, strict=True)
     ]
     return (
         patches,

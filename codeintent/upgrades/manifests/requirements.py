@@ -40,7 +40,7 @@ class Requirements:
                 files.relative(self.root, stack[-1]),
             )
         if real in self.parsed:
-            return
+            return None
         self.parsed.add(real)
         name = files.relative(self.root, real)
         text = files.read(self.root, path)
@@ -76,10 +76,11 @@ class Requirements:
                         real,
                         target,
                         nested_constraint,
-                        stack + (real,),
+                        (*stack, real),
                         name,
                         option.line_number,
                     )
+        return None
 
     def include(
         self,
@@ -108,6 +109,7 @@ class Requirements:
                 line,
             )
         self.parse(path, constraint=constraint, stack=stack)
+        return None
 
     def add(self, requirement, name: str, constraint: bool):
         if not requirement.name:

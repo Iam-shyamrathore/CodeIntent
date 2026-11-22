@@ -146,4 +146,5 @@ def test_points_the_team_at_their_agent_only_when_there_is_something_to_fix():
 
 def test_without_the_graph_the_comment_is_unchanged():
     plain = report.comment([BREAKS], [], None)
-    assert "reaches your code" not in plain and "What else this breaks" not in plain
+    assert "reaches your code" not in plain
+    assert "What else this breaks" not in plain

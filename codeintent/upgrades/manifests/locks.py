@@ -68,6 +68,7 @@ class Lock:
                 location=Location(file=self.file, line=line),
             )
         )
+        return None
 
 
 class UvLock(Lock):
@@ -106,7 +107,9 @@ class UvLock(Lock):
                         groups.setdefault(
                             canonicalize_name(entry.get("name", "")), set()
                         ).add(label)
-        for package, line in zip(packages, lines + [None] * len(packages)):
+        for package, line in zip(
+            packages, lines + [None] * len(packages), strict=False
+        ):
             if self.local(package):
                 continue
             source = next(
@@ -140,7 +143,9 @@ class PoetryLock(Lock):
         return True
 
     def read(self, packages: list[dict], lines: list[int | None]):
-        for package, line in zip(packages, lines + [None] * len(packages)):
+        for package, line in zip(
+            packages, lines + [None] * len(packages), strict=False
+        ):
             kind = (
                 package.get("source", {}).get("type")
                 if isinstance(package.get("source"), dict)

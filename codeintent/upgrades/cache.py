@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
 import tempfile
 import time
 from pathlib import Path
@@ -37,7 +36,8 @@ def write_json(path: Path, value) -> None:
     """Write ``value`` as JSON to ``path`` atomically (temporary file, then rename); errors are ignored."""
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        handle = tempfile.NamedTemporaryFile(
+        # Kept open past this statement on purpose: the name is needed to rename or clean up.
+        handle = tempfile.NamedTemporaryFile(  # noqa: SIM115
             "w",
             encoding="utf-8",
             dir=path.parent,
@@ -48,7 +48,7 @@ def write_json(path: Path, value) -> None:
         try:
             with handle:
                 json.dump(value, handle, separators=(",", ":"))
-            os.replace(handle.name, path)
+            Path(handle.name).replace(path)
         except BaseException:
             Path(handle.name).unlink(missing_ok=True)
             raise

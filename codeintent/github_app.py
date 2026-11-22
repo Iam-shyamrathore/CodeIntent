@@ -14,9 +14,9 @@ import tempfile
 import threading
 import time
 import uuid
+from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
-from typing import Callable
 
 import httpx
 
