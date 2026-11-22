@@ -4,18 +4,18 @@ version = "1.0.0"
 description = "Dependency-upgrade impact analysis for GitHub pull requests, with a Neo4j code graph and MCP tools"
 requires-python = ">=3.12,<3.13"
 dependencies = [
-  "fastapi==0.162.0",
+  "fastapi==0.163.0",
   "uvicorn[standard]>=0.35,<1",
   "google-genai==2.34.0",
-  "neo4j-graphrag==1.23.0",
+  "neo4j-graphrag==1.24.0",
   "pydriller==2.12",
   "httpx>=0.28,<1",
   "pydantic>=2.12,<3",
   "python-dotenv>=1.1,<2",
   "psycopg[binary,pool]>=3.2,<4",
   "procrastinate>=3,<4",
-  "tree-sitter-language-pack==1.20.0",
-  "tree-sitter==0.25.2",
+  "tree-sitter-language-pack==1.25.0",
+  "tree-sitter==0.26.1",
   "packaging==26.3",
   "pip-requirements-parser==32.0.1",
   "poetry-core==2.5.0",
