@@ -159,8 +159,8 @@ def extract(archive: Path) -> Path:
             bundle.extractall(staging)
     else:
         with tarfile.open(archive) as bundle:
-            members = bundle.getmembers()
-            if sum(m.size for m in members) > MAX_EXTRACTED_BYTES:
+            entries = bundle.getmembers()
+            if sum(m.size for m in entries) > MAX_EXTRACTED_BYTES:
                 raise ArtifactError(
                     "artifact-too-large",
                     f"{archive.name} expands beyond the size limit",

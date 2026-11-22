@@ -27,6 +27,7 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "mypy==2.4.1",
     "pytest>=8,<10",
     "pytest-asyncio>=1,<2",
     "ruff>=0.17.3",
@@ -71,3 +72,49 @@ ignore = ["E501", "PERF401"]
 [tool.ruff.lint.flake8-bugbear]
 # FastAPI's dependency markers are designed to be called in parameter defaults.
 extend-immutable-calls = ["fastapi.Depends", "fastapi.Query", "fastapi.Header", "fastapi.Path", "fastapi.Body"]
+
+[tool.mypy]
+python_version = "3.12"
+files = ["codeintent"]
+ignore_missing_imports = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+warn_unreachable = true
+strict_equality = true
+
+# Ratchet: every other module must type-check cleanly in CI. These still have known errors
+# (mostly Literal fields fed from parsed strings) and come off this list as they are fixed.
+[[tool.mypy.overrides]]
+module = [
+  "codeintent.agent.news",
+  "codeintent.agent.review",
+  "codeintent.agent.tools",
+  "codeintent.codemap",
+  "codeintent.domain",
+  "codeintent.ecosystem",
+  "codeintent.github_app",
+  "codeintent.graph",
+  "codeintent.investigate",
+  "codeintent.mcp_server",
+  "codeintent.tasks",
+  "codeintent.telegram",
+  "codeintent.temporal",
+  "codeintent.upgrades.advisories",
+  "codeintent.upgrades.manifests",
+  "codeintent.upgrades.manifests.common",
+  "codeintent.upgrades.manifests.locks",
+  "codeintent.upgrades.manifests.pins",
+  "codeintent.upgrades.manifests.pyproject",
+  "codeintent.upgrades.manifests.requirements",
+  "codeintent.upgrades.manifests.setuptools",
+  "codeintent.upgrades.manifests.toml_lines",
+  "codeintent.upgrades.pins",
+  "codeintent.upgrades.releases",
+  "codeintent.upgrades.report",
+  "codeintent.upgrades.surface",
+  "codeintent.upgrades.upcoming",
+  "codeintent.upgrades.upstream",
+  "codeintent.upgrades.usage.extractor",
+  "codeintent.upgrades.verdict",
+]
+ignore_errors = true

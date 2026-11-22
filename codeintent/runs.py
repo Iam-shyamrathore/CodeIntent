@@ -28,8 +28,8 @@ MAX_DETAIL = 500
 
 def category(exc: BaseException) -> str:
     """What is safe to store about a failure: an explicit category, else the exception's class name."""
-    if getattr(exc, "category", None):
-        return str(exc.category)
+    if explicit := getattr(exc, "category", None):
+        return str(explicit)
     return type(exc).__name__
 
 

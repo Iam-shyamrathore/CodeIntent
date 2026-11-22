@@ -158,8 +158,10 @@ vulnerability: [SECURITY.md](SECURITY.md).
 ## Code quality
 
 - **CI on every push** (`.github/workflows/ci.yml`):
-  - Python: `ruff check`, `ruff format --check` and the full `pytest` suite against real PostgreSQL 17
-    and Neo4j 5.26 services, plus engine tests on real PyPI releases.
+  - Python: `ruff check` with a broad rule set (bugbear, pyupgrade, simplify, pathlib, logging,
+    pytest style, no silent `except`), `ruff format --check`, `mypy` (2.4, see the ratchet below) and
+    the full `pytest` suite against real PostgreSQL 17 and Neo4j 5.26 services, plus engine tests
+    on real PyPI releases.
   - Web: Prettier, Next.js production build (which type-checks) and `npm audit --audit-level=high`.
   - Supply chain: `pip-audit` over the locked Python dependencies; CodeQL security analysis
     (`.github/workflows/codeql.yml`); Dependabot updates.
@@ -167,6 +169,13 @@ vulnerability: [SECURITY.md](SECURITY.md).
   code map and the PR comment all run against real services rather than mocks where it matters.
 - **Typed boundaries:** Pydantic models for engine results, API responses, MCP output schemas and agent
   answers; strict TypeScript on the web.
+- **Type-checking ratchet:** `mypy` runs over all of `codeintent/` in CI. Every module must pass,
+  except a list in `pyproject.toml` with known errors (mostly `Literal` fields filled from parsed
+  strings). A module leaves that list once it is fixed, and nothing new can be added to it without
+  review.
+- **Error handling:** catch-all handlers exist only at job, step and request boundaries. Each one logs
+  or records the failure's category, then re-raises or returns an explicit failure. Ruff enforces that
+  no `except` passes silently, and a test checks that secrets never reach exception text.
 - **Durable, idempotent jobs:** Procrastinate on PostgreSQL. Webhooks are de-duplicated by delivery
   id. Each scan runs in a child process, which keeps the worker within 512 MB.
 - **Measured accuracy** (`artifacts/backtest/latest.json`, 101 labelled real upgrades):

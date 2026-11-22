@@ -108,11 +108,13 @@ def configured() -> bool:
 
 
 def models() -> list[str]:
-    primary = os.getenv("CODEINTENT_AGENT_MODEL") or os.getenv(
-        "VERTEX_GENERATION_MODEL", "gemini-2.5-flash"
+    primary = (
+        os.getenv("CODEINTENT_AGENT_MODEL")
+        or os.getenv("VERTEX_GENERATION_MODEL")
+        or "gemini-2.5-flash"
     )
     fallback = os.getenv("CODEINTENT_AGENT_FALLBACK_MODEL")
-    return [primary] + ([fallback] if fallback and fallback != primary else [])
+    return [primary, fallback] if fallback and fallback != primary else [primary]
 
 
 def clip(text: str, limit: int = MAX_OUTPUT) -> str:
@@ -239,7 +241,7 @@ def run(
                 tools=[types.Tool(function_declarations=declarations)],
                 tool_config=types.ToolConfig(
                     function_calling_config=types.FunctionCallingConfig(
-                        mode="ANY",
+                        mode=types.FunctionCallingConfigMode.ANY,
                         allowed_function_names=["submit"] if last else None,
                     )
                 ),

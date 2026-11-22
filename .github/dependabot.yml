@@ -6,12 +6,20 @@ updates:
     directory: /
     schedule: {interval: weekly}
     cooldown: {default-days: 7}
+    ignore:
+      # Major versions need a deliberate migration; security updates are raised regardless.
+      - dependency-name: "*"
+        update-types: [version-update:semver-major]
     groups:
       python-minor-and-patch: {update-types: [minor, patch]}
   - package-ecosystem: npm
     directory: /
     schedule: {interval: weekly}
     cooldown: {default-days: 7}
+    ignore:
+      # Major versions need a deliberate migration; security updates are raised regardless.
+      - dependency-name: "*"
+        update-types: [version-update:semver-major]
     groups:
       npm-minor-and-patch: {update-types: [minor, patch]}
   - package-ecosystem: github-actions

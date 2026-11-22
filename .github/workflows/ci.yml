@@ -54,4 +54,5 @@ jobs:
           uvx --from pip-audit==2.9.0 pip-audit -r "$RUNNER_TEMP/requirements.txt" --disable-pip --progress-spinner off
       - run: uv run ruff check codeintent scripts tests
       - run: uv run ruff format --check codeintent scripts tests
+      - run: uv run mypy
       - run: uv run pytest -q

@@ -782,8 +782,8 @@ def write(
                 rows=chunk,
             )
         counts["nodes"] += len(rows)
-    for (a, kind, b), rows in batch.rels.items():
-        for chunk in _chunks(list(rows.values())):
+    for (a, kind, b), rels in batch.rels.items():
+        for chunk in _chunks(list(rels.values())):
             run_query(
                 db,
                 f"""UNWIND $rows AS row
@@ -791,7 +791,7 @@ def write(
                 MERGE (a)-[e:{kind}]->(b) SET e += row.props""",
                 rows=chunk,
             )
-        counts["relationships"] += len(rows)
+        counts["relationships"] += len(rels)
     if repository and scan_at:
         uid = f"{batch.ws}|Repository|{repository.lower()}"
         # Uses, dependencies, locks and pins of this branch that the scan no longer saw.

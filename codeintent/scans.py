@@ -233,7 +233,7 @@ def _scan(installation_id: int, repository: str, client, pypi, previous, run) ->
                 compared = [i for i in found_items if i.verdict]
                 note["detail"] = (
                     f"{len(found_items)} dependencies, {len(compared)} with a newer release, "
-                    f"{sum(1 for i in compared if i.verdict.verdict == 'breaks')} breaking"
+                    f"{sum(1 for i in compared if i.verdict and i.verdict.verdict == 'breaks')} breaking"
                 )
             items += found_items
             locked += _locked(root if project == "." else root / project)
