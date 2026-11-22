@@ -122,11 +122,10 @@ export function newAuthorization(next: string) {
 }
 
 function equal(a: string, b: string) {
-  // Hash first so lengths always match; the comparison itself is constant-time.
-  return timingSafeEqual(
-    createHash("sha256").update(a).digest(),
-    createHash("sha256").update(b).digest(),
-  );
+  // Signatures have a fixed length, so comparing lengths first reveals nothing; the bytes are compared in constant time.
+  const left = Buffer.from(a);
+  const right = Buffer.from(b);
+  return left.length === right.length && timingSafeEqual(left, right);
 }
 
 /** The stored authorization if the cookie is authentic, unexpired and matches `state`. */

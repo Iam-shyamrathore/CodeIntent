@@ -24,6 +24,9 @@ Target: https://code-intent-tawny.vercel.app (web) and https://codeintent-api-de
 | 22 Nov | The Serper key and the Neo4j password were exposed in the setup conversation | High | Operator review | **Open: rotate both**, then update Heroku config | Pending |
 | 22 Nov | No automated dependency updates, Python dependency audit or static security analysis | Medium (supply chain) | Repository review | Dependabot (uv, npm, Actions; 7-day cooldown), `pip-audit` in CI, CodeQL `security-extended` workflow | `pip-audit`: no known vulnerabilities in 662 locked requirement lines |
 | 22 Nov | Dashboard lacked HSTS and Permissions-Policy headers | Low | Header review | Added both in `next.config.ts` | `curl -I` on a production build shows both headers |
+| 22 Nov | CodeQL `py/log-injection`: the `X-GitHub-Event` header was logged before the signature check, so line breaks could forge log lines | Medium | CodeQL | Strip CR/LF and cap the length before logging (`codeintent/api.py`) | CodeQL re-scan |
+| 22 Nov | CodeQL `js/insufficient-password-hash` on `lib/auth.ts`: false positive, SHA-256 was only used to equalise lengths before `timingSafeEqual` of two signatures | n/a | CodeQL | Rewritten as a length check plus `timingSafeEqual`, which reads more clearly | CodeQL re-scan |
+| 22 Nov | CodeQL `js/file-access-to-http` ×2 on `components/workbench.tsx`: false positive, the legacy investigation page sends saved public example data to its own API | n/a | CodeQL | No change; to be dismissed as a false positive | Reviewed |
 
 ## ArgosX baseline scan
 

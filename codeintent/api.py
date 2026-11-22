@@ -418,7 +418,9 @@ async def github_webhook(
         )
     except Exception as exc:
         # Do not log payload contents; GitHub redelivery will retry this delivery id.
-        logger.warning("Webhook %s failed (%s)", x_github_event, type(exc).__name__)
+        # The header is caller-controlled until the signature is checked: no line breaks in logs.
+        event = (x_github_event or "").replace("\r", "").replace("\n", "")[:64]
+        logger.warning("Webhook %s failed (%s)", event, type(exc).__name__)
         raise HTTPException(500, "Webhook could not be recorded") from None
     return JSONResponse(status_code=code, content=content)
 
