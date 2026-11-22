@@ -696,16 +696,26 @@ def ecosystem_sweep(timestamp: int):
 @app.periodic(cron="*/5 * * * *")
 @app.task(name="project_pending_runs", queue="maintenance")
 def project_pending_runs(timestamp: int):
-    """Catch up runs whose projection never happened (Neo4j unreachable, or queued before a restart)."""
-    from codeintent import runs
+    """Project runs whose projection never happened (Neo4j unreachable, or a job that was never queued).
 
+    Projects them here rather than queueing more jobs: a job that failed to queue once can fail again.
+    """
+    from codeintent import workspace_graph
+
+    if not workspace_graph.configured():
+        return
     with store.connection() as conn:
         pending = conn.execute(
             """SELECT id FROM ci_runs WHERE finished_at IS NOT NULL AND projected_at IS NULL
-              AND finished_at < now()-interval '2 minutes' ORDER BY finished_at LIMIT 50"""
+              AND finished_at < now()-interval '2 minutes' ORDER BY finished_at DESC LIMIT 20"""
         ).fetchall()
     for row in pending:
-        runs.queue_projection(str(row["id"]))
+        try:
+            workspace_graph.project(str(row["id"]))
+        except Exception as exc:
+            logger.warning(
+                "Catch-up projection of %s failed (%s)", row["id"], type(exc).__name__
+            )
 
 
 @app.periodic(cron="*/10 * * * *")
