@@ -22,6 +22,8 @@ Target: https://code-intent-tawny.vercel.app (web) and https://codeintent-api-de
 | 22 Nov | The page reader accepted any hostname, so a search result whose name resolves to a private or metadata address (169.254.169.254) could be fetched (SSRF) | Medium | Code review | Resolve the host and require every address to be public; redirects re-checked | `tests/test_agent.py::test_names_that_resolve_to_private_addresses_are_not_web_pages` |
 | 22 Nov | Finished PR checks were not always projected into Neo4j | Low (integrity) | Production data | Catch-up job projects stuck runs directly; projection runs as worker jobs finish (`475b79e`, `f62b0ab`) | PR #4 run reached Neo4j automatically |
 | 22 Nov | The Serper key and the Neo4j password were exposed in the setup conversation | High | Operator review | **Open: rotate both**, then update Heroku config | Pending |
+| 22 Nov | No automated dependency updates, Python dependency audit or static security analysis | Medium (supply chain) | Repository review | Dependabot (uv, npm, Actions; 7-day cooldown), `pip-audit` in CI, CodeQL `security-extended` workflow | `pip-audit`: no known vulnerabilities in 662 locked requirement lines |
+| 22 Nov | Dashboard lacked HSTS and Permissions-Policy headers | Low | Header review | Added both in `next.config.ts` | `curl -I` on a production build shows both headers |
 
 ## ArgosX baseline scan
 

@@ -151,7 +151,9 @@ vulnerability: [SECURITY.md](SECURITY.md).
 | Web sessions | GitHub OAuth with state and PKCE; signed HttpOnly SameSite cookies; same-origin check on every mutating route | `app/api/` |
 | Agent safety | Read-only tools, session-bound web fetches, private-address block, schema and evidence validation, sanitised output | `tests/test_agent.py` |
 | No secrets in logs | Failures store and log the exception class only; webhook payloads aren't logged | `tests/test_telegram.py` |
-| Supply chain | Exact pins and lock files (`uv.lock`, `package-lock.json`); CI Actions pinned by commit; read-only CI token; `npm audit` gates the build | `.github/workflows/ci.yml` |
+| Supply chain | Exact pins and lock files (`uv.lock`, `package-lock.json`); `pip-audit` and `npm audit` gate CI; Dependabot for pip, npm and Actions with a 7-day cooldown; CI Actions pinned by commit; read-only CI token | `.github/workflows/ci.yml`, `.github/dependabot.yml` |
+| Static security analysis | CodeQL `security-extended` on Python, TypeScript and the workflows, on every PR and weekly | `.github/workflows/codeql.yml` |
+| Browser hardening | HSTS, `X-Frame-Options: DENY`, `nosniff`, strict referrer and Permissions-Policy headers; no `X-Powered-By` | `next.config.ts` |
 
 ## Code quality
 
@@ -159,6 +161,8 @@ vulnerability: [SECURITY.md](SECURITY.md).
   - Python: `ruff check`, `ruff format --check` and the full `pytest` suite against real PostgreSQL 17
     and Neo4j 5.26 services, plus engine tests on real PyPI releases.
   - Web: Prettier, Next.js production build (which type-checks) and `npm audit --audit-level=high`.
+  - Supply chain: `pip-audit` over the locked Python dependencies; CodeQL security analysis
+    (`.github/workflows/codeql.yml`); Dependabot updates.
 - **218 test cases** (165 run anywhere; 53 need PostgreSQL, Neo4j or the network and run in CI). Graph traversal, tenant isolation, webhook signatures, the agent harness, the
   code map and the PR comment all run against real services rather than mocks where it matters.
 - **Typed boundaries:** Pydantic models for engine results, API responses, MCP output schemas and agent
