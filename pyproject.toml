@@ -6,7 +6,7 @@ requires-python = ">=3.12,<3.13"
 dependencies = [
   "fastapi==0.162.0",
   "uvicorn[standard]>=0.35,<1",
-  "google-genai==2.34.0",
+  "google-genai==3.3.0",
   "neo4j-graphrag==1.23.0",
   "pydriller==2.12",
   "httpx>=0.28,<1",
