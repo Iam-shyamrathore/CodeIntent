@@ -151,7 +151,7 @@ pyjwt==2.15.1
     #   mcp
 pyparsing==3.3.3
     # via pip-requirements-parser
-pypdf==6.21.4
+pypdf==7.1.0
     # via neo4j-graphrag
 python-dateutil==4.0.0
     # via
